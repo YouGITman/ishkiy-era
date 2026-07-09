@@ -1,0 +1,12 @@
+{
+  "name": "iSHKiY — Essence Recovery Assessment",
+  "short_name": "iSHKiY",
+  "description": "You weren't built for a box.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0F1E3D",
+  "theme_color": "#0F1E3D",
+  "icons": [
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}
