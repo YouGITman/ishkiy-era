@@ -121,8 +121,40 @@
     .report{padding:0; max-width:none}
     .rbody p{font-size:12.5pt}
     .rbody h2{page-break-after:avoid}
+    .rbody p.pull{font-size:17pt}
+    .tiles{grid-template-columns:1fr 1fr; page-break-inside:avoid}
   }
   @media (min-width:640px){ .display{font-size:40px} .question{font-size:27px} }
+
+  /* warm-up breathing dot */
+  .breath{width:120px; height:120px; display:flex; align-items:center; justify-content:center; margin-bottom:26px}
+  .breath span{width:26px; height:26px; border-radius:50%; background:var(--gold); animation:breathe 4.6s ease-in-out infinite}
+  @keyframes breathe{0%,100%{transform:scale(1); opacity:.85} 50%{transform:scale(2.6); opacity:1}}
+  @media (prefers-reduced-motion: reduce){ .breath span{animation:none; transform:scale(1.8)} }
+
+  /* pull headlines inside the report */
+  .rbody p.pull{font-family:Lora,serif; font-weight:600; font-style:italic; font-size:22px; line-height:1.35; color:var(--ink); margin:6px 0 16px}
+  .rbody h2 + p.pull{margin-top:2px}
+
+  /* results tiles */
+  .tiles{display:grid; grid-template-columns:1fr; gap:12px; margin:26px 0 34px}
+  @media (min-width:520px){ .tiles{grid-template-columns:1fr 1fr} }
+  .tile{border:1.5px solid var(--ink12); border-radius:16px; background:rgba(255,255,255,.55); overflow:hidden}
+  .tile.open{border-color:var(--gold)}
+  .tilehead{width:100%; display:flex; flex-direction:column; align-items:flex-start; gap:6px; padding:16px; text-align:left}
+  .mini{width:110px; height:auto; margin-bottom:4px}
+  .tlabel{font-size:12px; font-weight:600; letter-spacing:.1em; text-transform:uppercase; color:var(--ink60)}
+  .tstat{font-family:Lora,serif; font-weight:700; font-size:19px; color:var(--ink)}
+  .tbody{padding:2px 16px 16px; animation:rise .22s ease}
+  .trow{display:flex; justify-content:space-between; align-items:center; padding:7px 0; border-top:1px solid var(--ink06); font-size:15px}
+  .tnum{font-variant-numeric:tabular-nums; color:var(--ink60)}
+  .tnote{font-size:13.5px; color:var(--ink60); line-height:1.55; margin:12px 0 0}
+
+  /* retakes */
+  .retakes{margin:30px 0 10px}
+  .rtlist{margin-top:12px; border:1.5px solid var(--ink12); border-radius:14px; padding:14px 16px; background:rgba(255,255,255,.5)}
+  .rtbtn{color:var(--ink); font-weight:600; font-size:14px; border:1.5px solid var(--gold); border-radius:9px; padding:7px 14px; background:rgba(212,165,71,.12)}
+  .ractions .btn.gold{margin-top:0; padding:11px 18px; font-size:14px}
 </style>
 </head>
 <body>

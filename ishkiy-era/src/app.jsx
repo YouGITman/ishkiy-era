@@ -104,7 +104,21 @@ function fcPhrase(v, wins) {
 }
 
 /* ---------------- report generation ---------------- */
-const SYSTEM = `You are writing an Essence Recovery Assessment report for iSHKiY. Voice: compassionate provocateur, plain-spoken, UK English. Short sentences. Plain Anglo-Saxon words — never use: leverage, optimise, journey, deliver, transform, unlock, passionate, world-class, dynamic, synergy, ecosystem. Warm but honest; name hard things in eleven words, not a metaphor. Address the reader as "you". Use their own quoted words where provided. This is a structured self-discovery tool grounded in established frameworks (CHC, Goleman EI, RIASEC, Schwartz, Big Five) — it is NOT clinically validated, so never claim diagnosis, validation, or certainty; write "your answers suggest", "the pattern points to". Note: "Steadiness" is inverted Neuroticism — high Steadiness means emotionally stable; explain this plainly once if relevant. Output plain markdown with ## section headings only where instructed. No bullet lists — flowing short paragraphs.`;
+const SYSTEM = `You are writing an Essence Recovery Assessment report for iSHKiY. You write as a person: someone kind and unhurried who has spent twenty-five years watching what work does to people, and who tells the truth gently. Not a coach, not a consultant, not an assistant. A wise friend with a pen.
+
+Voice rules, non-negotiable:
+- UK English. Short sentences. Fragments allowed. Most sentences under fifteen words.
+- Vary rhythm like speech: a long sentence, then a short one. Sometimes three words.
+- Plain Anglo-Saxon words. BANNED: leverage, optimise, journey, deliver, transform, unlock, empower, navigate, landscape, tapestry, testament, delve, moreover, furthermore, additionally, ultimately, holistic, comprehensive, resonate, foster, harness, elevate, robust.
+- BANNED constructions: "It's worth noting", "It's important to", "not just X but Y", "isn't merely X — it's Y", "In conclusion", "What's striking is", rhetorical questions, starting two consecutive paragraphs with the same word.
+- At most one em-dash per section. No bullet lists, ever. No exclamation marks.
+- Use their name at most twice in the entire report. Address them as "you".
+- Be specific to THEIR numbers and THEIR words. If a line could sit in anyone's horoscope, cut it.
+- One dry understatement per section is allowed. Never ask for the laugh.
+- End each section on a feeling or a plain truth, never a summary or a recommendation to "consider".
+- This tool is grounded in established frameworks (CHC, Goleman EI, RIASEC, Schwartz, Big Five), not clinically validated: write "your answers suggest", "the pattern points to", never diagnose or claim certainty. "Steadiness" is inverted Neuroticism — if relevant, explain that plainly once.
+
+Format: begin every section with one headline line formatted exactly as "### " followed by six to ten words — the truth of the section said the way a friend would say it across a kitchen table, not a corporate title. Then flowing short paragraphs. Nothing else.`;
 
 function reportCalls(answers, scores) {
   const ctx = JSON.stringify({
@@ -113,11 +127,11 @@ function reportCalls(answers, scores) {
   });
   const name = (answers["AR-1"] || "").trim() || "friend";
   return [
-    { title: "Opening", prompt: `Data: ${ctx}\n\nWrite the OPENING MIRROR section (~250 words) for ${name}. Reflect their own words back — the hardest part, the good day, what brought them here — woven with one thing the data already confirms. No heading. End the section with one sentence that earns their trust for what follows.` },
-    { title: "How you think & how you feel", prompt: `Data: ${ctx}\n\nWrite two sections (~200 words each). "## How you think" — their thinking-style profile (numerical/spatial/verbal/logical accuracy and approach answers); describe HOW they move through problems, never an IQ framing. "## How you carry yourself" — the four EI domains and what the scenario choices reveal. One insight per section they could not get from a horoscope.` },
-    { title: "What pulls you & what you're for", prompt: `Data: ${ctx}\n\nWrite two sections (~200 words each). "## What pulls you" — top two RIASEC inclinations in plain words, and what the lowest one says. "## What you're for" — their ranked values and especially the forced-choice pattern; name the trade they keep making.` },
-    { title: "How you work & the tensions", prompt: `Data: ${ctx}\n\nWrite two sections. "## How you work" (~180 words) — the Big Five profile in plain language (remember Steadiness = inverted Neuroticism, explain plainly). "## The tensions" (~220 words) — find the two or three places their dimensions pull against each other (e.g. high Self-direction with high Security) and say what living inside each tension is probably like. Tensions are where the real story lives.` },
-    { title: "What this suggests", prompt: `Data: ${ctx}\n\nWrite the final section "## What this suggests" (~300 words). Read their current path honestly against the profile. Offer two or three directions worth exploring — not job titles pulled from air, but shapes of work that fit the pattern — each with one concrete first step they could take this month. Close the whole report with this exact line on its own: The box was never you.` },
+    { title: "Opening", prompt: `Data: ${ctx}\n\nWrite the OPENING section (~230 words) for ${name}. Start with the "### " headline line. Then reflect their own words back — the hardest part, the good day, what brought them here — woven with one thing the data already confirms. Quote their actual phrases in quotation marks where they're vivid. End on a sentence that earns trust for what follows.` },
+    { title: "How you think & how you feel", prompt: `Data: ${ctx}\n\nWrite two sections (~190 words each). "## How you think" — their thinking-style profile (numerical/spatial/verbal/logical accuracy and the two approach answers); describe HOW they move through problems, never an IQ framing. "## How you carry yourself" — the four EI domains and what the scenario choices reveal about them under heat. Each section starts with its "### " headline after the ## title. One insight per section they could not get from a horoscope.` },
+    { title: "What pulls you & what you're for", prompt: `Data: ${ctx}\n\nWrite two sections (~190 words each). "## What pulls you" — top two RIASEC inclinations in plain words, and what the lowest one quietly says. "## What you're for" — their ranked values and especially the forced-choice pattern; name the trade they keep making, and what it costs. Each section starts with its "### " headline after the ## title.` },
+    { title: "How you work & the tensions", prompt: `Data: ${ctx}\n\nWrite two sections. "## How you work" (~170 words) — the Big Five profile in plain language (Steadiness = inverted Neuroticism, explain plainly if their score makes it relevant). "## The tensions" (~220 words) — the two or three places their dimensions pull against each other, and what living inside each tension probably feels like on a Tuesday. Each section starts with its "### " headline after the ## title. Tensions are where the real story lives — be brave here.` },
+    { title: "What this suggests", prompt: `Data: ${ctx}\n\nWrite the final section "## What this suggests" (~290 words), starting with its "### " headline after the ## title. Read their current path honestly against the profile. Offer two or three shapes of work that fit the pattern — not job titles pulled from air — each with one concrete first step they could take this month. Close the whole report with this exact line on its own: The box was never you.` },
   ];
 }
 
@@ -138,6 +152,7 @@ function md(text) {
   const esc = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   return esc(text).split(/\n{2,}/).map((block) => {
     const b = block.trim(); if (!b) return "";
+    if (b.startsWith("### ")) return `<p class="pull">${inline(b.slice(4))}</p>`;
     if (b.startsWith("## ")) return `<h2>${inline(b.slice(3))}</h2>`;
     return `<p>${inline(b).replace(/\n/g, "<br/>")}</p>`;
   }).join("");
@@ -177,13 +192,19 @@ function App() {
 
   useEffect(() => { window.scrollTo(0, 0); }, [state.phase, state.part, state.item]);
 
-  if (state.phase === "welcome") return <Welcome onStart={() => update({ phase: state.unlocked ? "intro" : "unlock" })} resumable={state.part > 0 || state.item > 0} />;
-  if (state.phase === "unlock") return <Unlock onUnlock={() => update({ unlocked: true, phase: "intro" })} />;
+  if (state.phase === "welcome") return <Welcome onStart={() => update({ phase: state.unlocked ? (Object.keys(answers).length ? "intro" : "warmup") : "unlock" })} resumable={state.part > 0 || state.item > 0} />;
+  if (state.phase === "unlock") return <Unlock onUnlock={() => update({ unlocked: true, phase: "warmup" })} />;
+  if (state.phase === "warmup") return <Warmup onDone={() => update({ phase: "intro" })} />;
   if (state.phase === "intro") return <PartIntro part={PARTS[state.part]} n={state.part} onGo={() => update({ phase: "run" })} />;
   if (state.phase === "run") return <Runner state={state} update={update} />;
-  if (state.phase === "glimmer") return <Glimmer part={PARTS[state.part]} answers={answers} scores={scores} onNext={() => { const next = state.part + 1; update(next >= PARTS.length ? { phase: "generating" } : { part: next, item: 0, phase: "intro" }); }} />;
+  if (state.phase === "glimmer") return <Glimmer part={PARTS[state.part]} answers={answers} scores={scores} onNext={() => {
+    const completedAt = { ...(state.completedAt || {}), [PARTS[state.part].id]: Date.now() };
+    if (state.retaking) return update({ completedAt, retaking: false, phase: "generating", report: null });
+    const next = state.part + 1;
+    update(next >= PARTS.length ? { completedAt, phase: "generating" } : { completedAt, part: next, item: 0, phase: "intro" });
+  }} />;
   if (state.phase === "generating") return <Generating answers={answers} scores={scores} onDone={(report) => update({ report, phase: "report" })} />;
-  if (state.phase === "report") return <Report report={state.report} name={answers["AR-1"]} onRestart={() => { localStorage.removeItem(KEY); location.reload(); }} />;
+  if (state.phase === "report") return <Report report={state.report} name={answers["AR-1"]} scores={scores} completedAt={state.completedAt || {}} onRetake={(idx) => update({ part: idx, item: 0, retaking: true, phase: "intro" })} onRestart={() => { localStorage.removeItem(KEY); location.reload(); }} />;
   return null;
 }
 
@@ -191,9 +212,30 @@ function Shell({ dark, children, footer }) {
   return (<div className={"shell" + (dark ? " dark" : "")}><div className="col">{children}</div>{footer}</div>);
 }
 
+const WARMUP = [
+  { line: "Take a breath. This isn't a test you can fail.", sub: "There are no wrong answers here. Only true ones and polite ones." },
+  { line: "Answer as you are, not as the job advert wants you to be.", sub: "No one is scoring you against anyone. The only person who loses from a polished answer is you." },
+  { line: "Fifty minutes, at your own pace. Slow is fine.", sub: "Your answers stay on this device. Honest is everything." },
+];
+
+function Warmup({ onDone }) {
+  const [i, setI] = useState(0);
+  const last = i === WARMUP.length - 1;
+  return (
+    <Shell dark>
+      <div className="glimmer">
+        <div className="breath" aria-hidden="true"><span /></div>
+        <p className="gline" key={i}>{WARMUP[i].line}</p>
+        <p className="gsub">{WARMUP[i].sub}</p>
+        <button className="btn gold" onClick={() => (last ? onDone() : setI(i + 1))}>{last ? "I'm ready" : "Go on"}</button>
+      </div>
+    </Shell>
+  );
+}
+
 function Wordmark({ light }) {
   return (<div className={"wordmark" + (light ? " light" : "")} aria-label="iSHKiY">
-    <span className="wm-i">\u0131<span className="tittle" /></span>SHK<span className="wm-i">\u0131<span className="tittle" /></span>Y
+    <span className="wm-i">{"\u0131"}<span className="tittle" /></span>SHK<span className="wm-i">{"\u0131"}<span className="tittle" /></span>Y
   </div>);
 }
 
@@ -280,7 +322,11 @@ function Runner({ state, update }) {
   };
   const advance = (answers) => {
     const next = state.item + 1;
-    if (next >= total) update({ answers, item: 0, phase: part.glimmer ? "glimmer" : "generating" });
+    if (next >= total) {
+      const completedAt = { ...(state.completedAt || {}), [part.id]: Date.now() };
+      if (part.glimmer) update({ answers, completedAt, item: 0, phase: "glimmer" });
+      else update({ answers, completedAt, item: 0, retaking: false, phase: "generating", report: null });
+    }
     else update({ answers, item: next });
   };
   const back = () => {
@@ -393,7 +439,140 @@ function Generating({ answers, scores, onDone }) {
   );
 }
 
-function Report({ report, name, onRestart }) {
+/* ---------------- results tiles ---------------- */
+const GOLD = "#D4A547", INK = "#0F1E3D", INK18 = "rgba(15,30,61,0.18)";
+
+function MiniBars({ pairs, max = 100 }) {
+  return (<svg viewBox={`0 0 120 ${pairs.length * 16}`} className="mini">{pairs.map(([label, v], i) => (
+    <g key={label} transform={`translate(0 ${i * 16})`}>
+      <rect x="0" y="4" width="120" height="6" rx="3" fill={INK18} />
+      <rect x="0" y="4" width={Math.max(6, (v / max) * 120)} height="6" rx="3" fill={i === 0 ? GOLD : INK} opacity={i === 0 ? 1 : 0.55} />
+    </g>))}</svg>);
+}
+function MiniPetals({ riasec }) {
+  const codes = ["R", "I", "A", "S", "E", "C"];
+  return (<svg viewBox="0 0 120 100" className="mini">{codes.map((c, i) => {
+    const ang = (i * 60 - 90) * Math.PI / 180; const x = 60 + 30 * Math.cos(ang), y = 50 + 30 * Math.sin(ang);
+    const on = c === riasec.top, second = c === riasec.second;
+    return <ellipse key={c} cx={x} cy={y} rx="11" ry="17" fill={on ? GOLD : second ? "rgba(212,165,71,0.35)" : "transparent"} stroke={on || second ? GOLD : INK18} strokeWidth="1.4" transform={`rotate(${i * 60} ${x} ${y})`} />;
+  })}<circle cx="60" cy="50" r="4" fill={INK} /></svg>);
+}
+function MiniCompass({ ei }) {
+  const vals = [ei.selfAwareness, ei.socialAwareness, ei.selfManagement, ei.relationshipManagement];
+  const best = Math.max(...vals); const angle = vals.indexOf(best) * 90 + 45;
+  return (<svg viewBox="0 0 120 100" className="mini"><circle cx="60" cy="50" r="34" fill="none" stroke={INK18} strokeWidth="1.5" />
+    <path d="M60 22 L66 50 L60 78 L54 50 Z" fill={GOLD} transform={`rotate(${angle} 60 50)`} /><circle cx="60" cy="50" r="3.5" fill={INK} /></svg>);
+}
+function MiniBeam({ values }) {
+  return (<svg viewBox="0 0 120 100" className="mini"><line x1="20" y1="42" x2="100" y2="58" stroke={INK} strokeWidth="2.5" strokeLinecap="round" />
+    <line x1="60" y1="50" x2="60" y2="78" stroke={INK18} strokeWidth="2" /><circle cx="28" cy="43" r="7" fill={GOLD} /><circle cx="93" cy="57" r="5" fill="none" stroke={INK18} strokeWidth="1.5" /></svg>);
+}
+
+function Tiles({ scores }) {
+  const [open, setOpen] = useState(null);
+  const t = scores.thinking, ei = scores.ei, b5 = scores.big5;
+  const tiles = [
+    { id: "think", label: "How you think", stat: t.lean, art: <MiniBars pairs={[[t.lean, 100], ["", 55]].slice(0, 1).concat([["numerical", t.numerical], ["spatial", t.spatial], ["verbal", t.verbal], ["logical", t.logical]].sort((a, b) => b[1] - a[1]).slice(0, 3))} />, detail: [["Numerical", t.numerical + "%"], ["Spatial", t.spatial + "%"], ["Verbal", t.verbal + "%"], ["Logical", t.logical + "%"]], note: "Accuracy by problem type. The lean is your first language for a hard problem — not a ceiling on the others." },
+    { id: "heart", label: "How you carry yourself", stat: "the compass", art: <MiniCompass ei={ei} />, detail: [["Self-awareness", ei.selfAwareness], ["Social awareness", ei.socialAwareness], ["Self-management", ei.selfManagement], ["With others", ei.relationshipManagement]], note: "Goleman's four domains, 0–100 from your answers. The needle points where you're strongest." },
+    { id: "pull", label: "What pulls you", stat: scores.riasec.top + " · " + scores.riasec.second, art: <MiniPetals riasec={scores.riasec} />, detail: ["R", "I", "A", "S", "E", "C"].map((c) => [{ R: "Making (R)", I: "Understanding (I)", A: "Creating (A)", S: "People (S)", E: "Starting (E)", C: "Ordering (C)" }[c], scores.riasec.scores[c]]), note: "The gold petal is the strongest pull. The faint one is second. Low petals matter too — they're honest about what drains you." },
+    { id: "values", label: "What you're for", stat: scores.values.ranked[0], art: <MiniBeam values={scores.values} />, detail: scores.values.ranked.map((v) => [v, scores.values.scores[v] + (scores.values.fcWins[v] ? ` · chose it ${scores.values.fcWins[v]}\u00D7` : "")]), note: "Ranked by importance, weighted by what you chose when forced to pick. Forced choices tell the truth." },
+    { id: "work", label: "How you work", stat: Object.entries(b5).sort((a, b) => b[1] - a[1])[0][0].toLowerCase(), art: <MiniBars pairs={Object.entries(b5).sort((a, b) => b[1] - a[1])} />, detail: Object.entries(b5).map(([k, v]) => [k, v]), note: "The Big Five, 0–100. Steadiness is Neuroticism turned right-side up: high means the weather passes through you quickly." },
+  ];
+  return (
+    <div className="tiles">
+      {tiles.map((tile) => (
+        <div key={tile.id} className={"tile" + (open === tile.id ? " open" : "")}>
+          <button className="tilehead" onClick={() => setOpen(open === tile.id ? null : tile.id)} aria-expanded={open === tile.id}>
+            {tile.art}
+            <span className="tlabel">{tile.label}</span>
+            <span className="tstat">{tile.stat}</span>
+          </button>
+          {open === tile.id && (
+            <div className="tbody">
+              {tile.detail.map(([k, v]) => (<div key={k} className="trow"><span>{k}</span><span className="tnum">{v}</span></div>))}
+              <p className="tnote">{tile.note}</p>
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/* ---------------- share card ---------------- */
+function shareCardSvg(scores, name) {
+  const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;");
+  const wrap = (text, width) => { // naive word wrap
+    const words = text.split(" "); const lines = []; let cur = "";
+    words.forEach((w) => { if ((cur + " " + w).trim().length > width) { lines.push(cur.trim()); cur = w; } else cur += " " + w; });
+    if (cur.trim()) lines.push(cur.trim()); return lines;
+  };
+  const pull = wrap(`Something keeps pulling me toward ${scores.riasec.topPhrase}.`, 26);
+  const choose = wrap(`When it comes to it, I choose ${scores.values.fcPhrase}.`, 30);
+  let y = 400;
+  const pullT = pull.map((l) => `<text x="90" y="${y += 86}" font-family="Georgia,serif" font-weight="700" font-size="64" fill="#F5F1E8">${esc(l)}</text>`).join("");
+  y += 70;
+  const chooseT = choose.map((l) => `<text x="90" y="${y += 52}" font-family="Georgia,serif" font-size="38" fill="rgba(245,241,232,0.75)">${esc(l)}</text>`).join("");
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1350" viewBox="0 0 1080 1350">
+  <rect width="1080" height="1350" fill="#0F1E3D"/>
+  <circle cx="152" cy="180" r="26" fill="#D4A547"/>
+  <line x1="60" y1="180" x2="1020" y2="180" stroke="rgba(245,241,232,0.14)" stroke-width="2"/>
+  <text x="90" y="300" font-family="Inter,Arial,sans-serif" font-size="26" letter-spacing="6" fill="#D4A547">ESSENCE RECOVERY ASSESSMENT</text>
+  ${pullT}${chooseT}
+  <text x="90" y="1130" font-family="Georgia,serif" font-style="italic" font-size="46" fill="#D4A547">The box was never you.</text>
+  <text x="90" y="1250" font-family="Georgia,serif" font-weight="700" font-size="40" fill="#F5F1E8">${"\u0131"}SHK${"\u0131"}Y</text>
+  <circle cx="99" cy="1216" r="7" fill="#D4A547"/><circle cx="216" cy="1216" r="7" fill="#D4A547"/>
+  <text x="990" y="1250" text-anchor="end" font-family="Inter,Arial,sans-serif" font-size="28" fill="rgba(245,241,232,0.6)">#NotBuiltForABox</text>
+</svg>`;
+}
+function downloadShareCard(scores, name) {
+  const svg = shareCardSvg(scores, name);
+  const blob = new Blob([svg], { type: "image/svg+xml;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const img = new Image();
+  img.onload = () => {
+    const c = document.createElement("canvas"); c.width = 1080; c.height = 1350;
+    c.getContext("2d").drawImage(img, 0, 0);
+    c.toBlob((png) => {
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(png); a.download = "ishkiy-glimpse.png"; a.click();
+      URL.revokeObjectURL(url);
+    }, "image/png");
+  };
+  img.src = url;
+}
+
+/* ---------------- retakes ---------------- */
+const DAY = 24 * 60 * 60 * 1000;
+function Retakes({ completedAt, onRetake }) {
+  const [openList, setOpenList] = useState(false);
+  const now = Date.now();
+  return (
+    <div className="retakes noprint">
+      <button className="ghost inkghost" onClick={() => setOpenList(!openList)}>{openList ? "Hide retakes" : "Retake a part"}</button>
+      {openList && (
+        <div className="rtlist">
+          <p className="tnote">A part can be retaken 24 hours after you last completed it — a night's sleep between attempts keeps the answers honest. Retaking rewrites your report.</p>
+          {PARTS.map((p, idx) => {
+            const done = completedAt[p.id]; if (!done) return null;
+            const ready = now - done > DAY;
+            const hrs = Math.ceil((DAY - (now - done)) / 3600000);
+            return (
+              <div key={p.id} className="trow">
+                <span>{p.title}</span>
+                {ready
+                  ? <button className="rtbtn" onClick={() => { if (confirm(`Retake \u201C${p.title}\u201D? Your previous answers for this part are replaced, and your report is rewritten.`)) onRetake(idx); }}>Retake</button>
+                  : <span className="tnum">in {hrs}h</span>}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Report({ report, name, scores, completedAt, onRetake, onRestart }) {
   if (!report) return null;
   return (
     <div className="reportpage">
@@ -401,15 +580,18 @@ function Report({ report, name, onRestart }) {
         <Wordmark />
         <div className="ractions">
           <button className="btn ink" onClick={() => window.print()}>Save as PDF</button>
-          <button className="ghost inkghost" onClick={() => { if (confirm("Start over? This clears your answers and report from this device.")) onRestart(); }}>Start over</button>
+          <button className="btn gold" onClick={() => downloadShareCard(scores, name)}>Share card</button>
         </div>
       </div>
       <article className="report">
         <p className="kicker gold">Essence Recovery Assessment</p>
         <h1 className="display ink">{name ? `${name}, this is you.` : "This is you."}</h1>
         {report.preview && <p className="previewnote">Preview report — deploy with the API key to generate the real one.</p>}
+        {scores && <Tiles scores={scores} />}
         <div className="rbody" dangerouslySetInnerHTML={{ __html: md(report.text) }} />
         <p className="integrity">Grounded in established psychological frameworks — CHC, Big Five, Goleman EI, RIASEC and Schwartz Values. A structured self-discovery tool, not a clinical or validated psychometric instrument. Your answers never left your device; this report was written for you alone.</p>
+        <Retakes completedAt={completedAt} onRetake={onRetake} />
+        <button className="ghost inkghost noprint" onClick={() => { if (confirm("Start over? This clears your answers and report from this device.")) onRestart(); }}>Start over</button>
       </article>
     </div>
   );
