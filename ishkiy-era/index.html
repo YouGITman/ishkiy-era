@@ -153,8 +153,54 @@
   /* retakes */
   .retakes{margin:30px 0 10px}
   .rtlist{margin-top:12px; border:1.5px solid var(--ink12); border-radius:14px; padding:14px 16px; background:rgba(255,255,255,.5)}
-  .rtbtn{color:var(--ink); font-weight:600; font-size:14px; border:1.5px solid var(--gold); border-radius:9px; padding:7px 14px; background:rgba(212,165,71,.12)}
+  .rtbtn{color:var(--ink); font-weight:600; font-size:14px; border:1.5px solid var(--gold); border-radius:9px; padding:7px 14px; background:rgba(212,165,71,.12); text-decoration:none; display:inline-block}
   .ractions .btn.gold{margin-top:0; padding:11px 18px; font-size:14px}
+
+  /* section accents */
+  :root{ --c-think:#5C7CA3; --c-heart:#C06B5C; --c-pull:#D4A547; --c-values:#6F8F5E; --c-work:#8A6FA0; --c-tension:#0F1E3D; }
+  .rbody h2.acc-think::before{background:var(--c-think)} .rbody p.pull.acc-think{color:var(--c-think)}
+  .rbody h2.acc-heart::before{background:var(--c-heart)} .rbody p.pull.acc-heart{color:var(--c-heart)}
+  .rbody h2.acc-pull::before{background:var(--c-pull)} .rbody p.pull.acc-pull{color:#B08630}
+  .rbody h2.acc-values::before{background:var(--c-values)} .rbody p.pull.acc-values{color:var(--c-values)}
+  .rbody h2.acc-work::before{background:var(--c-work)} .rbody p.pull.acc-work{color:var(--c-work)}
+  .rbody h2.acc-tension::before{background:linear-gradient(90deg,var(--ink),var(--gold))}
+  .rbody h2.acc-gold::before{background:var(--gold)} .rbody p.pull.acc-gold{color:#B08630}
+  .tabout{font-size:13.5px; color:var(--ink60); line-height:1.6; margin:12px 0 0; padding-top:10px; border-top:1px solid var(--ink06)}
+
+  /* companion */
+  .companion,.pracs{margin:44px 0 8px; padding:22px 18px; border:1.5px solid var(--ink12); border-radius:18px; background:rgba(255,255,255,.5)}
+  .ctitle{font-family:Lora,serif; font-weight:700; font-size:23px; line-height:1.25; margin:4px 0 10px; color:var(--ink)}
+  .cexplain{font-size:15px; line-height:1.6; color:var(--ink60); margin:0 0 16px}
+  .chat{display:flex; flex-direction:column; gap:10px; margin-bottom:14px}
+  .msg{display:flex} .msg.user{justify-content:flex-end}
+  .bubble{max-width:85%; padding:11px 14px; border-radius:14px; font-size:15px; line-height:1.55}
+  .msg.user .bubble{background:var(--ink); color:var(--bone); border-bottom-right-radius:4px}
+  .msg.assistant .bubble{background:rgba(212,165,71,.13); border:1px solid rgba(212,165,71,.35); border-bottom-left-radius:4px}
+  .bubble p{margin:0 0 8px} .bubble p:last-child{margin:0}
+  .bubble.thinking{color:var(--ink60); font-style:italic}
+  .askrow{display:flex; gap:8px} .askrow .tin{flex:1} .askrow .btn{margin-top:0}
+
+
+  /* companion modes */
+  .moderow{display:flex; gap:8px; flex-wrap:wrap; margin-bottom:6px}
+  .modebtn{padding:8px 16px; border-radius:999px; border:1.5px solid var(--ink12); font-weight:600; font-size:13.5px; background:rgba(255,255,255,.5)}
+  .modebtn.sel{border-color:var(--gold); background:rgba(212,165,71,.15); color:var(--ink)}
+  .modedesc{font-size:13px; color:var(--ink60); margin:0 0 14px; font-style:italic}
+
+  /* practitioners */
+  .tierbox{border:1.5px solid var(--ink12); border-radius:14px; padding:14px 16px; margin-bottom:16px; background:rgba(255,255,255,.45)}
+  .tierrow{display:flex; gap:8px; margin:10px 0}
+  .tierbtn{padding:9px 18px; border-radius:10px; border:1.5px solid var(--ink12); font-weight:600; font-size:14px}
+  .tierbtn.sel{border-color:var(--gold); background:rgba(212,165,71,.14)}
+  .tierlist{margin:8px 0 10px; padding-left:20px; font-size:14.5px; line-height:1.7; color:var(--ink)}
+  .praclist{display:grid; grid-template-columns:1fr; gap:12px}
+  @media (min-width:560px){ .praclist{grid-template-columns:1fr 1fr} }
+  .prac{border:1.5px solid var(--ink12); border-radius:14px; padding:14px 16px; background:rgba(255,255,255,.5); display:flex; flex-direction:column; gap:6px; align-items:flex-start}
+  .demobadge{font-size:10.5px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; color:#8a6d1f; background:rgba(212,165,71,.16); border:1px solid rgba(212,165,71,.4); border-radius:6px; padding:3px 8px}
+  .pname{font-family:Lora,serif; font-weight:700; font-size:17px; margin:2px 0 0}
+  .prole{font-family:Inter,sans-serif; font-weight:500; font-size:13px; color:var(--ink60)}
+  .pline{font-size:14px; line-height:1.5; margin:0}
+  .pfit{font-size:13px; font-style:italic; color:var(--ink60); margin:0 0 4px}
 </style>
 </head>
 <body>

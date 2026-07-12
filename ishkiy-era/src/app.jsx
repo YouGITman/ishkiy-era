@@ -12,7 +12,17 @@ const save = (s) => { try { localStorage.setItem(KEY, JSON.stringify(s)); } catc
    Codes are checked as SHA-256 hashes so they aren't readable in source.
    Regenerate with gen-codes.mjs (see README). "PREVIEW" is the founder test code. */
 const CODE_HASHES = [
-  "59e1f415bf9d7761b450dcb4785daac53307323451bc453bfaa06a46d4649e2a", // PREVIEW (founder testing — remove before launch)
+  "d6afc90d0d2e75e35418f883fae0a10f7cdfe70f6dd9ec7fbcecceb31be3f28f", // COMP — founder giveaway
+  "dcf9f89d2a5da4ac2a42aea2e481c1f6f492b96c042f5aea4e422ed7631ec4e5",
+  "8ff233677117b0cda39c909858986a708f5cc41f5f04796a27fe5a77617a5aab",
+  "5da05478c51a48e5f9226a0b8ca04c8f8ff9c18ddbf9f2eddd5c3a6e520277dd",
+  "08fc79cae8a48b024a350c62aa07b1350c187ac566ab5afa4cad0e7fad3548dc",
+  "0ab4340288060090d776911e8ede1dcd0a088346a08b9cb107111ac23e7414b2",
+  "bca58786d0c58df6a4be12bedca8ed7d374a0562bccba6dcd96c599214398e59",
+  "00a9105f0f50a0690542a651f9210a57647fccfab6ae2478ab417c23d3fe9e7a",
+  "6f5c3af4a9b69fc9e4180bc2fc03940a8b14f181c1054ddc3728c3e19e9ea97c",
+  "ae8a69e183e8543e67b9380531f47448f52b981969e76d18176c41abb0c785b3",
+  "cb41298b76f3c97cd4258fd7912ad03b1cb4dba28176730bab242b98cb6c6e51",
 ];
 async function sha256(text) {
   const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text.trim().toUpperCase()));
@@ -150,10 +160,12 @@ const SAMPLE = `*(Preview mode — the live report is generated when the app is 
 /* ---------------- markdown-lite renderer ---------------- */
 function md(text) {
   const esc = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const ACCENTS = { "How you think": "acc-think", "How you carry yourself": "acc-heart", "What pulls you": "acc-pull", "What you're for": "acc-values", "How you work": "acc-work", "The tensions": "acc-tension", "What this suggests": "acc-gold" };
+  let cur = "";
   return esc(text).split(/\n{2,}/).map((block) => {
     const b = block.trim(); if (!b) return "";
-    if (b.startsWith("### ")) return `<p class="pull">${inline(b.slice(4))}</p>`;
-    if (b.startsWith("## ")) return `<h2>${inline(b.slice(3))}</h2>`;
+    if (b.startsWith("## ")) { const title = b.slice(3).trim(); cur = ACCENTS[title] || ""; return `<h2 class="${cur}">${inline(title)}</h2>`; }
+    if (b.startsWith("### ")) return `<p class="pull ${cur}">${inline(b.slice(4))}</p>`;
     return `<p>${inline(b).replace(/\n/g, "<br/>")}</p>`;
   }).join("");
   function inline(s) { return s.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>").replace(/\*(.+?)\*/g, "<em>$1</em>"); }
@@ -203,8 +215,8 @@ function App() {
     const next = state.part + 1;
     update(next >= PARTS.length ? { completedAt, phase: "generating" } : { completedAt, part: next, item: 0, phase: "intro" });
   }} />;
-  if (state.phase === "generating") return <Generating answers={answers} scores={scores} onDone={(report) => update({ report, phase: "report" })} />;
-  if (state.phase === "report") return <Report report={state.report} name={answers["AR-1"]} scores={scores} completedAt={state.completedAt || {}} onRetake={(idx) => update({ part: idx, item: 0, retaking: true, phase: "intro" })} onRestart={() => { localStorage.removeItem(KEY); location.reload(); }} />;
+  if (state.phase === "generating") return <Generating answers={answers} scores={scores} onDone={(report) => update({ report, phase: "report", companionStart: state.companionStart || Date.now() })} />;
+  if (state.phase === "report") return <Report report={state.report} name={answers["AR-1"]} answers={answers} scores={scores} companionStart={state.companionStart} completedAt={state.completedAt || {}} onRetake={(idx) => update({ part: idx, item: 0, retaking: true, phase: "intro" })} onRestart={() => { localStorage.removeItem(KEY); location.reload(); }} />;
   return null;
 }
 
@@ -265,7 +277,7 @@ function Unlock({ onUnlock }) {
       <div className="welcome">
         <p className="kicker">Founding access</p>
         <h1 className="display sm">Enter your access code</h1>
-        <p className="lede dim">Your code arrived with your payment confirmation. One code, one assessment, one report — yours to keep.</p>
+        <p className="lede dim">Your code arrived with your payment confirmation. £29 founding access: the full assessment, your written report — yours to keep — the share card, and seven days with your Report Companion, an AI coach, mentor and sounding board that has actually read you.</p>
         <input className="code" value={code} onChange={(e) => { setCode(e.target.value); setErr(false); }} onKeyDown={(e) => e.key === "Enter" && code && check()} placeholder="e.g. ERA-XXXX-XXXX" autoFocus spellCheck="false" />
         {err && <p className="err">That code isn't recognised. Check for typos — codes aren't case-sensitive.</p>}
         <button className="btn gold" disabled={!code || busy} onClick={check}>{busy ? "Checking\u2026" : "Continue"}</button>
@@ -472,25 +484,26 @@ function Tiles({ scores }) {
   const [open, setOpen] = useState(null);
   const t = scores.thinking, ei = scores.ei, b5 = scores.big5;
   const tiles = [
-    { id: "think", label: "How you think", stat: t.lean, art: <MiniBars pairs={[[t.lean, 100], ["", 55]].slice(0, 1).concat([["numerical", t.numerical], ["spatial", t.spatial], ["verbal", t.verbal], ["logical", t.logical]].sort((a, b) => b[1] - a[1]).slice(0, 3))} />, detail: [["Numerical", t.numerical + "%"], ["Spatial", t.spatial + "%"], ["Verbal", t.verbal + "%"], ["Logical", t.logical + "%"]], note: "Accuracy by problem type. The lean is your first language for a hard problem — not a ceiling on the others." },
-    { id: "heart", label: "How you carry yourself", stat: "the compass", art: <MiniCompass ei={ei} />, detail: [["Self-awareness", ei.selfAwareness], ["Social awareness", ei.socialAwareness], ["Self-management", ei.selfManagement], ["With others", ei.relationshipManagement]], note: "Goleman's four domains, 0–100 from your answers. The needle points where you're strongest." },
-    { id: "pull", label: "What pulls you", stat: scores.riasec.top + " · " + scores.riasec.second, art: <MiniPetals riasec={scores.riasec} />, detail: ["R", "I", "A", "S", "E", "C"].map((c) => [{ R: "Making (R)", I: "Understanding (I)", A: "Creating (A)", S: "People (S)", E: "Starting (E)", C: "Ordering (C)" }[c], scores.riasec.scores[c]]), note: "The gold petal is the strongest pull. The faint one is second. Low petals matter too — they're honest about what drains you." },
-    { id: "values", label: "What you're for", stat: scores.values.ranked[0], art: <MiniBeam values={scores.values} />, detail: scores.values.ranked.map((v) => [v, scores.values.scores[v] + (scores.values.fcWins[v] ? ` · chose it ${scores.values.fcWins[v]}\u00D7` : "")]), note: "Ranked by importance, weighted by what you chose when forced to pick. Forced choices tell the truth." },
-    { id: "work", label: "How you work", stat: Object.entries(b5).sort((a, b) => b[1] - a[1])[0][0].toLowerCase(), art: <MiniBars pairs={Object.entries(b5).sort((a, b) => b[1] - a[1])} />, detail: Object.entries(b5).map(([k, v]) => [k, v]), note: "The Big Five, 0–100. Steadiness is Neuroticism turned right-side up: high means the weather passes through you quickly." },
+    { id: "think", acc: "#5C7CA3", label: "How you think", stat: t.lean, art: <MiniBars pairs={[[t.lean, 100], ["", 55]].slice(0, 1).concat([["numerical", t.numerical], ["spatial", t.spatial], ["verbal", t.verbal], ["logical", t.logical]].sort((a, b) => b[1] - a[1]).slice(0, 3))} />, detail: [["Numerical", t.numerical + "%"], ["Spatial", t.spatial + "%"], ["Verbal", t.verbal + "%"], ["Logical", t.logical + "%"]], note: "Accuracy by problem type. The lean is your first language for a hard problem — not a ceiling on the others.", about: "Grounded in Cattell–Horn–Carroll (CHC) theory, the most widely used map of human cognitive abilities. Our short, untimed puzzles sample four problem types to read your thinking style. What it can't claim: this is a style indicator, not an IQ measure — a handful of puzzles can suggest how you approach problems, not the size of the engine." },
+    { id: "heart", acc: "#C06B5C", label: "How you carry yourself", stat: "the compass", art: <MiniCompass ei={ei} />, detail: [["Self-awareness", ei.selfAwareness], ["Social awareness", ei.socialAwareness], ["Self-management", ei.selfManagement], ["With others", ei.relationshipManagement]], note: "Goleman's four domains, 0–100 from your answers. The needle points where you're strongest.", about: "Based on Daniel Goleman's four-domain model of emotional intelligence: knowing yourself, steadying yourself, reading others, and working with others. What it can't claim: this is self-report — it measures how you see yourself, which is itself useful information, but a colleague might score you differently." },
+    { id: "pull", acc: "#D4A547", label: "What pulls you", stat: scores.riasec.top + " · " + scores.riasec.second, art: <MiniPetals riasec={scores.riasec} />, detail: ["R", "I", "A", "S", "E", "C"].map((c) => [{ R: "Making (R)", I: "Understanding (I)", A: "Creating (A)", S: "People (S)", E: "Starting (E)", C: "Ordering (C)" }[c], scores.riasec.scores[c]]), note: "The gold petal is the strongest pull. The faint one is second. Low petals matter too — they're honest about what drains you.", about: "John Holland's RIASEC model — six themes of vocational interest, used in career guidance for over sixty years. People tend to thrive where their environment matches their strongest themes. What it can't claim: interests aren't abilities. Loving a thing and being built for it usually travel together, but not always." },
+    { id: "values", acc: "#6F8F5E", label: "What you're for", stat: scores.values.ranked[0], art: <MiniBeam values={scores.values} />, detail: scores.values.ranked.map((v) => [v, scores.values.scores[v] + (scores.values.fcWins[v] ? ` · chose it ${scores.values.fcWins[v]}\u00D7` : "")]), note: "Ranked by importance, weighted by what you chose when forced to pick. Forced choices tell the truth.", about: "Drawn from Shalom Schwartz's theory of basic human values — a model validated across more than eighty countries. We sample six values most alive in working life, and weight the forced choices heavily because trade-offs reveal what ratings flatter. What it can't claim: values shift with seasons of life. This is your now, not your always." },
+    { id: "work", acc: "#8A6FA0", label: "How you work", stat: Object.entries(b5).sort((a, b) => b[1] - a[1])[0][0].toLowerCase(), art: <MiniBars pairs={Object.entries(b5).sort((a, b) => b[1] - a[1])} />, detail: Object.entries(b5).map(([k, v]) => [k, v]), note: "The Big Five, 0–100. Steadiness is Neuroticism turned right-side up: high means the weather passes through you quickly.", about: "The Big Five is the most replicated personality model in psychology — five broad traits that describe how people differ in daily working life. We present Neuroticism as Steadiness (same scale, inverted) because it reads truer that way. What it can't claim: five items per trait gives a sketch, not a portrait. The written report adds the shading." },
   ];
   return (
     <div className="tiles">
       {tiles.map((tile) => (
-        <div key={tile.id} className={"tile" + (open === tile.id ? " open" : "")}>
+        <div key={tile.id} className={"tile" + (open === tile.id ? " open" : "")} style={{ borderTopColor: tile.acc, borderTopWidth: "4px" }}>
           <button className="tilehead" onClick={() => setOpen(open === tile.id ? null : tile.id)} aria-expanded={open === tile.id}>
             {tile.art}
             <span className="tlabel">{tile.label}</span>
-            <span className="tstat">{tile.stat}</span>
+            <span className="tstat" style={{ color: tile.acc }}>{tile.stat}</span>
           </button>
           {open === tile.id && (
             <div className="tbody">
               {tile.detail.map(([k, v]) => (<div key={k} className="trow"><span>{k}</span><span className="tnum">{v}</span></div>))}
               <p className="tnote">{tile.note}</p>
+              <p className="tabout"><strong>About this framework.</strong> {tile.about}</p>
             </div>
           )}
         </div>
@@ -542,7 +555,144 @@ function downloadShareCard(scores, name) {
   img.src = url;
 }
 
-/* ---------------- retakes ---------------- */
+/* ---------------- report companion ---------------- */
+const Q_CAP = 10;
+const CKEY = "era-companion-v1";
+const today = () => new Date().toISOString().slice(0, 10);
+const loadC = () => { try { const c = JSON.parse(localStorage.getItem(CKEY)) || {}; return c.day === today() ? c : { day: today(), count: 0, msgs: c.msgs || [] }; } catch { return { day: today(), count: 0, msgs: [] }; } };
+const saveC = (c) => { try { localStorage.setItem(CKEY, JSON.stringify(c)); } catch {} };
+
+const COMPANION_SYSTEM = `You are the Report Companion inside iSHKiY's Essence Recovery Assessment. You have read this person's full profile and you speak as someone who knows them properly — plain, warm, honest. UK English. Short sentences. Under 170 words per reply. Same banned words and constructions as the report voice: no leverage/optimise/journey/unlock/delve/navigate, no "it's worth noting", no "not just X but Y", no bullet lists, no exclamation marks.
+
+Ground every answer in THEIR profile — quote their scores and their own words when relevant. If a question can't be answered from the profile plus ordinary life-and-work wisdom, say so plainly rather than inventing.
+
+Hard boundaries: you are not a clinician and the assessment is not clinically validated — never diagnose, never advise on medication or medical or legal matters; suggest a proper professional instead. If they express serious distress or thoughts of harming themselves, respond with warmth and care, don't lecture, and gently encourage them to talk to someone they trust or a professional soon. You may be honest that some questions deserve a human.
+
+You exist to help them think about decisions, work, and direction using what the assessment revealed. End answers plainly, not with offers of further help.`;
+
+const MODES = {
+  companion: { label: "Companion", desc: "Reads you back. Good for decisions and direction.", add: "" },
+  coach: { label: "Coach", desc: "Forward motion. Expects you to act.", add: "\n\nMODE — COACH: You are in coach mode. Focus on the next concrete step, not the whole staircase. Hold them to what their profile says they're capable of — kindly, but without letting them off. Each reply should surface one specific action they could take this week, drawn from their scores and words. Ask at most one sharp question per reply. Do not comfort when a nudge serves better." },
+  mentor: { label: "Mentor", desc: "The longer view. Been there, seen it.", add: "\n\nMODE — MENTOR: You are in mentor mode. Speak from experience and pattern: what tends to happen to people shaped like this, over years not weeks. Offer perspective before advice. Occasionally tell a short, plausible general truth about working life ('people with your pattern often\u2026'). Never invent personal anecdotes or claim a biography. The gift of this mode is patience and the long view." },
+  sounding: { label: "Sounding board", desc: "Untangling, out loud. Not counselling.", add: "\n\nMODE — SOUNDING BOARD: You are in sounding-board mode. Your job is to help them hear themselves: reflect back what they've said in cleaner words, name the feeling underneath if it's visible, ask gentle questions that untangle rather than steer. Give less advice than in any other mode. Be explicit when relevant that this is thinking-out-loud, not counselling or therapy — and if what they're carrying runs deeper than untangling, warmly suggest the kind of human support that fits, including the practitioner circle when it's live." },
+};
+
+const COMPANION_DAYS = 7;
+function Companion({ scores, answers, reportText, start }) {
+  const begun = start || Date.now();
+  const dayNum = Math.min(COMPANION_DAYS, Math.floor((Date.now() - begun) / DAY) + 1);
+  const ended = Date.now() - begun > COMPANION_DAYS * DAY;
+  if (ended) return (
+    <section className="companion noprint">
+      <p className="kicker gold">Your Report Companion</p>
+      <h2 className="ctitle">Your founding week has ended. Your report hasn't.</h2>
+      <p className="cexplain">The report on this page is yours for good. The Companion — the four voices that read you properly — returns with iSHKiY membership, which founding members will hear about first. If a week of it earned a place in your thinking, tell us and we'll keep your seat.</p>
+      <a className="rtbtn" href={"mailto:ops@ishkiy.com?subject=" + encodeURIComponent("Keep my Companion seat") + "&body=" + encodeURIComponent("My founding Companion week is over and I'd want it back when membership launches.")}>Keep my seat</a>
+    </section>
+  );
+  const [c, setC] = useState(loadC);
+  const [mode, setMode] = useState(() => c.mode || "companion");
+  const [input, setInput] = useState("");
+  const [busy, setBusy] = useState(false);
+  const endRef = useRef(null);
+  useEffect(() => { endRef.current?.scrollIntoView({ block: "nearest" }); }, [c.msgs.length, busy]);
+  const left = Math.max(0, Q_CAP - c.count);
+  const pick = (m) => { setMode(m); const next = { ...c, mode: m }; setC(next); saveC(next); };
+
+  const ask = async () => {
+    const q = input.trim(); if (!q || busy || left === 0) return;
+    const msgs = [...c.msgs, { role: "user", content: q }].slice(-24);
+    const next = { day: today(), count: c.count + 1, msgs, mode };
+    setC(next); saveC(next); setInput(""); setBusy(true);
+    try {
+      const ctx = `PROFILE: ${JSON.stringify({ scores, theirWords: { role: answers["AR-2"], hardestPart: answers["AR-3"], goodDay: answers["AR-4"], neverTold: answers["MI-1"], atMyBest: answers["MI-3"] } })}\n\nTHEIR REPORT (for reference): ${String(reportText || "").slice(0, 5000)}`;
+      const res = await fetch("/api/claude", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ system: COMPANION_SYSTEM + MODES[mode].add + "\n\n" + ctx, messages: msgs.slice(-8), max_tokens: 500 }),
+      });
+      const data = await res.json();
+      const text = (data.content || []).filter((x) => x.type === "text").map((x) => x.text).join("\n") || "Something went quiet on my end. Ask that again.";
+      const done = { ...next, msgs: [...msgs, { role: "assistant", content: text }].slice(-24) };
+      setC(done); saveC(done);
+    } catch {
+      const done = { ...next, msgs: [...msgs, { role: "assistant", content: "I couldn't reach the thinking end just now. Give it a moment and ask again." }].slice(-24) };
+      setC(done); saveC(done);
+    }
+    setBusy(false);
+  };
+
+  return (
+    <section className="companion noprint">
+      <p className="kicker gold">Your Report Companion</p>
+      <h2 className="ctitle">This report isn't the product. It's the beginning of one.</h2>
+      <p className="cexplain">Every assessment you take here sharpens a companion that knows how you think, what pulls you, and what you're for. It has read every answer you gave. Choose the voice you need today — all four share the same {Q_CAP} questions a day, and your conversation stays on this device. Your founding purchase includes seven days with it. This is day {dayNum}.</p>
+      <div className="moderow">
+        {Object.entries(MODES).map(([k, m]) => (
+          <button key={k} className={"modebtn" + (mode === k ? " sel" : "")} onClick={() => pick(k)} title={m.desc}>{m.label}</button>
+        ))}
+      </div>
+      <p className="modedesc">{MODES[mode].desc}</p>
+      <div className="chat">
+        {c.msgs.map((m, i) => (<div key={i} className={"msg " + m.role}><div className="bubble" dangerouslySetInnerHTML={{ __html: md(m.content) }} /></div>))}
+        {busy && <div className="msg assistant"><div className="bubble thinking">Reading you back\u2026</div></div>}
+        <div ref={endRef} />
+      </div>
+      {left > 0 ? (
+        <div className="askrow">
+          <input className="tin" value={input} placeholder="Ask about a decision, a doubt, a direction\u2026" onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => e.key === "Enter" && ask()} />
+          <button className="btn ink" disabled={busy || !input.trim()} onClick={ask}>Ask</button>
+        </div>
+      ) : (
+        <p className="tnote">That's your {Q_CAP} for today. A night's thinking between conversations does more than an eleventh question would. It resets tomorrow.</p>
+      )}
+      <p className="tnote">{left} of {Q_CAP} questions left today, shared across all four voices.</p>
+    </section>
+  );
+}
+
+/* ---------------- practitioner branch (honest demo) ---------------- */
+const TIERS = [
+  { id: "basic", name: "Basic", shares: ["Your strongest pull (one line)", "Your leading value (one line)", "Your thinking lean (one word)"] },
+  { id: "detailed", name: "Detailed", shares: ["Everything in Basic", "All dimension scores (the numbers)", "The Tensions section of your report"] },
+  { id: "full", name: "Full", shares: ["Everything in Detailed", "Your complete written report", "Your own written answers, word for word"] },
+];
+const PRACTITIONERS = [
+  { name: "Maya Okafor", role: "Career counsellor", line: "Twenty years helping people leave roles that fit their CV but not their character.", fit: "when the problem is the path itself" },
+  { name: "David Hartley", role: "Mentor", line: "Built and sold two firms. Now sits with founders and lifers who suspect there's more.", fit: "when you know the direction but not the next move" },
+  { name: "Priya Sharma", role: "Therapist, integrative", line: "Works where work and worth get tangled. Warm, unhurried, direct when it matters.", fit: "when the pattern is older than the job" },
+  { name: "James Whitcombe", role: "Executive coach", line: "Former CFO who coaches the humans inside senior roles, not the roles.", fit: "when the title is fine and the Tuesday isn't" },
+];
+
+function Practitioners({ scores }) {
+  const [tier, setTier] = useState("basic");
+  const chosen = TIERS.find((t) => t.id === tier);
+  const mailto = (p) => `mailto:ops@ishkiy.com?subject=${encodeURIComponent(`Practitioner interest \u2014 ${p.role}`)}&body=${encodeURIComponent(`I'd like to be matched with a ${p.role.toLowerCase()} when iSHKiY practitioners launch.\n\nSharing preference: ${chosen.name}\n\nNothing is shared yet \u2014 this registers interest only, and I'll confirm consent before anything moves.`)}`;
+  return (
+    <section className="pracs noprint">
+      <p className="kicker gold">When you're ready for a human</p>
+      <h2 className="ctitle">Some questions deserve a person across the table.</h2>
+      <p className="cexplain">We're building a vetted circle of counsellors, mentors, coaches and therapists who can read your profile — with your say-so, at the depth you choose — before you ever meet. The circle isn't live yet. The profiles below show how it will work, and registering interest shapes who we bring in first.</p>
+      <div className="tierbox">
+        <p className="tlabel">What would you be willing to share?</p>
+        <div className="tierrow">{TIERS.map((t) => (<button key={t.id} className={"tierbtn" + (tier === t.id ? " sel" : "")} onClick={() => setTier(t.id)}>{t.name}</button>))}</div>
+        <ul className="tierlist">{chosen.shares.map((s) => (<li key={s}>{s}</li>))}</ul>
+        <p className="tnote">Nothing leaves this device today. This sets your preference for when the circle is real — and you'd confirm again before anything is shared.</p>
+      </div>
+      <div className="praclist">
+        {PRACTITIONERS.map((p) => (
+          <div key={p.name} className="prac">
+            <span className="demobadge">Illustrative profile \u2014 not yet a real practitioner</span>
+            <p className="pname">{p.name} <span className="prole">\u00B7 {p.role}</span></p>
+            <p className="pline">{p.line}</p>
+            <p className="pfit">Works well {p.fit}.</p>
+            <a className="rtbtn" href={mailto(p)}>Register interest</a>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 const DAY = 24 * 60 * 60 * 1000;
 function Retakes({ completedAt, onRetake }) {
   const [openList, setOpenList] = useState(false);
@@ -572,7 +722,7 @@ function Retakes({ completedAt, onRetake }) {
   );
 }
 
-function Report({ report, name, scores, completedAt, onRetake, onRestart }) {
+function Report({ report, name, answers, scores, companionStart, completedAt, onRetake, onRestart }) {
   if (!report) return null;
   return (
     <div className="reportpage">
@@ -589,6 +739,8 @@ function Report({ report, name, scores, completedAt, onRetake, onRestart }) {
         {report.preview && <p className="previewnote">Preview report — deploy with the API key to generate the real one.</p>}
         {scores && <Tiles scores={scores} />}
         <div className="rbody" dangerouslySetInnerHTML={{ __html: md(report.text) }} />
+        {scores && !report.preview && <Companion scores={scores} answers={answers || {}} reportText={report.text} start={companionStart} />}
+        {scores && <Practitioners scores={scores} />}
         <p className="integrity">Grounded in established psychological frameworks — CHC, Big Five, Goleman EI, RIASEC and Schwartz Values. A structured self-discovery tool, not a clinical or validated psychometric instrument. Your answers never left your device; this report was written for you alone.</p>
         <Retakes completedAt={completedAt} onRetake={onRetake} />
         <button className="ghost inkghost noprint" onClick={() => { if (confirm("Start over? This clears your answers and report from this device.")) onRestart(); }}>Start over</button>
