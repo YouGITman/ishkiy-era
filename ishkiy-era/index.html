@@ -181,6 +181,41 @@
   .askrow{display:flex; gap:8px} .askrow .tin{flex:1} .askrow .btn{margin-top:0}
 
 
+
+  /* opening breath */
+  .breathscreen .bquote{font-size:26px; max-width:460px}
+  .bfoot{margin-top:44px; opacity:.65}
+
+  /* cockpit */
+  .home{flex:1; display:flex; flex-direction:column; justify-content:center; padding:36px 0}
+  .hgreet{margin-top:22px}
+  .hsub{margin-bottom:26px}
+  .hgrid{display:grid; grid-template-columns:1fr; gap:14px}
+  @media (min-width:560px){ .hgrid{grid-template-columns:1fr 1fr} }
+  .htile{display:flex; flex-direction:column; align-items:flex-start; gap:8px; text-align:left; padding:22px 20px; border-radius:18px; border:1.5px solid var(--ink06); background:rgba(255,255,255,.55); transition:border-color .15s}
+  .htile:not(.locked):hover{border-color:var(--gold)}
+  .htile.locked{opacity:.5; cursor:default}
+  .hart{width:56px; height:auto}
+  .httitle{font-family:Lora,serif; font-weight:700; font-size:20px; color:var(--ink)}
+  .htsub{font-size:14px; color:var(--ink60); line-height:1.5}
+  .hquote{margin-top:34px; text-align:center; font-family:Lora,serif; font-style:italic; font-size:15px; color:var(--ink60)}
+
+  /* helper avatars */
+  .avatar .halo{transform-origin:center; animation:halo 4.6s ease-in-out infinite}
+  @keyframes halo{0%,100%{transform:scale(.92); opacity:.7} 50%{transform:scale(1.06); opacity:1}}
+  @media (prefers-reduced-motion: reduce){ .avatar .halo{animation:none} }
+  .modebtn{display:inline-flex; align-items:center; gap:7px}
+  .teamrow{display:flex; gap:14px; justify-content:center; margin:6px 0 10px}
+  .teamrow .avatar{width:44px; height:44px}
+  .teamline{text-align:center; font-size:15px; color:var(--ink60); max-width:420px; margin:0 auto 22px; line-height:1.6}
+
+  /* calm pass — space over lines, softer edges */
+  .rbody h2{margin-top:46px}
+  .rbody p{margin-bottom:20px}
+  .tile,.companion,.pracs,.prac,.tierbox,.rtlist{border-color:var(--ink06)}
+  .report{padding-top:26px}
+  .opt{border-color:var(--ink06)}
+
   /* companion modes */
   .moderow{display:flex; gap:8px; flex-wrap:wrap; margin-bottom:6px}
   .modebtn{padding:8px 16px; border-radius:999px; border:1.5px solid var(--ink12); font-weight:600; font-size:13.5px; background:rgba(255,255,255,.5)}
