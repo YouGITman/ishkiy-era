@@ -116,6 +116,8 @@
   .integrity{margin-top:44px; padding-top:18px; border-top:1px solid var(--ink12); color:var(--ink60); font-size:13px; line-height:1.6}
 
   @media print{
+    body.dm{--bone:#fff; --ink:#0F1E3D; --ink60:rgba(15,30,61,.62); --ink12:rgba(15,30,61,.12); --ink06:rgba(15,30,61,.06)}
+    body.dm .reportpage{background:#fff}
     .noprint{display:none !important}
     body,.reportpage{background:#fff}
     .report{padding:0; max-width:none}
@@ -215,6 +217,32 @@
   .tile,.companion,.pracs,.prac,.tierbox,.rtlist{border-color:var(--ink06)}
   .report{padding-top:26px}
   .opt{border-color:var(--ink06)}
+
+
+  /* message labels */
+  .msg{display:flex; flex-direction:column; align-items:flex-start; gap:3px}
+  .msg.user{align-items:flex-end}
+  .mlabel{display:inline-flex; align-items:center; gap:5px; font-size:10.5px; font-weight:600; letter-spacing:.1em; text-transform:uppercase; color:var(--ink60)}
+  .mlabel.dimmed{opacity:.6}
+  .bubble.errb{background:transparent; border:1.5px dashed var(--ink12); color:var(--ink60); font-style:italic}
+
+  /* theme toggle */
+  .hrow{display:flex; justify-content:space-between; align-items:center}
+  .thememini{font-size:12.5px; font-weight:600; color:var(--ink60); border:1.5px solid var(--ink12); border-radius:999px; padding:7px 14px}
+
+  /* dark mode */
+  body.dm{--bone:#0B1830; --ink:#F5F1E8; --ink60:rgba(245,241,232,.65); --ink12:rgba(245,241,232,.18); --ink06:rgba(245,241,232,.10)}
+  body.dm .shell.dark{background:#07101F}
+  body.dm .opt, body.dm .fccard, body.dm .tile, body.dm .companion, body.dm .pracs, body.dm .prac, body.dm .tierbox, body.dm .rtlist, body.dm .htile{background:rgba(245,241,232,.05)}
+  body.dm .tin, body.dm .tarea{background:rgba(245,241,232,.06)}
+  body.dm .btn.ink{background:var(--gold); color:#0F1E3D}
+  body.dm .msg.user .bubble{background:rgba(245,241,232,.12); color:var(--ink)}
+  body.dm .foot{background:linear-gradient(transparent, #0B1830 35%)}
+  body.dm .reportpage{background:#0B1830}
+  body.dm .rbody p.pull.acc-think{color:#8FAECF} body.dm .rbody p.pull.acc-heart{color:#E09484}
+  body.dm .rbody p.pull.acc-values{color:#9CC08A} body.dm .rbody p.pull.acc-work{color:#B49BD1}
+  body.dm .rbody p.pull.acc-pull, body.dm .rbody p.pull.acc-gold{color:var(--gold)}
+  body.dm .demobadge{color:var(--gold)}
 
   /* companion modes */
   .moderow{display:flex; gap:8px; flex-wrap:wrap; margin-bottom:6px}

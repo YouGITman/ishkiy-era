@@ -203,9 +203,10 @@ function App() {
   const scores = useMemo(() => (["glimmer", "generating", "report", "companion", "humans"].includes(state.phase)) ? computeScores(answers) : null, [state.phase, answers]);
 
   useEffect(() => { window.scrollTo(0, 0); }, [state.phase, state.part, state.item]);
+  useEffect(() => { document.body.classList.toggle("dm", !!state.dark); }, [state.dark]);
 
   if (state.phase === "breath") return <Breath onEnter={() => update({ phase: "home" })} />;
-  if (state.phase === "home") return <Home state={state} go={(p) => update({ phase: p })} startAssessment={() => update({ phase: state.unlocked ? (Object.keys(answers).length ? "intro" : "warmup") : "unlock" })} />;
+  if (state.phase === "home") return <Home state={state} onTheme={() => update({ dark: !state.dark })} go={(p) => update({ phase: p })} startAssessment={() => update({ phase: state.unlocked ? (Object.keys(answers).length ? "intro" : "warmup") : "unlock" })} />;
   if (state.phase === "companion") return <CompanionScreen state={state} scores={scores} onBack={() => update({ phase: "home" })} />;
   if (state.phase === "humans") return <HumansScreen scores={scores} onBack={() => update({ phase: "home" })} />;
   if (state.phase === "welcome") return <Welcome onStart={() => update({ phase: state.unlocked ? (Object.keys(answers).length ? "intro" : "warmup") : "unlock" })} resumable={state.part > 0 || state.item > 0} />;
@@ -635,7 +636,7 @@ function HomeTile({ title, sub, locked, lockNote, onClick, art }) {
     </button>
   );
 }
-function Home({ state, go, startAssessment }) {
+function Home({ state, go, startAssessment, onTheme }) {
   const name = (state.answers["AR-1"] || "").trim();
   const hasReport = !!state.report;
   const midway = !hasReport && Object.keys(state.answers).length > 0;
@@ -643,7 +644,7 @@ function Home({ state, go, startAssessment }) {
   return (
     <Shell>
       <div className="home">
-        <Wordmark />
+        <div className="hrow"><Wordmark /><button className="thememini" onClick={onTheme}>{state.dark ? "Light mode" : "Dark mode"}</button></div>
         <h1 className="display ink hgreet">{name ? `Welcome back, ${name}.` : "Welcome."}</h1>
         <p className="lede inkdim hsub">{hasReport ? "Your profile is waiting. So is the team." : midway ? "You're partway through. Pick up where you left off — your answers kept your place." : "Everything here begins with one honest hour. Start when you're ready."}</p>
         <div className="hgrid">
@@ -739,20 +740,23 @@ function Companion({ scores, answers, reportText, start }) {
   const ask = async () => {
     const q = input.trim(); if (!q || busy || left === 0) return;
     const msgs = [...c.msgs, { role: "user", content: q }].slice(-24);
-    const next = { day: today(), count: c.count + 1, msgs, mode };
-    setC(next); saveC(next); setInput(""); setBusy(true);
+    setC({ ...c, msgs }); saveC({ ...c, msgs }); setInput(""); setBusy(true);
     try {
-      const ctx = `PROFILE: ${JSON.stringify({ scores, theirWords: { role: answers["AR-2"], hardestPart: answers["AR-3"], goodDay: answers["AR-4"], neverTold: answers["MI-1"], atMyBest: answers["MI-3"] } })}\n\nTHEIR REPORT (for reference): ${String(reportText || "").slice(0, 5000)}`;
+      const ctx = `PROFILE: ${JSON.stringify({ scores, theirWords: { role: answers["AR-2"], hardestPart: answers["AR-3"], goodDay: answers["AR-4"], neverTold: answers["MI-1"], atMyBest: answers["MI-3"] } })}
+
+THEIR REPORT (for reference): ${String(reportText || "").slice(0, 5000)}`;
       const res = await fetch("/api/claude", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ system: COMPANION_SYSTEM + MODES[mode].add + "\n\n" + ctx, messages: msgs.slice(-8), max_tokens: 500 }),
+        body: JSON.stringify({ system: COMPANION_SYSTEM + MODES[mode].add + "\n\n" + ctx, messages: msgs.slice(-8).map(({ role, content }) => ({ role, content })), max_tokens: 500 }),
       });
+      if (!res.ok) throw new Error("status " + res.status);
       const data = await res.json();
-      const text = (data.content || []).filter((x) => x.type === "text").map((x) => x.text).join("\n") || "Something went quiet on my end. Ask that again.";
-      const done = { ...next, msgs: [...msgs, { role: "assistant", content: text }].slice(-24) };
+      const text = (data.content || []).filter((x) => x.type === "text").map((x) => x.text).join("\n").trim();
+      if (!text) throw new Error("empty");
+      const done = { day: today(), count: c.count + 1, mode, msgs: [...msgs, { role: "assistant", m: mode, content: text }].slice(-24) };
       setC(done); saveC(done);
-    } catch {
-      const done = { ...next, msgs: [...msgs, { role: "assistant", content: "I couldn't reach the thinking end just now. Give it a moment and ask again." }].slice(-24) };
+    } catch (e) {
+      const done = { ...c, mode, msgs: [...msgs, { role: "assistant", m: mode, err: true, content: "The line dropped before that reached me — a connection hiccup, not you. That question didn't use one of your ten. Give it a moment and ask again." }].slice(-24) };
       setC(done); saveC(done);
     }
     setBusy(false);
@@ -770,7 +774,11 @@ function Companion({ scores, answers, reportText, start }) {
       </div>
       <p className="modedesc">{MODES[mode].desc}</p>
       <div className="chat">
-        {c.msgs.map((m, i) => (<div key={i} className={"msg " + m.role}><div className="bubble" dangerouslySetInnerHTML={{ __html: md(m.content) }} /></div>))}
+        {c.msgs.map((m, i) => (<div key={i} className={"msg " + m.role}>
+          {m.role === "assistant" && !m.err && <span className="mlabel"><Avatar kind={(m.m || "companion")} size={15} /> {MODES[m.m || "companion"].label}</span>}
+          {m.role === "assistant" && m.err && <span className="mlabel dimmed">connection</span>}
+          <div className={"bubble" + (m.err ? " errb" : "")} dangerouslySetInnerHTML={{ __html: md(m.content) }} />
+        </div>))}
         {busy && <div className="msg assistant"><div className="bubble thinking">Reading you back…</div></div>}
         <div ref={endRef} />
       </div>
