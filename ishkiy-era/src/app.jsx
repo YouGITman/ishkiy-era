@@ -49,7 +49,7 @@ export function computeScores(answers) {
   const thinking = {
     numerical: Math.round(pct(think.num) * 100), spatial: Math.round(pct(think.spa) * 100),
     verbal: Math.round(pct(think.verb) * 100), logical: Math.round(pct(think.log) * 100),
-    lean: leans[0][1] === 0 ? "no single way" : leans[0][0],
+    lean: (leans[0][1] === 0 || leans[0][1] - leans[1][1] < 0.15) ? "balanced" : leans[0][0],
     approach: { persistence: get("TH-15"), intuition: get("TH-16") },
   };
 
@@ -504,13 +504,11 @@ function Tiles({ scores }) {
             <span className="tlabel">{tile.label}</span>
             <span className="tstat" style={{ color: tile.acc }}>{tile.stat}</span>
           </button>
-          {open === tile.id && (
-            <div className="tbody">
+          <div className={"tbody" + (open === tile.id ? "" : " closed")}>
               {tile.detail.map(([k, v]) => (<div key={k} className="trow"><span>{k}</span><span className="tnum">{v}</span></div>))}
               <p className="tnote">{tile.note}</p>
               <p className="tabout"><strong>About this framework.</strong> {tile.about}</p>
-            </div>
-          )}
+          </div>
         </div>
       ))}
     </div>
@@ -535,9 +533,9 @@ function shareCardSvg(scores, name) {
   <rect width="1080" height="1350" fill="#0F1E3D"/>
   <circle cx="152" cy="180" r="26" fill="#D4A547"/>
   <line x1="60" y1="180" x2="1020" y2="180" stroke="rgba(245,241,232,0.14)" stroke-width="2"/>
-  <text x="90" y="300" font-family="Inter,Arial,sans-serif" font-size="26" letter-spacing="6" fill="#D4A547">ESSENCE RECOVERY ASSESSMENT</text>
+  <text x="90" y="300" font-family="Inter,Arial,sans-serif" font-size="25" letter-spacing="5" fill="#D4A547">ESSENCE RECOVERY ASSESSMENT &amp; COMPANION</text>
   ${pullT}${chooseT}
-  <text x="90" y="1130" font-family="Georgia,serif" font-style="italic" font-size="46" fill="#D4A547">The box was never you.</text>
+  <text x="90" y="1130" font-family="Georgia,serif" font-style="italic" font-size="46" fill="#D4A547">The box was never you.</text>\n  <text x="90" y="1178" font-family="Inter,Arial,sans-serif" font-size="27" fill="rgba(245,241,232,0.55)">What would it read in you? — ishkiy-era.netlify.app</text>
   <text x="90" y="1250" font-family="Georgia,serif" font-weight="700" font-size="40" fill="#F5F1E8">${"ı"}SHK${"ı"}Y</text>
   <circle cx="96" cy="1214" r="5.5" fill="#D4A547"/><circle cx="190" cy="1214" r="5.5" fill="#D4A547"/>
   <text x="990" y="1250" text-anchor="end" font-family="Inter,Arial,sans-serif" font-size="28" fill="rgba(245,241,232,0.6)">#NotBuiltForABox</text>
@@ -716,10 +714,45 @@ const MODES = {
 };
 
 const COMPANION_DAYS = 7;
+const migrate = (c) => {
+  if (c.streams) return c;
+  const streams = { companion: [], coach: [], mentor: [], sounding: [] };
+  const home = streams[c.mode] ? c.mode : "companion";
+  (c.msgs || []).forEach((m) => { const k = (m.m && streams[m.m]) ? m.m : home; streams[k].push(m); });
+  return { day: c.day, count: c.count || 0, mode: c.mode || "companion", streams, pulses: {} };
+};
+
+function Pulse({ mode, pulse, busy, onRefresh, canRefresh }) {
+  return (
+    <div className="pulse">
+      <div className="pulsehead">
+        <span className="mlabel"><Avatar kind={mode} size={15} /> Pulse — {MODES[mode].label}</span>
+        <button className="pulsebtn" disabled={busy || !canRefresh} onClick={onRefresh}>{busy ? "Listening…" : "Refresh"}</button>
+      </div>
+      {pulse
+        ? <div className="pulsebody" dangerouslySetInnerHTML={{ __html: md(pulse) }} />
+        : <p className="pulsebody dimtext">{canRefresh ? "A few exchanges in, the essence of this conversation gathers here — what you're circling, what you've decided, what's worth keeping." : "Start the conversation. The essence gathers here as you go."}</p>}
+    </div>
+  );
+}
+
 function Companion({ scores, answers, reportText, start }) {
   const begun = start || Date.now();
   const dayNum = Math.min(COMPANION_DAYS, Math.floor((Date.now() - begun) / DAY) + 1);
   const ended = Date.now() - begun > COMPANION_DAYS * DAY;
+  const [c, setC] = useState(() => migrate(loadC()));
+  const [mode, setMode] = useState(() => c.mode || "companion");
+  const [input, setInput] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [busyPulse, setBusyPulse] = useState(false);
+  const [showOld, setShowOld] = useState(false);
+  const endRef = useRef(null);
+  const stream = c.streams[mode] || [];
+  useEffect(() => { endRef.current?.scrollIntoView({ block: "nearest" }); }, [stream.length, busy]);
+  useEffect(() => { setShowOld(false); }, [mode]);
+  const left = Math.max(0, Q_CAP - c.count);
+  const pick = (m) => { setMode(m); const next = { ...c, mode: m }; setC(next); saveC(next); };
+
   if (ended) return (
     <section className="companion noprint">
       <p className="kicker gold">Your Report Companion</p>
@@ -728,54 +761,77 @@ function Companion({ scores, answers, reportText, start }) {
       <a className="rtbtn" href={"mailto:ops@ishkiy.com?subject=" + encodeURIComponent("Keep my Companion seat") + "&body=" + encodeURIComponent("My founding Companion week is over and I'd want it back when membership launches.")}>Keep my seat</a>
     </section>
   );
-  const [c, setC] = useState(loadC);
-  const [mode, setMode] = useState(() => c.mode || "companion");
-  const [input, setInput] = useState("");
-  const [busy, setBusy] = useState(false);
-  const endRef = useRef(null);
-  useEffect(() => { endRef.current?.scrollIntoView({ block: "nearest" }); }, [c.msgs.length, busy]);
-  const left = Math.max(0, Q_CAP - c.count);
-  const pick = (m) => { setMode(m); const next = { ...c, mode: m }; setC(next); saveC(next); };
+
+  const refreshPulse = async (streams) => {
+    const st = (streams || c.streams)[mode] || [];
+    if (st.length < 2 || busyPulse) return;
+    setBusyPulse(true);
+    try {
+      const transcript = st.slice(-12).map((m) => (m.role === "user" ? "Them: " : "Voice: ") + m.content).join("\n");
+      const res = await fetch("/api/claude", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          system: "You distil a conversation for iSHKiY. UK English, plain, warm, no corporate words, no bullets, no headings. Return at most three short lines, each on its own line: what they are circling; any goal or decision they have named; one line worth remembering. If a line has nothing real to hold, leave it out. Nothing else.",
+          messages: [{ role: "user", content: transcript }], max_tokens: 220,
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const text = (data.content || []).filter((x) => x.type === "text").map((x) => x.text).join(" ").trim();
+        if (text) { const next = { ...c, pulses: { ...(c.pulses || {}), [mode]: text } }; setC(next); saveC(next); }
+      }
+    } catch {}
+    setBusyPulse(false);
+  };
 
   const ask = async () => {
     const q = input.trim(); if (!q || busy || left === 0) return;
-    const msgs = [...c.msgs, { role: "user", content: q }].slice(-24);
-    setC({ ...c, msgs }); saveC({ ...c, msgs }); setInput(""); setBusy(true);
+    const st = [...stream, { role: "user", content: q }].slice(-40);
+    const streams = { ...c.streams, [mode]: st };
+    setC({ ...c, streams }); saveC({ ...c, streams }); setInput(""); setBusy(true);
     try {
-      const ctx = `PROFILE: ${JSON.stringify({ scores, theirWords: { role: answers["AR-2"], hardestPart: answers["AR-3"], goodDay: answers["AR-4"], neverTold: answers["MI-1"], atMyBest: answers["MI-3"] } })}
-
-THEIR REPORT (for reference): ${String(reportText || "").slice(0, 5000)}`;
+      const ctx = `PROFILE: ${JSON.stringify({ scores, theirWords: { role: answers["AR-2"], hardestPart: answers["AR-3"], goodDay: answers["AR-4"], neverTold: answers["MI-1"], atMyBest: answers["MI-3"] } })}\n\nTHEIR REPORT (for reference): ${String(reportText || "").slice(0, 5000)}`;
       const res = await fetch("/api/claude", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ system: COMPANION_SYSTEM + MODES[mode].add + "\n\n" + ctx, messages: msgs.slice(-8).map(({ role, content }) => ({ role, content })), max_tokens: 500 }),
+        body: JSON.stringify({ system: COMPANION_SYSTEM + MODES[mode].add + "\n\n" + ctx, messages: st.slice(-8).map(({ role, content }) => ({ role, content })), max_tokens: 500 }),
       });
       if (!res.ok) throw new Error("status " + res.status);
       const data = await res.json();
       const text = (data.content || []).filter((x) => x.type === "text").map((x) => x.text).join("\n").trim();
       if (!text) throw new Error("empty");
-      const done = { day: today(), count: c.count + 1, mode, msgs: [...msgs, { role: "assistant", m: mode, content: text }].slice(-24) };
+      const st2 = [...st, { role: "assistant", m: mode, content: text }].slice(-40);
+      const streams2 = { ...c.streams, [mode]: st2 };
+      const done = { ...c, day: today(), count: c.count + 1, mode, streams: streams2 };
       setC(done); saveC(done);
+      if (st2.length % 6 === 0) refreshPulse(streams2);
     } catch (e) {
-      const done = { ...c, mode, msgs: [...msgs, { role: "assistant", m: mode, err: true, content: "The line dropped before that reached me — a connection hiccup, not you. That question didn't use one of your ten. Give it a moment and ask again." }].slice(-24) };
+      const st2 = [...st, { role: "assistant", m: mode, err: true, content: "The line dropped before that reached me — a connection hiccup, not you. That question didn't use one of your ten. Give it a moment and ask again." }].slice(-40);
+      const done = { ...c, streams: { ...c.streams, [mode]: st2 } };
       setC(done); saveC(done);
     }
     setBusy(false);
   };
 
+  const visible = showOld ? stream : stream.slice(-4);
+  const hidden = stream.length - visible.length;
+
   return (
     <section className="companion noprint">
       <p className="kicker gold">Your Report Companion</p>
       <h2 className="ctitle">This report isn't the product. It's the beginning of one.</h2>
-      <p className="cexplain">Every assessment you take here sharpens a companion that knows how you think, what pulls you, and what you're for. It has read every answer you gave. Choose the voice you need today — all four share the same {Q_CAP} questions a day, and your conversation stays on this device. Your founding purchase includes seven days with it. This is day {dayNum}.</p>
+      <p className="cexplain">Four voices, each with its own thread — switch below and the conversation switches with you. All four share the same {Q_CAP} questions a day. Everything stays on this device. Your founding purchase includes seven days; this is day {dayNum}.</p>
       <div className="moderow">
         {Object.entries(MODES).map(([k, m]) => (
-          <button key={k} className={"modebtn" + (mode === k ? " sel" : "")} onClick={() => pick(k)} title={m.desc}><Avatar kind={k === "sounding" ? "sounding" : k} size={26} />{m.label}</button>
+          <button key={k} className={"modebtn" + (mode === k ? " sel" : "")} onClick={() => pick(k)} title={m.desc}><Avatar kind={k} size={26} />{m.label}{(c.streams[k] || []).length ? <span className="mcount">{Math.ceil((c.streams[k] || []).length / 2)}</span> : null}</button>
         ))}
       </div>
       <p className="modedesc">{MODES[mode].desc}</p>
+      <Pulse mode={mode} pulse={(c.pulses || {})[mode]} busy={busyPulse} onRefresh={() => refreshPulse()} canRefresh={stream.length >= 2} />
       <div className="chat">
-        {c.msgs.map((m, i) => (<div key={i} className={"msg " + m.role}>
-          {m.role === "assistant" && !m.err && <span className="mlabel"><Avatar kind={(m.m || "companion")} size={15} /> {MODES[m.m || "companion"].label}</span>}
+        {hidden > 0 && !showOld && <button className="showold" onClick={() => setShowOld(true)}>Show the {hidden} earlier {hidden === 1 ? "message" : "messages"}</button>}
+        {showOld && stream.length > 4 && <button className="showold" onClick={() => setShowOld(false)}>Fold the earlier messages away</button>}
+        {visible.map((m, i) => (<div key={i + (showOld ? 0 : hidden)} className={"msg " + m.role}>
+          {m.role === "assistant" && !m.err && <span className="mlabel"><Avatar kind={m.m || "companion"} size={15} /> {MODES[m.m || "companion"].label}</span>}
           {m.role === "assistant" && m.err && <span className="mlabel dimmed">connection</span>}
           <div className={"bubble" + (m.err ? " errb" : "")} dangerouslySetInnerHTML={{ __html: md(m.content) }} />
         </div>))}
@@ -784,7 +840,7 @@ THEIR REPORT (for reference): ${String(reportText || "").slice(0, 5000)}`;
       </div>
       {left > 0 ? (
         <div className="askrow">
-          <input className="tin" value={input} placeholder="Ask about a decision, a doubt, a direction…" onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => e.key === "Enter" && ask()} />
+          <textarea className="tarea askta" rows={3} value={input} placeholder="Ask about a decision, a doubt, a direction…" onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); ask(); } }} />
           <button className="btn ink" disabled={busy || !input.trim()} onClick={ask}>Ask</button>
         </div>
       ) : (
@@ -918,12 +974,14 @@ function Report({ report, name, answers, scores, companionStart, completedAt, on
         </div>
       </div>
       <article className="report">
-        <p className="kicker gold">Essence Recovery Assessment</p>
+        <div className="printonly phead"><Wordmark /><p className="kicker gold">Essence Recovery Assessment &amp; Companion</p></div>
+        <p className="kicker gold noprint">Essence Recovery Assessment</p>
         <h1 className="display ink">{name ? `${name}, this is you.` : "This is you."}</h1>
         {report.preview && <p className="previewnote">Preview report — deploy with the API key to generate the real one.</p>}
         {scores && <Tiles scores={scores} />}
         <div className="rbody" dangerouslySetInnerHTML={{ __html: md(report.text) }} />
         <p className="integrity">Grounded in established psychological frameworks — CHC, Big Five, Goleman EI, RIASEC and Schwartz Values. A structured self-discovery tool, not a clinical or validated psychometric instrument. Your answers never left your device; this report was written for you alone.</p>
+        <p className="printonly printfoot">ishkiy-era.netlify.app · #NotBuiltForABox · <em>The box was never you.</em></p>
         <Retakes completedAt={completedAt} onRetake={onRetake} />
         <button className="ghost inkghost noprint" onClick={() => { if (confirm("Start over? This clears your answers and report from this device.")) onRestart(); }}>Start over</button>
       </article>

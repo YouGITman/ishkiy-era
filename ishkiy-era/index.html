@@ -24,12 +24,12 @@
   input,textarea{font:inherit; color:inherit}
 
   .shell{min-height:100dvh; display:flex; flex-direction:column; align-items:center; padding:20px 20px 88px}
-  .shell.dark{background:var(--ink); color:var(--bone)}
+  .shell.dark{background:#0F1E3D; color:#F5F1E8}
   .col{width:100%; max-width:560px; flex:1; display:flex; flex-direction:column}
 
   /* wordmark */
   .wordmark{font-family:Lora,serif; font-weight:700; font-size:30px; letter-spacing:.5px; color:var(--ink); user-select:none}
-  .wordmark.light{color:var(--bone)}
+  .wordmark.light{color:#F5F1E8}
   .wm-i{position:relative; display:inline-block}
   .tittle{position:absolute; top:.06em; left:50%; transform:translateX(-50%); width:.16em; height:.16em; border-radius:50%; background:var(--gold)}
 
@@ -49,11 +49,11 @@
   .btn{display:inline-block; padding:15px 26px; border-radius:12px; font-weight:600; font-size:16px; margin-top:18px; align-self:flex-start; transition:transform .12s ease, opacity .12s}
   .btn:active{transform:scale(.98)}
   .btn:disabled{opacity:.4; cursor:default}
-  .btn.gold{background:var(--gold); color:var(--ink)}
+  .btn.gold{background:var(--gold); color:#0F1E3D}
   .btn.ink{background:var(--ink); color:var(--bone)}
   .btn:focus-visible,.opt:focus-visible,.fccard:focus-visible,.ghost:focus-visible{outline:2px solid var(--gold); outline-offset:2px}
 
-  .code{width:100%; margin-top:8px; padding:15px 16px; border-radius:12px; border:1.5px solid var(--bone22); background:rgba(245,241,232,.06); color:var(--bone); font-size:18px; letter-spacing:.08em; text-transform:uppercase}
+  .code{width:100%; margin-top:8px; padding:15px 16px; border-radius:12px; border:1.5px solid var(--bone22); background:rgba(245,241,232,.06); color:#F5F1E8; font-size:18px; letter-spacing:.08em; text-transform:uppercase}
   .code::placeholder{color:var(--bone22); text-transform:none; letter-spacing:0}
   .err{color:var(--gold); font-size:14px; margin:10px 0 0}
   .paylink{display:block; margin-top:26px; color:var(--bone70); font-size:14px; text-decoration:none; border-bottom:1px solid var(--bone22); align-self:flex-start; width:fit-content; padding-bottom:2px}
@@ -116,6 +116,11 @@
   .integrity{margin-top:44px; padding-top:18px; border-top:1px solid var(--ink12); color:var(--ink60); font-size:13px; line-height:1.6}
 
   @media print{
+    .printonly{display:block}
+    .phead{display:flex; justify-content:space-between; align-items:center; margin-bottom:10px}
+    .tbody.closed{display:block}
+    .tile{page-break-inside:avoid}
+    .printfoot{margin-top:30px; text-align:center; color:var(--ink60); font-size:11pt}
     body.dm{--bone:#fff; --ink:#0F1E3D; --ink60:rgba(15,30,61,.62); --ink12:rgba(15,30,61,.12); --ink06:rgba(15,30,61,.06)}
     body.dm .reportpage{background:#fff}
     .noprint{display:none !important}
@@ -218,6 +223,29 @@
   .report{padding-top:26px}
   .opt{border-color:var(--ink06)}
 
+
+
+  /* screen transitions */
+  .shell,.reportpage{animation:screenfade .65s ease both}
+  @keyframes screenfade{from{opacity:0; transform:translateY(8px)} to{opacity:1; transform:none}}
+  @media (prefers-reduced-motion: reduce){ .shell,.reportpage{animation:none} }
+
+  /* companion pulse */
+  .pulse{border:1.5px solid rgba(212,165,71,.4); background:rgba(212,165,71,.07); border-radius:14px; padding:12px 14px; margin-bottom:14px}
+  .pulsehead{display:flex; justify-content:space-between; align-items:center; margin-bottom:6px}
+  .pulsebtn{font-size:12px; font-weight:600; color:var(--ink60); border:1.5px solid var(--ink12); border-radius:999px; padding:5px 12px}
+  .pulsebtn:disabled{opacity:.45}
+  .pulsebody{font-size:14.5px; line-height:1.6}
+  .pulsebody p{margin:0 0 6px} .pulsebody p:last-child{margin:0}
+  .dimtext{color:var(--ink60); font-style:italic}
+  .mcount{font-size:10.5px; background:rgba(212,165,71,.25); border-radius:999px; padding:1px 7px; margin-left:2px}
+  .showold{align-self:center; font-size:12.5px; font-weight:600; color:var(--ink60); border:1.5px dashed var(--ink12); border-radius:999px; padding:6px 14px; margin-bottom:4px}
+  .askta{min-height:78px; flex:1}
+  .askrow{align-items:flex-end}
+
+  /* print-only branding & expanded tiles */
+  .printonly{display:none}
+  .tbody.closed{display:none}
 
   /* message labels */
   .msg{display:flex; flex-direction:column; align-items:flex-start; gap:3px}
