@@ -678,17 +678,48 @@ function LibraryScreen({ onBack }) {
 }
 
 /* ---------------- the cockpit ---------------- */
-function HomeTile({ title, sub, locked, lockNote, onClick, art }) {
+function HomeTile({ title, sub, locked, lockNote, onClick, art, badge }) {
   return (
     <button className={"htile" + (locked ? " locked" : "")} onClick={locked ? undefined : onClick} aria-disabled={locked}>
+      {badge != null && <span className="htbadge">{badge}</span>}
       {art}
       <span className="httitle">{title}</span>
       <span className="htsub">{locked ? lockNote : sub}</span>
     </button>
   );
 }
+
+function Rotator({ items, every = 3800 }) {
+  const [i, setI] = useState(0);
+  useEffect(() => { const t = setInterval(() => setI((v) => (v + 1) % items.length), every); return () => clearInterval(t); }, [items.length, every]);
+  return <div className="rotwrap" key={i}>{items[i]}</div>;
+}
+
+const FACE_GOLD = "#D4A547";
+const FACES = [
+  // the mentor — glasses
+  (<svg key="f1" viewBox="0 0 60 40" className="hart"><circle cx="30" cy="14" r="7.5" fill="none" stroke="currentColor" strokeWidth="1.8" opacity=".55"/><path d="M14 36 Q30 23 46 36" fill="none" stroke="currentColor" strokeWidth="1.8" opacity=".55"/><circle cx="27" cy="14" r="2.6" fill="none" stroke={FACE_GOLD} strokeWidth="1.4"/><circle cx="33.5" cy="14" r="2.6" fill="none" stroke={FACE_GOLD} strokeWidth="1.4"/><line x1="29.6" y1="14" x2="30.9" y2="14" stroke={FACE_GOLD} strokeWidth="1.4"/></svg>),
+  // the counsellor — long hair
+  (<svg key="f2" viewBox="0 0 60 40" className="hart"><circle cx="30" cy="14" r="7.5" fill="none" stroke="currentColor" strokeWidth="1.8" opacity=".55"/><path d="M22.5 12 Q22 24 19 28 M37.5 12 Q38 24 41 28" fill="none" stroke={FACE_GOLD} strokeWidth="1.6" strokeLinecap="round"/><path d="M14 36 Q30 23 46 36" fill="none" stroke="currentColor" strokeWidth="1.8" opacity=".55"/></svg>),
+  // the coach — cap of hair, forward tilt
+  (<svg key="f3" viewBox="0 0 60 40" className="hart"><circle cx="30" cy="14" r="7.5" fill="none" stroke="currentColor" strokeWidth="1.8" opacity=".55"/><path d="M23 11 Q30 5 37 11" fill="none" stroke={FACE_GOLD} strokeWidth="2" strokeLinecap="round"/><path d="M14 36 Q30 23 46 36" fill="none" stroke="currentColor" strokeWidth="1.8" opacity=".55"/><circle cx="30" cy="14" r="1.4" fill={FACE_GOLD}/></svg>),
+  // the elder — beard
+  (<svg key="f4" viewBox="0 0 60 40" className="hart"><circle cx="30" cy="13.5" r="7" fill="none" stroke="currentColor" strokeWidth="1.8" opacity=".55"/><path d="M25 18 Q30 24 35 18" fill="none" stroke={FACE_GOLD} strokeWidth="1.8" strokeLinecap="round"/><path d="M14 36 Q30 24 46 36" fill="none" stroke="currentColor" strokeWidth="1.8" opacity=".55"/></svg>),
+];
+const GLYPHS = [
+  // the open book
+  (<svg key="g1" viewBox="0 0 60 40" className="hart"><path d="M30 10 Q22 6 14 9 L14 30 Q22 27 30 31 Q38 27 46 30 L46 9 Q38 6 30 10 Z" fill="none" stroke="currentColor" strokeWidth="1.8" opacity=".55"/><line x1="30" y1="10" x2="30" y2="31" stroke={FACE_GOLD} strokeWidth="1.6"/></svg>),
+  // the idea
+  (<svg key="g2" viewBox="0 0 60 40" className="hart"><circle cx="30" cy="16" r="8" fill="none" stroke={FACE_GOLD} strokeWidth="1.8"/><line x1="26.5" y1="27" x2="33.5" y2="27" stroke="currentColor" strokeWidth="1.8" opacity=".55"/><line x1="27.5" y1="31" x2="32.5" y2="31" stroke="currentColor" strokeWidth="1.8" opacity=".55"/><line x1="30" y1="3" x2="30" y2="6" stroke={FACE_GOLD} strokeWidth="1.5"/><line x1="18" y1="16" x2="21" y2="16" stroke={FACE_GOLD} strokeWidth="1.5"/><line x1="39" y1="16" x2="42" y2="16" stroke={FACE_GOLD} strokeWidth="1.5"/></svg>),
+  // the thinker — head with a star inside
+  (<svg key="g3" viewBox="0 0 60 40" className="hart"><path d="M24 34 L24 29 Q16 25 18 16 Q20 7 30 7 Q40 7 42 16 L44 21 L41 22 L41 27 Q41 30 36 30 L36 34" fill="none" stroke="currentColor" strokeWidth="1.8" opacity=".55" strokeLinejoin="round"/><circle cx="29" cy="17" r="2.6" fill={FACE_GOLD}/></svg>),
+];
+function RotatingFaces() { return <Rotator items={FACES} every={3600} />; }
+function RotatingGlyphs() { return <Rotator items={GLYPHS} every={4200} />; }
 function Home({ state, go, startAssessment, onTheme }) {
   const name = (state.answers["AR-1"] || "").trim();
+  let compLeft = null;
+  try { const cc = migrate(loadC()); compLeft = Math.max(0, Q_CAP - (cc.count || 0)); } catch {}
   const hasReport = !!state.report;
   const midway = !hasReport && Object.keys(state.answers).length > 0;
   const gold = "#D4A547", faint = "rgba(15,30,61,0.18)";
@@ -710,6 +741,7 @@ function Home({ state, go, startAssessment, onTheme }) {
             sub="Four voices that have read you. Ten questions a day."
             locked={!hasReport} lockNote="Opens after your report is written."
             onClick={() => go("companion")}
+            badge={hasReport && compLeft != null ? `${compLeft} left today` : null}
             art={<svg viewBox="0 0 60 40" className="hart"><circle cx="22" cy="20" r="9" fill="none" stroke={gold} strokeWidth="2"/><circle cx="38" cy="20" r="9" fill="none" stroke={faint} strokeWidth="2"/></svg>}
           />
           <HomeTile
@@ -717,13 +749,13 @@ function Home({ state, go, startAssessment, onTheme }) {
             sub="Counsellors, mentors and coaches — sharing on your terms."
             locked={!hasReport} lockNote="Opens after your report is written."
             onClick={() => go("humans")}
-            art={<svg viewBox="0 0 60 40" className="hart"><circle cx="30" cy="14" r="6" fill="none" stroke={gold} strokeWidth="2"/><path d="M18 34 Q30 22 42 34" fill="none" stroke={gold} strokeWidth="2"/></svg>}
+            art={<RotatingFaces />}
           />
           <HomeTile
             title="The Library of You"
             sub="New lenses for the same profile — frameworks, ideas, and thinkers you trust."
             onClick={() => go("library")}
-            art={<svg viewBox="0 0 60 40" className="hart"><circle cx="30" cy="20" r="5" fill={gold}/><circle cx="14" cy="10" r="3" fill={gold} opacity=".7"/><circle cx="46" cy="12" r="3" fill={gold} opacity=".7"/><circle cx="20" cy="32" r="2.5" fill={gold} opacity=".5"/><circle cx="44" cy="30" r="2.5" fill={gold} opacity=".5"/></svg>}
+            art={<RotatingGlyphs />}
           />
         </div>
         <p className="hquote">The future is not artificial; it's authentically human.</p>

@@ -248,6 +248,15 @@
   .tbody.closed{display:none}
 
 
+
+  /* cockpit tile extras */
+  .htile{position:relative}
+  .htbadge{position:absolute; top:12px; right:12px; font-size:11px; font-weight:700; letter-spacing:.06em; color:#8a6d1f; background:rgba(212,165,71,.16); border:1px solid rgba(212,165,71,.4); border-radius:999px; padding:4px 10px}
+  body.dm .htbadge{color:var(--gold)}
+  .rotwrap{animation:rotfade 1s ease both}
+  @keyframes rotfade{from{opacity:0} to{opacity:1}}
+  @media (prefers-reduced-motion: reduce){ .rotwrap{animation:none} }
+
   /* the library */
   .constel{width:100%; max-width:340px; margin:6px auto 18px; display:block}
   .libnarr{font-size:16px; line-height:1.7; margin:0 0 26px}
