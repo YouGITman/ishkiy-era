@@ -209,6 +209,7 @@ function App() {
   if (state.phase === "home") return <Home state={state} onTheme={() => update({ dark: !state.dark })} go={(p) => update({ phase: p })} startAssessment={() => update({ phase: state.unlocked ? (Object.keys(answers).length ? "intro" : "warmup") : "unlock" })} />;
   if (state.phase === "companion") return <CompanionScreen state={state} scores={scores} onBack={() => update({ phase: "home" })} />;
   if (state.phase === "humans") return <HumansScreen scores={scores} onBack={() => update({ phase: "home" })} />;
+  if (state.phase === "library") return <LibraryScreen onBack={() => update({ phase: "home" })} />;
   if (state.phase === "welcome") return <Welcome onStart={() => update({ phase: state.unlocked ? (Object.keys(answers).length ? "intro" : "warmup") : "unlock" })} resumable={state.part > 0 || state.item > 0} />;
   if (state.phase === "unlock") return <Unlock onUnlock={() => update({ unlocked: true, phase: "warmup" })} />;
   if (state.phase === "warmup") return <Warmup onDone={() => update({ phase: "intro" })} />;
@@ -221,7 +222,7 @@ function App() {
     update(next >= PARTS.length ? { completedAt, phase: "generating" } : { completedAt, part: next, item: 0, phase: "intro" });
   }} />;
   if (state.phase === "generating") return <Generating answers={answers} scores={scores} onDone={(report) => update({ report, phase: "report", companionStart: state.companionStart || Date.now() })} />;
-  if (state.phase === "report") return <Report report={state.report} name={answers["AR-1"]} answers={answers} scores={scores} companionStart={state.companionStart} completedAt={state.completedAt || {}} onBack={() => update({ phase: "home" })} onRetake={(idx) => update({ part: idx, item: 0, retaking: true, phase: "intro" })} onRestart={() => { localStorage.removeItem(KEY); location.reload(); }} />;
+  if (state.phase === "report") return <Report report={state.report} name={answers["AR-1"]} answers={answers} scores={scores} companionStart={state.companionStart} completedAt={state.completedAt || {}} onBack={() => update({ phase: "home" })} onLibrary={() => update({ phase: "library" })} onRetake={(idx) => update({ part: idx, item: 0, retaking: true, phase: "intro" })} onRestart={() => { localStorage.removeItem(KEY); location.reload(); }} />;
   return null;
 }
 
@@ -624,6 +625,58 @@ function Breath({ onEnter }) {
   );
 }
 
+
+/* ---------------- the library of you ---------------- */
+const EXPANSIONS = [
+  { name: "How you attach", from: "Grounded in attachment theory", line: "The patterns you carry into closeness — at work, at home, and in every room between.", tier: "FREE", status: "In design" },
+  { name: "The habit architecture", from: "Grounded in behavioural science", line: "What you repeat is what you become. Where your days are built, and where they quietly leak.", tier: "FREE", status: "In design" },
+  { name: "Money and you", from: "Grounded in wealth psychology", line: "What money means to you, what it protects you from, and what that protection costs.", tier: "MEMBERSHIP", status: "In design" },
+  { name: "The builder's pattern", from: "Grounded in entrepreneurial disposition research", line: "Some people can't stop starting things. An honest measure of whether you're one of them.", tier: "MEMBERSHIP", status: "In design" },
+  { name: "The Partner Series", from: "With thinkers you already trust", line: "Their life's philosophy, distilled with them into a mirror you can take. Conversations underway — names when the ink is dry.", tier: "PARTNER", status: "In conversation" },
+];
+function Constellation() {
+  const g = "#D4A547", f = "rgba(212,165,71,0.35)", d = "rgba(15,30,61,0.25)";
+  return (<svg viewBox="0 0 300 130" className="constel" aria-hidden="true">
+    <line x1="150" y1="65" x2="70" y2="30" stroke={f} strokeWidth="1"/><line x1="150" y1="65" x2="235" y2="38" stroke={f} strokeWidth="1"/>
+    <line x1="150" y1="65" x2="95" y2="105" stroke={f} strokeWidth="1"/><line x1="150" y1="65" x2="220" y2="100" stroke={f} strokeWidth="1"/>
+    <line x1="235" y1="38" x2="272" y2="70" stroke={d} strokeWidth="1" strokeDasharray="3 4"/><line x1="70" y1="30" x2="34" y2="62" stroke={d} strokeWidth="1" strokeDasharray="3 4"/>
+    <circle cx="150" cy="65" r="9" fill={g}/>
+    <circle cx="70" cy="30" r="5" fill={g} opacity=".8"/><circle cx="235" cy="38" r="5" fill={g} opacity=".8"/>
+    <circle cx="95" cy="105" r="4" fill={g} opacity=".6"/><circle cx="220" cy="100" r="4" fill={g} opacity=".6"/>
+    <circle cx="272" cy="70" r="3" fill="none" stroke={d} strokeWidth="1.2"/><circle cx="34" cy="62" r="3" fill="none" stroke={d} strokeWidth="1.2"/>
+  </svg>);
+}
+function LibraryScreen({ onBack }) {
+  const mailto = (n) => "mailto:ops@ishkiy.com?subject=" + encodeURIComponent("Library vote — " + n) + "&body=" + encodeURIComponent("Build \u201C" + n + "\u201D first. I'd take it.");
+  return (
+    <div className="reportpage">
+      <div className="rhead noprint">
+        <button className="ghost inkghost" onClick={onBack}>← Home</button>
+        <Wordmark />
+        <span />
+      </div>
+      <article className="report">
+        <p className="kicker gold">The Library of You</p>
+        <h1 className="display ink">One profile. Deepening for life.</h1>
+        <Constellation />
+        <p className="libnarr">Your report was the first light — the centre of the constellation. The Library is where the rest arrive. Every assessment here is a lens ground from something proven: the frameworks psychologists actually use, the ideas from the books that changed how people work, and — in time — the thinkers you already trust, distilling their philosophy with us into something you can take. Each one you complete adds a star to the same map: your Companion answers with more of you in the room, your report grows new chapters, and what you choose to share with a human across the table arrives richer. Some lenses will be free. Some will come with membership. All of them make the mirror truer.</p>
+        <div className="libgrid">
+          {EXPANSIONS.map((e) => (
+            <div key={e.name} className="libtile">
+              <div className="librow"><span className={"libtier t" + e.tier}>{e.tier}</span><span className="libstatus">{e.status}</span></div>
+              <p className="libname">{e.name}</p>
+              <p className="libfrom">{e.from}</p>
+              <p className="libline">{e.line}</p>
+              <a className="rtbtn" href={mailto(e.name)}>Build this one first</a>
+            </div>
+          ))}
+        </div>
+        <p className="hquote">The future is not artificial; it's authentically human.</p>
+      </article>
+    </div>
+  );
+}
+
 /* ---------------- the cockpit ---------------- */
 function HomeTile({ title, sub, locked, lockNote, onClick, art }) {
   return (
@@ -667,10 +720,10 @@ function Home({ state, go, startAssessment, onTheme }) {
             art={<svg viewBox="0 0 60 40" className="hart"><circle cx="30" cy="14" r="6" fill="none" stroke={gold} strokeWidth="2"/><path d="M18 34 Q30 22 42 34" fill="none" stroke={gold} strokeWidth="2"/></svg>}
           />
           <HomeTile
-            title="Deepen your profile"
-            sub=""
-            locked lockNote="Expansion questions and a second assessment are in design — arriving after founder review."
-            art={<svg viewBox="0 0 60 40" className="hart"><circle cx="30" cy="20" r="12" fill="none" stroke={faint} strokeWidth="2" strokeDasharray="3 4"/></svg>}
+            title="The Library of You"
+            sub="New lenses for the same profile — frameworks, ideas, and thinkers you trust."
+            onClick={() => go("library")}
+            art={<svg viewBox="0 0 60 40" className="hart"><circle cx="30" cy="20" r="5" fill={gold}/><circle cx="14" cy="10" r="3" fill={gold} opacity=".7"/><circle cx="46" cy="12" r="3" fill={gold} opacity=".7"/><circle cx="20" cy="32" r="2.5" fill={gold} opacity=".5"/><circle cx="44" cy="30" r="2.5" fill={gold} opacity=".5"/></svg>}
           />
         </div>
         <p className="hquote">The future is not artificial; it's authentically human.</p>
@@ -695,7 +748,7 @@ function Avatar({ kind, size = 34 }) {
 const Q_CAP = 10;
 const CKEY = "era-companion-v1";
 const today = () => new Date().toISOString().slice(0, 10);
-const loadC = () => { try { const c = JSON.parse(localStorage.getItem(CKEY)) || {}; return c.day === today() ? c : { day: today(), count: 0, msgs: c.msgs || [] }; } catch { return { day: today(), count: 0, msgs: [] }; } };
+const loadC = () => { try { const c = JSON.parse(localStorage.getItem(CKEY)) || {}; return c.day === today() ? c : { ...c, day: today(), count: 0 }; } catch { return { day: today(), count: 0 }; } };
 const saveC = (c) => { try { localStorage.setItem(CKEY, JSON.stringify(c)); } catch {} };
 
 const COMPANION_SYSTEM = `You are the Report Companion inside iSHKiY's Essence Recovery Assessment. You have read this person's full profile and you speak as someone who knows them properly — plain, warm, honest. UK English. Short sentences. Under 170 words per reply. Same banned words and constructions as the report voice: no leverage/optimise/journey/unlock/delve/navigate, no "it's worth noting", no "not just X but Y", no bullet lists, no exclamation marks.
@@ -719,7 +772,7 @@ const migrate = (c) => {
   const streams = { companion: [], coach: [], mentor: [], sounding: [] };
   const home = streams[c.mode] ? c.mode : "companion";
   (c.msgs || []).forEach((m) => { const k = (m.m && streams[m.m]) ? m.m : home; streams[k].push(m); });
-  return { day: c.day, count: c.count || 0, mode: c.mode || "companion", streams, pulses: {} };
+  return { day: c.day, count: c.count || 0, mode: c.mode || "companion", streams, pulses: c.pulses || {} };
 };
 
 function Pulse({ mode, pulse, busy, onRefresh, canRefresh }) {
@@ -961,7 +1014,7 @@ function HumansScreen({ scores, onBack }) {
   );
 }
 
-function Report({ report, name, answers, scores, companionStart, completedAt, onBack, onRetake, onRestart }) {
+function Report({ report, name, answers, scores, companionStart, completedAt, onBack, onLibrary, onRetake, onRestart }) {
   if (!report) return null;
   return (
     <div className="reportpage">
@@ -981,6 +1034,10 @@ function Report({ report, name, answers, scores, companionStart, completedAt, on
         {scores && <Tiles scores={scores} />}
         <div className="rbody" dangerouslySetInnerHTML={{ __html: md(report.text) }} />
         <p className="integrity">Grounded in established psychological frameworks — CHC, Big Five, Goleman EI, RIASEC and Schwartz Values. A structured self-discovery tool, not a clinical or validated psychometric instrument. Your answers never left your device; this report was written for you alone.</p>
+        <button className="libcta noprint" onClick={onLibrary}>
+          <span className="libctak">The Library of You</span>
+          <span className="libctat">Take more assessments — new lenses, one deepening profile →</span>
+        </button>
         <p className="printonly printfoot">ishkiy-era.netlify.app · #NotBuiltForABox · <em>The box was never you.</em></p>
         <Retakes completedAt={completedAt} onRetake={onRetake} />
         <button className="ghost inkghost noprint" onClick={() => { if (confirm("Start over? This clears your answers and report from this device.")) onRestart(); }}>Start over</button>

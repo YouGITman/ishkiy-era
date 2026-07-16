@@ -247,6 +247,31 @@
   .printonly{display:none}
   .tbody.closed{display:none}
 
+
+  /* the library */
+  .constel{width:100%; max-width:340px; margin:6px auto 18px; display:block}
+  .libnarr{font-size:16px; line-height:1.7; margin:0 0 26px}
+  .libgrid{display:grid; grid-template-columns:1fr; gap:14px}
+  @media (min-width:560px){ .libgrid{grid-template-columns:1fr 1fr} }
+  .libtile{border:1.5px solid var(--ink06); border-radius:16px; padding:16px; background:rgba(255,255,255,.5); display:flex; flex-direction:column; gap:6px; align-items:flex-start}
+  body.dm .libtile{background:rgba(245,241,232,.05)}
+  .librow{display:flex; justify-content:space-between; width:100%; align-items:center}
+  .libtier{font-size:10px; font-weight:700; letter-spacing:.12em; border-radius:6px; padding:3px 8px}
+  .tFREE{background:rgba(111,143,94,.18); color:#5d7a4e; border:1px solid rgba(111,143,94,.4)}
+  body.dm .tFREE{color:#9CC08A}
+  .tMEMBERSHIP{background:rgba(212,165,71,.16); color:#8a6d1f; border:1px solid rgba(212,165,71,.4)}
+  body.dm .tMEMBERSHIP{color:var(--gold)}
+  .tPARTNER{background:rgba(92,124,163,.16); color:#4a6787; border:1px solid rgba(92,124,163,.4)}
+  body.dm .tPARTNER{color:#8FAECF}
+  .libstatus{font-size:11px; color:var(--ink60); font-style:italic}
+  .libname{font-family:Lora,serif; font-weight:700; font-size:19px; margin:2px 0 0}
+  .libfrom{font-size:12px; font-weight:600; letter-spacing:.06em; text-transform:uppercase; color:var(--ink60); margin:0}
+  .libline{font-size:14px; line-height:1.55; margin:0 0 6px}
+  .libcta{display:flex; flex-direction:column; gap:4px; align-items:flex-start; text-align:left; width:100%; margin:26px 0 6px; padding:18px; border-radius:16px; border:1.5px solid rgba(212,165,71,.45); background:rgba(212,165,71,.08)}
+  .libctak{font-size:11px; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:#8a6d1f}
+  body.dm .libctak{color:var(--gold)}
+  .libctat{font-family:Lora,serif; font-weight:600; font-size:17px; color:var(--ink)}
+
   /* message labels */
   .msg{display:flex; flex-direction:column; align-items:flex-start; gap:3px}
   .msg.user{align-items:flex-end}
