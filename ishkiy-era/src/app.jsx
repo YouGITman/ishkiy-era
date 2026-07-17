@@ -168,7 +168,7 @@ function md(text) {
     if (b.startsWith("### ")) return `<p class="pull ${cur}">${inline(b.slice(4))}</p>`;
     return `<p>${inline(b).replace(/\n/g, "<br/>")}</p>`;
   }).join("");
-  function inline(s) { return s.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>").replace(/\*(.+?)\*/g, "<em>$1</em>"); }
+  function inline(s) { return s.replace(/\[!(.+?)!\]/g, '<mark class="disc">$1</mark>').replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>").replace(/\*(.+?)\*/g, "<em>$1</em>"); }
 }
 
 /* ---------------- glimmer visuals ---------------- */
@@ -187,7 +187,7 @@ function GlimmerArt({ kind, scores }) {
 
 /* ---------------- item frame SVG (TH-7) ---------------- */
 function FramesSvg() {
-  const ink = "#0F1E3D";
+  const ink = "var(--ink)";
   return (<svg viewBox="0 0 300 90" className="qart" aria-hidden="true">
     <rect x="15" y="15" width="60" height="60" fill="none" stroke={ink} strokeWidth="2" /><circle cx="45" cy="45" r="16" fill="none" stroke={ink} strokeWidth="2" />
     <path d="M115 75 L145 17 L175 75 Z" fill="none" stroke={ink} strokeWidth="2" /><rect x="131" y="46" width="26" height="26" fill="none" stroke={ink} strokeWidth="2" />
@@ -458,7 +458,7 @@ function Generating({ answers, scores, onDone }) {
 }
 
 /* ---------------- results tiles ---------------- */
-const GOLD = "#D4A547", INK = "#0F1E3D", INK18 = "rgba(15,30,61,0.18)";
+const GOLD = "#D4A547", INK = "var(--ink)", INK18 = "var(--ink12)";
 
 function MiniBars({ pairs, max = 100 }) {
   return (<svg viewBox={`0 0 120 ${pairs.length * 16}`} className="mini">{pairs.map(([label, v], i) => (
@@ -635,7 +635,7 @@ const EXPANSIONS = [
   { name: "The Partner Series", from: "With thinkers you already trust", line: "Their life's philosophy, distilled with them into a mirror you can take. Conversations underway — names when the ink is dry.", tier: "PARTNER", status: "In conversation" },
 ];
 function Constellation() {
-  const g = "#D4A547", f = "rgba(212,165,71,0.35)", d = "rgba(15,30,61,0.25)";
+  const g = "#D4A547", f = "rgba(212,165,71,0.35)", d = "var(--ink12)";
   return (<svg viewBox="0 0 300 130" className="constel" aria-hidden="true">
     <line x1="150" y1="65" x2="70" y2="30" stroke={f} strokeWidth="1"/><line x1="150" y1="65" x2="235" y2="38" stroke={f} strokeWidth="1"/>
     <line x1="150" y1="65" x2="95" y2="105" stroke={f} strokeWidth="1"/><line x1="150" y1="65" x2="220" y2="100" stroke={f} strokeWidth="1"/>
@@ -759,6 +759,7 @@ function Home({ state, go, startAssessment, onTheme }) {
           />
         </div>
         <p className="hquote">The future is not artificial; it's authentically human.</p>
+        <p className="privline">Everything here lives on your device. No one — iSHKiY included — sees your answers or conversations without your explicit say-so.</p>
       </div>
     </Shell>
   );
@@ -787,7 +788,7 @@ const COMPANION_SYSTEM = `You are the Report Companion inside iSHKiY's Essence R
 
 Ground every answer in THEIR profile — quote their scores and their own words when relevant. If a question can't be answered from the profile plus ordinary life-and-work wisdom, say so plainly rather than inventing.
 
-Hard boundaries: you are not a clinician and the assessment is not clinically validated — never diagnose, never advise on medication or medical or legal matters; suggest a proper professional instead. If they express serious distress or thoughts of harming themselves, respond with warmth and care, don't lecture, and gently encourage them to talk to someone they trust or a professional soon. You may be honest that some questions deserve a human.
+Hard boundaries: you are not a clinician and the assessment is not clinically validated — never diagnose, never advise on medication or medical or legal matters; suggest a proper professional instead. If they express serious distress or thoughts of harming themselves, respond with warmth and care, don't lecture, and gently encourage them to talk to someone they trust or a professional soon. You may be honest that some questions deserve a human. Whenever you state a boundary or disclaimer — that you are not a clinician, that this is not therapy or medical or legal advice, or that a professional is the right next step — wrap that exact sentence in [! and !] markers so it can be shown clearly.
 
 You exist to help them think about decisions, work, and direction using what the assessment revealed. End answers plainly, not with offers of further help.`;
 
@@ -852,11 +853,11 @@ function Companion({ scores, answers, reportText, start }) {
     if (st.length < 2 || busyPulse) return;
     setBusyPulse(true);
     try {
-      const transcript = st.slice(-12).map((m) => (m.role === "user" ? "Them: " : "Voice: ") + m.content).join("\n");
+      const transcript = st.slice(-12).map((m) => (m.role === "user" ? "You said: " : "Voice: ") + m.content).join("\n");
       const res = await fetch("/api/claude", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          system: "You distil a conversation for iSHKiY. UK English, plain, warm, no corporate words, no bullets, no headings. Return at most three short lines, each on its own line: what they are circling; any goal or decision they have named; one line worth remembering. If a line has nothing real to hold, leave it out. Nothing else.",
+          system: "You distil a conversation for iSHKiY, speaking directly to the person it belongs to. Address them as \"you\" — never \"they\", \"them\" or \"the user\". UK English, plain, warm, no corporate words, no bullets, no headings. Return at most three short lines, each on its own line: what you are circling; any goal or decision you have named; one line worth remembering. If a line has nothing real to hold, leave it out. Nothing else.",
           messages: [{ role: "user", content: transcript }], max_tokens: 220,
         }),
       });
@@ -904,7 +905,7 @@ function Companion({ scores, answers, reportText, start }) {
     <section className="companion noprint">
       <p className="kicker gold">Your Report Companion</p>
       <h2 className="ctitle">This report isn't the product. It's the beginning of one.</h2>
-      <p className="cexplain">Four voices, each with its own thread — switch below and the conversation switches with you. All four share the same {Q_CAP} questions a day. Everything stays on this device. Your founding purchase includes seven days; this is day {dayNum}.</p>
+      <p className="cexplain">Four voices, each with its own thread — switch below and the conversation switches with you. All four share the same {Q_CAP} questions a day. These conversations live on this device and nowhere else — no one reads them, iSHKiY included, and nothing is shared unless you explicitly choose to share it. Your founding purchase includes seven days; this is day {dayNum}.</p>
       <div className="moderow">
         {Object.entries(MODES).map(([k, m]) => (
           <button key={k} className={"modebtn" + (mode === k ? " sel" : "")} onClick={() => pick(k)} title={m.desc}><Avatar kind={k} size={26} />{m.label}{(c.streams[k] || []).length ? <span className="mcount">{Math.ceil((c.streams[k] || []).length / 2)}</span> : null}</button>
@@ -1065,7 +1066,7 @@ function Report({ report, name, answers, scores, companionStart, completedAt, on
         {report.preview && <p className="previewnote">Preview report — deploy with the API key to generate the real one.</p>}
         {scores && <Tiles scores={scores} />}
         <div className="rbody" dangerouslySetInnerHTML={{ __html: md(report.text) }} />
-        <p className="integrity">Grounded in established psychological frameworks — CHC, Big Five, Goleman EI, RIASEC and Schwartz Values. A structured self-discovery tool, not a clinical or validated psychometric instrument. Your answers never left your device; this report was written for you alone.</p>
+        <p className="integrity">Grounded in established psychological frameworks — CHC, Big Five, Goleman EI, RIASEC and Schwartz Values. A structured self-discovery tool, not a clinical or validated psychometric instrument. Your answers never left your device, and no one — iSHKiY included — can see them or your conversations without your explicit permission. This report was written for you alone, and it belongs to you.</p>
         <button className="libcta noprint" onClick={onLibrary}>
           <span className="libctak">The Library of You</span>
           <span className="libctat">Take more assessments — new lenses, one deepening profile →</span>
