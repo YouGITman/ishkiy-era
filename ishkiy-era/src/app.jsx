@@ -208,6 +208,7 @@ function App() {
   if (state.phase === "breath") return <Breath onEnter={() => update({ phase: "home" })} />;
   if (state.phase === "home") return <Home state={state} onTheme={() => update({ dark: !state.dark })} go={(p) => update({ phase: p })} startAssessment={() => update({ phase: state.unlocked ? (Object.keys(answers).length ? "intro" : "warmup") : "unlock" })} />;
   if (state.phase === "companion") return <CompanionScreen state={state} scores={scores} onBack={() => update({ phase: "home" })} />;
+  if (state.phase === "constellation") return <ConstellationScreen state={state} update={update} onBack={() => update({ phase: "home" })} />;
   if (state.phase === "humans") return <HumansScreen scores={scores} onBack={() => update({ phase: "home" })} />;
   if (state.phase === "library") return <LibraryScreen onBack={() => update({ phase: "home" })} />;
   if (state.phase === "welcome") return <Welcome onStart={() => update({ phase: state.unlocked ? (Object.keys(answers).length ? "intro" : "warmup") : "unlock" })} resumable={state.part > 0 || state.item > 0} />;
@@ -752,6 +753,13 @@ function Home({ state, go, startAssessment, onTheme }) {
             art={<RotatingFaces />}
           />
           <HomeTile
+            title="The Constellation"
+            sub="Your other iSHKiY apps — connected here, on your terms."
+            onClick={() => go("constellation")}
+            badge={(() => { const c = state.constellation || {}; const n = Object.values(c).filter((x) => x && x.linked).length; return n ? `${n} connected` : null; })()}
+            art={<svg viewBox="0 0 60 40" className="hart"><circle cx="30" cy="20" r="4" fill={gold}/><circle cx="13" cy="12" r="2.5" fill="none" stroke={gold} strokeWidth="1.6"/><circle cx="47" cy="10" r="2.5" fill="none" stroke="currentColor" strokeWidth="1.6" opacity=".4"/><circle cx="46" cy="31" r="2.5" fill="none" stroke={gold} strokeWidth="1.6"/><circle cx="12" cy="30" r="2.5" fill="none" stroke="currentColor" strokeWidth="1.6" opacity=".4"/><line x1="26.5" y1="18" x2="15.3" y2="13" stroke={gold} strokeWidth="1.2" opacity=".6"/><line x1="33.5" y1="22" x2="43.8" y2="30" stroke={gold} strokeWidth="1.2" opacity=".6"/></svg>}
+          />
+          <HomeTile
             title="The Library of You"
             sub="New lenses for the same profile — frameworks, ideas, and thinkers you trust."
             onClick={() => go("library")}
@@ -1032,6 +1040,135 @@ function CompanionScreen({ state, scores, onBack }) {
     </div>
   );
 }
+/* ---------------- the constellation ----------------
+   ERA as command centre for the iSHKiY sibling apps.
+   Connections and consents are recorded on-device now; live data flow
+   arrives with the iSHKiY bridge (Living Profile). Until then, data
+   moves only when the user carries a file across themselves.
+   EDIT THE URLS BELOW when live addresses are confirmed. */
+const SIBLINGS = [
+  {
+    id: "haven", name: "Haven", tag: "Money, without the dread.",
+    line: "Psychology-first personal finance. It reads how money feels before it reads the numbers.",
+    url: "https://ishkiy-haven.netlify.app", accent: "#4E7A5A",
+    offers: [
+      { id: "mindset", label: "Money mindset", desc: "Your archetype and how it shifts." },
+      { id: "goals", label: "Goals & pots", desc: "What you're building towards — names and progress, not balances." },
+      { id: "rhythm", label: "Engagement rhythm", desc: "When you lean in and when you look away." },
+    ],
+  },
+  {
+    id: "kite", name: "Kite", tag: "One thing. Not the list.",
+    line: "A companion for ADHD days — task untangling, gentle focus, wins that count.",
+    url: "https://shiny-zabaione-08b761.netlify.app", accent: "#4A7BA6",
+    offers: [
+      { id: "wins", label: "Wins & strengths", desc: "The patterns in what you finish." },
+      { id: "energy", label: "Energy check-ins", desc: "How the wind's been blowing, over time." },
+    ],
+  },
+  {
+    id: "current", name: "Current", tag: "Flow you build, not wait for.",
+    line: "One task, one tap. A quiet engine for getting into motion.",
+    url: "https://current-ishkiy.netlify.app", accent: "#6B7FA8",
+    offers: [
+      { id: "flow", label: "Flow sessions", desc: "When you find your current, and for how long." },
+      { id: "goals", label: "Goals", desc: "What you're aiming at." },
+    ],
+  },
+  {
+    id: "forge", name: "Forge", tag: "Train the body. Steady the mind.",
+    line: "Training, recovery and daily check-ins in one place. Native on Android.",
+    url: "https://github.com/YouGITman/TarangElite/releases", /* private repo: founder-only until a public download page exists */ accent: "#C77B3A", native: true,
+    offers: [
+      { id: "recovery", label: "Recovery trend", desc: "How rested you actually are, week on week." },
+      { id: "consistency", label: "Training consistency", desc: "The showing-up, not the splits." },
+      { id: "mood", label: "Mind check-ins", desc: "The daily word you gave your state." },
+    ],
+  },
+];
+
+function ConstellationScreen({ state, update, onBack }) {
+  const links = state.constellation || {};
+  const [open, setOpen] = useState(null); // sibling id being connected/managed
+  const setLink = (id, patch) => update({ constellation: { ...links, [id]: { ...(links[id] || {}), ...patch } } });
+  const app = SIBLINGS.find((s) => s.id === open);
+  return (
+    <div className="reportpage">
+      <div className="rhead noprint">
+        <button className="ghost inkghost" onClick={onBack}>← Home</button>
+        <Wordmark />
+        <span />
+      </div>
+      <article className="report">
+        <p className="kicker gold">The Constellation</p>
+        <h1 className="display ink">One family. Your say-so.</h1>
+        <p className="lede inkdim">Each iSHKiY app does one job well, and each keeps its data on your device. Connect them here and ERA becomes the place where the whole of you comes into view — but nothing joins unless you say it may, and you can unsay it any time.</p>
+        <div className="constgrid">
+          {SIBLINGS.map((s) => {
+            const l = links[s.id];
+            const linked = l && l.linked;
+            return (
+              <button key={s.id} className={"capp" + (linked ? "" : " dim")} onClick={() => setOpen(s.id)} style={linked ? { borderColor: s.accent } : undefined}>
+                <span className="cdot" style={{ background: linked ? s.accent : "transparent", borderColor: linked ? s.accent : "currentColor" }} />
+                <span className="cname">{s.name}</span>
+                <span className="ctag">{s.tag}</span>
+                <span className="cstate">{linked
+                  ? `Sharing: ${(l.shares || []).length ? s.offers.filter((o) => l.shares.includes(o.id)).map((o) => o.label).join(", ") : "nothing yet"}${l.enhance ? " · teaching your Companion" : ""}`
+                  : "Not yet connected — tap to begin."}</span>
+              </button>
+            );
+          })}
+        </div>
+        <p className="cbridge">Honesty first: your choices are recorded on this device today, and live sharing switches on when the iSHKiY bridge ships. Until then, the only way anything crosses is if you carry it — each app will offer a small export file you can bring here yourself.</p>
+        <p className="integrity">Every iSHKiY app keeps your data on your device. Nothing moves between them without your explicit permission, and iSHKiY never sees any of it. Connection is always reversible. The data is yours — that isn't a feature, it's the deal.</p>
+      </article>
+      {app && <ConnectSheet app={app} link={links[app.id]} onClose={() => setOpen(null)} onSave={(patch) => { setLink(app.id, patch); setOpen(null); }} />}
+    </div>
+  );
+}
+
+function ConnectSheet({ app, link, onClose, onSave }) {
+  const [shares, setShares] = useState((link && link.shares) || []);
+  const [enhance, setEnhance] = useState(!!(link && link.enhance));
+  const linked = link && link.linked;
+  const toggle = (id) => setShares((v) => (v.includes(id) ? v.filter((x) => x !== id) : [...v, id]));
+  const importRef = useRef(null);
+  const doImport = (e) => {
+    const f = e.target.files && e.target.files[0]; if (!f) return;
+    f.text().then((t) => { try { const j = JSON.parse(t); onSave({ linked: true, shares, enhance, imported: { at: Date.now(), data: j } }); } catch { alert("That file didn't read as an iSHKiY export. Try again from the app's share screen."); } });
+  };
+  return (
+    <div className="csheetwrap" onClick={onClose}>
+      <div className="csheet" onClick={(e) => e.stopPropagation()}>
+        <p className="kicker" style={{ color: app.accent }}>{app.name}</p>
+        <p className="cline">{app.line}</p>
+        {app.url
+          ? <button className="btn ink cfull" onClick={() => window.open(app.url, "_blank")}>{"Open " + app.name + (app.native ? "" : " — installs if it isn't on this device")}</button>
+          : <button className="btn ink cfull" disabled>Link coming — {app.name} isn't live at a public address yet</button>}
+        <p className="csheethead">What may flow into ERA?</p>
+        <p className="csub">Nothing is ticked for you. Choose only what you want ERA to know.</p>
+        {app.offers.map((o) => (
+          <label key={o.id} className="crow">
+            <input type="checkbox" checked={shares.includes(o.id)} onChange={() => toggle(o.id)} />
+            <span><b>{o.label}</b><em>{o.desc}</em></span>
+          </label>
+        ))}
+        <label className="crow cenh">
+          <input type="checkbox" checked={enhance} onChange={() => setEnhance((v) => !v)} />
+          <span><b>May it also teach your Companion?</b><em>A separate yes. If ticked, what flows in can deepen your Companion's sense of you and your central profile here. If not, it stays as numbers on a screen.</em></span>
+        </label>
+        <button className="cimport" onClick={() => importRef.current && importRef.current.click()}>Bring a file across from {app.name} →</button>
+        <input ref={importRef} type="file" accept=".json,application/json" style={{ display: "none" }} onChange={doImport} />
+        <div className="cactions">
+          {linked && <button className="ghost inkghost" onClick={() => onSave({ linked: false, shares: [], enhance: false, imported: null })}>Disconnect</button>}
+          <button className="btn gold" onClick={() => onSave({ linked: true, shares, enhance, at: Date.now() })}>{linked ? "Save changes" : "Connect " + app.name}</button>
+        </div>
+        <p className="cfoot">You can change or withdraw any of this whenever you like. Withdrawing removes what was shared from ERA on this device.</p>
+      </div>
+    </div>
+  );
+}
+
 function HumansScreen({ scores, onBack }) {
   return (
     <div className="reportpage">
