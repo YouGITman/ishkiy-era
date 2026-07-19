@@ -856,52 +856,63 @@ function Companion({ scores, answers, reportText, start }) {
     </section>
   );
 
+  /* commit: every state change goes through the freshest state, never a stale
+     snapshot — this is what stops background writes erasing new messages. */
+  const commit = (fn) => setC((prev) => { const next = fn(prev); saveC(next); return next; });
+
+  /* fetchAI: one automatic retry and a hard timeout, so a single slow response
+     or mobile blip doesn't surface as a dropped line. */
+  const fetchAI = async (body) => {
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 30000);
+      try {
+        const res = await fetch("/api/claude", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body), signal: ctrl.signal,
+        });
+        clearTimeout(timer);
+        if (res.ok) {
+          const data = await res.json();
+          const text = (data.content || []).filter((x) => x.type === "text").map((x) => x.text).join("\n").trim();
+          if (text) return text;
+        }
+      } catch {} finally { clearTimeout(timer); }
+      if (attempt === 0) await new Promise((r) => setTimeout(r, 1500));
+    }
+    return null;
+  };
+
   const refreshPulse = async (streams) => {
     const st = (streams || c.streams)[mode] || [];
     if (st.length < 2 || busyPulse) return;
     setBusyPulse(true);
-    try {
-      const transcript = st.slice(-12).map((m) => (m.role === "user" ? "You said: " : "Voice: ") + m.content).join("\n");
-      const res = await fetch("/api/claude", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          system: "You distil a conversation for iSHKiY, speaking directly to the person it belongs to. Address them as \"you\" — never \"they\", \"them\" or \"the user\". UK English, plain, warm, no corporate words, no bullets, no headings. Return at most three short lines, each on its own line: what you are circling; any goal or decision you have named; one line worth remembering. If a line has nothing real to hold, leave it out. Nothing else.",
-          messages: [{ role: "user", content: transcript }], max_tokens: 220,
-        }),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        const text = (data.content || []).filter((x) => x.type === "text").map((x) => x.text).join(" ").trim();
-        if (text) { const next = { ...c, pulses: { ...(c.pulses || {}), [mode]: text } }; setC(next); saveC(next); }
-      }
-    } catch {}
+    const transcript = st.slice(-12).map((m) => (m.role === "user" ? "You said: " : "Voice: ") + m.content).join("\n");
+    const text = await fetchAI({
+      system: "You distil a conversation for iSHKiY, speaking directly to the person it belongs to. Address them as \"you\" — never \"they\", \"them\" or \"the user\". UK English, plain, warm, no corporate words, no bullets, no headings. Return at most three short lines, each on its own line: what you are circling; any goal or decision you have named; one line worth remembering. If a line has nothing real to hold, leave it out. Nothing else.",
+      messages: [{ role: "user", content: transcript }], max_tokens: 220,
+    });
+    if (text) commit((prev) => ({ ...prev, pulses: { ...(prev.pulses || {}), [mode]: text } }));
     setBusyPulse(false);
   };
 
   const ask = async () => {
     const q = input.trim(); if (!q || busy || left === 0) return;
+    setInput(""); setBusy(true);
+    commit((prev) => ({ ...prev, streams: { ...prev.streams, [mode]: [...(prev.streams[mode] || []), { role: "user", content: q }].slice(-40) } }));
     const st = [...stream, { role: "user", content: q }].slice(-40);
-    const streams = { ...c.streams, [mode]: st };
-    setC({ ...c, streams }); saveC({ ...c, streams }); setInput(""); setBusy(true);
-    try {
-      const ctx = `PROFILE: ${JSON.stringify({ scores, theirWords: { role: answers["AR-2"], hardestPart: answers["AR-3"], goodDay: answers["AR-4"], neverTold: answers["MI-1"], atMyBest: answers["MI-3"] } })}\n\nTHEIR REPORT (for reference): ${String(reportText || "").slice(0, 5000)}`;
-      const res = await fetch("/api/claude", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ system: COMPANION_SYSTEM + MODES[mode].add + "\n\n" + ctx, messages: st.slice(-8).map(({ role, content }) => ({ role, content })), max_tokens: 500 }),
+    const ctx = `PROFILE: ${JSON.stringify({ scores, theirWords: { role: answers["AR-2"], hardestPart: answers["AR-3"], goodDay: answers["AR-4"], neverTold: answers["MI-1"], atMyBest: answers["MI-3"] } })}\n\nTHEIR REPORT (for reference): ${String(reportText || "").slice(0, 5000)}`;
+    const text = await fetchAI({ system: COMPANION_SYSTEM + MODES[mode].add + "\n\n" + ctx, messages: st.slice(-8).map(({ role, content }) => ({ role, content })), max_tokens: 500 });
+    if (text) {
+      let after = null;
+      commit((prev) => {
+        const st2 = [...(prev.streams[mode] || []), { role: "assistant", m: mode, content: text }].slice(-40);
+        after = st2;
+        return { ...prev, day: today(), count: prev.count + 1, mode, streams: { ...prev.streams, [mode]: st2 } };
       });
-      if (!res.ok) throw new Error("status " + res.status);
-      const data = await res.json();
-      const text = (data.content || []).filter((x) => x.type === "text").map((x) => x.text).join("\n").trim();
-      if (!text) throw new Error("empty");
-      const st2 = [...st, { role: "assistant", m: mode, content: text }].slice(-40);
-      const streams2 = { ...c.streams, [mode]: st2 };
-      const done = { ...c, day: today(), count: c.count + 1, mode, streams: streams2 };
-      setC(done); saveC(done);
-      if (st2.length % 6 === 0) refreshPulse(streams2);
-    } catch (e) {
-      const st2 = [...st, { role: "assistant", m: mode, err: true, content: "The line dropped before that reached me — a connection hiccup, not you. That question didn't use one of your ten. Give it a moment and ask again." }].slice(-40);
-      const done = { ...c, streams: { ...c.streams, [mode]: st2 } };
-      setC(done); saveC(done);
+      if (after && after.length % 6 === 0) refreshPulse({ ...c.streams, [mode]: after });
+    } else {
+      commit((prev) => ({ ...prev, streams: { ...prev.streams, [mode]: [...(prev.streams[mode] || []), { role: "assistant", m: mode, err: true, content: "The line dropped before that reached me — a connection hiccup, not you. That question didn't use one of your ten. Give it a moment and ask again." }].slice(-40) } }));
     }
     setBusy(false);
   };
@@ -1028,6 +1039,9 @@ function CompanionScreen({ state, scores, onBack }) {
         <span />
       </div>
       <article className="report">
+        <p className="kicker gold">The Companion</p>
+        <h1 className="display ink">Four voices that read you.</h1>
+        <p className="lede inkdim">Coach, mentor, companion, sounding board — ten questions a day, answered by voices that know your report line by line.</p>
         <div className="teamrow">
           <Avatar kind="companion" /><Avatar kind="coach" /><Avatar kind="mentor" /><Avatar kind="sounding" />
         </div>
@@ -1201,6 +1215,9 @@ function HumansScreen({ scores, onBack }) {
         <span />
       </div>
       <article className="report">
+        <p className="kicker gold">A human, when ready</p>
+        <h1 className="display ink">Real people, on your terms.</h1>
+        <p className="lede inkdim">Counsellors, mentors and coaches — because human connection brings what AI never can. You choose who sees what, and when. Or no one, and that's fine too.</p>
         <Practitioners scores={scores} />
       </article>
     </div>
@@ -1223,6 +1240,7 @@ function Report({ report, name, answers, scores, companionStart, completedAt, on
         <div className="printonly phead"><Wordmark /><p className="kicker gold">Essence Recovery Assessment &amp; Companion</p></div>
         <p className="kicker gold noprint">Essence Recovery Assessment</p>
         <h1 className="display ink">{name ? `${name}, this is you.` : "This is you."}</h1>
+        <p className="lede inkdim noprint">Your report, your dimension tiles, your share card — the centre everything else here orbits.</p>
         {report.preview && <p className="previewnote">Preview report — deploy with the API key to generate the real one.</p>}
         {scores && <Tiles scores={scores} />}
         <div className="rbody" dangerouslySetInnerHTML={{ __html: md(report.text) }} />
