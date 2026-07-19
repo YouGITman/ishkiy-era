@@ -753,17 +753,17 @@ function Home({ state, go, startAssessment, onTheme }) {
             art={<RotatingFaces />}
           />
           <HomeTile
-            title="The Constellation"
-            sub="Your other iSHKiY apps — connected here, on your terms."
-            onClick={() => go("constellation")}
-            badge={(() => { const c = state.constellation || {}; const n = Object.values(c).filter((x) => x && x.linked).length; return n ? `${n} connected` : null; })()}
-            art={<svg viewBox="0 0 60 40" className="hart"><circle cx="30" cy="20" r="4" fill={gold}/><circle cx="13" cy="12" r="2.5" fill="none" stroke={gold} strokeWidth="1.6"/><circle cx="47" cy="10" r="2.5" fill="none" stroke="currentColor" strokeWidth="1.6" opacity=".4"/><circle cx="46" cy="31" r="2.5" fill="none" stroke={gold} strokeWidth="1.6"/><circle cx="12" cy="30" r="2.5" fill="none" stroke="currentColor" strokeWidth="1.6" opacity=".4"/><line x1="26.5" y1="18" x2="15.3" y2="13" stroke={gold} strokeWidth="1.2" opacity=".6"/><line x1="33.5" y1="22" x2="43.8" y2="30" stroke={gold} strokeWidth="1.2" opacity=".6"/></svg>}
-          />
-          <HomeTile
             title="The Library of You"
             sub="New lenses for the same profile — frameworks, ideas, and thinkers you trust."
             onClick={() => go("library")}
             art={<RotatingGlyphs />}
+          />
+          <HomeTile
+            title="The Constellation"
+            sub="Your other iSHKiY apps — connected here, on your terms."
+            onClick={() => go("constellation")}
+            badge={(() => { if (!state.constellationInvite) return "Invite only"; const c = state.constellation || {}; const n = Object.values(c).filter((x) => x && x.linked).length; return n ? `${n} connected` : null; })()}
+            art={<svg viewBox="0 0 60 40" className="hart"><circle cx="30" cy="20" r="4" fill={gold}/><circle cx="13" cy="12" r="2.5" fill="none" stroke={gold} strokeWidth="1.6"/><circle cx="47" cy="10" r="2.5" fill="none" stroke="currentColor" strokeWidth="1.6" opacity=".4"/><circle cx="46" cy="31" r="2.5" fill="none" stroke={gold} strokeWidth="1.6"/><circle cx="12" cy="30" r="2.5" fill="none" stroke="currentColor" strokeWidth="1.6" opacity=".4"/><line x1="26.5" y1="18" x2="15.3" y2="13" stroke={gold} strokeWidth="1.2" opacity=".6"/><line x1="33.5" y1="22" x2="43.8" y2="30" stroke={gold} strokeWidth="1.2" opacity=".6"/></svg>}
           />
         </div>
         <p className="hquote">The future is not artificial; it's authentically human.</p>
@@ -1077,8 +1077,8 @@ const SIBLINGS = [
   },
   {
     id: "forge", name: "Forge", tag: "Train the body. Steady the mind.",
-    line: "Training, recovery and daily check-ins in one place. Native on Android.",
-    url: "https://github.com/YouGITman/TarangElite/releases", /* private repo: founder-only until a public download page exists */ accent: "#C77B3A", native: true,
+    line: "Training, recovery and daily check-ins in one place. Android now; every screen soon.",
+    url: "https://ishkiy-forge.netlify.app", accent: "#C77B3A", native: true,
     offers: [
       { id: "recovery", label: "Recovery trend", desc: "How rested you actually are, week on week." },
       { id: "consistency", label: "Training consistency", desc: "The showing-up, not the splits." },
@@ -1090,8 +1090,31 @@ const SIBLINGS = [
 function ConstellationScreen({ state, update, onBack }) {
   const links = state.constellation || {};
   const [open, setOpen] = useState(null); // sibling id being connected/managed
+  const [code, setCode] = useState(""); const [err, setErr] = useState(false); const [busy, setBusy] = useState(false);
   const setLink = (id, patch) => update({ constellation: { ...links, [id]: { ...(links[id] || {}), ...patch } } });
   const app = SIBLINGS.find((s) => s.id === open);
+  const tryInvite = async () => {
+    setBusy(true); const h = await sha256(code); setBusy(false);
+    if (INVITE_HASHES.includes(h)) { update({ constellationInvite: true }); setErr(false); } else setErr(true);
+  };
+  if (!state.constellationInvite) return (
+    <div className="reportpage">
+      <div className="rhead noprint">
+        <button className="ghost inkghost" onClick={onBack}>← Home</button>
+        <Wordmark />
+        <span />
+      </div>
+      <article className="report" style={{ maxWidth: 480 }}>
+        <p className="kicker gold">The Constellation</p>
+        <h1 className="display ink">Invitation only, for now.</h1>
+        <p className="lede inkdim">The Constellation connects your other iSHKiY apps to ERA. While it's in beta, it opens by invitation — a small circle, on purpose, so we get the trust architecture right before the doors widen.</p>
+        <input className="codeinput" value={code} onChange={(e) => { setCode(e.target.value); setErr(false); }} placeholder="ORBIT-XXXX" autoCapitalize="characters" onKeyDown={(e) => e.key === "Enter" && tryInvite()} />
+        {err && <p className="codeerr">That code didn't open the door. Check it and try once more.</p>}
+        <button className="btn gold" disabled={busy || !code.trim()} onClick={tryInvite}>{busy ? "Checking…" : "Open the Constellation"}</button>
+        <p className="cfoot" style={{ marginTop: 20 }}>No code? Nothing else in ERA is held back — your assessment, report and Companion are all yours already. Invites come from Tarang directly.</p>
+      </article>
+    </div>
+  );
   return (
     <div className="reportpage">
       <div className="rhead noprint">
