@@ -29,66 +29,18 @@
 <div id="auth">
   <p>Sign in with the admin email. A magic link will arrive — no password.</p>
   <input id="email" type="email" placeholder="tarang@ishkiy.com" autocomplete="email">
-  <div class="row"><button class="gold" onclick="sendLink()">Send magic link</button></div>
+  <div class="row"><button id="send" class="gold">Send magic link</button></div>
   <p id="msg"></p>
 </div>
 <div id="panel" style="display:none">
   <p id="who" class="meta"></p>
   <div class="row" style="margin:0 0 8px">
-    <button class="ghost" onclick="load('pending')">Pending</button>
-    <button class="ghost" onclick="load('approved')">Approved</button>
-    <button class="ghost" onclick="signOut()">Sign out</button>
+    <button id="tab-pending" class="ghost">Pending</button>
+    <button id="tab-approved" class="ghost">Approved</button>
+    <button id="out" class="ghost">Sign out</button>
   </div>
   <div id="list"></div>
 </div>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/supabase/2.39.7/umd/supabase.min.js"></script>
-<script>
-const SUPA_URL  = "https://rstyfrjtyvtxktnynnnw.supabase.co";
-const SUPA_ANON = "sb_publishable_p-4dmXxdBcrO8oT6nlVjpw_ofYnapaS";
-let sb=null;
-function init(){
-  if(SUPA_URL.startsWith("PASTE")){document.getElementById('msg').textContent="Backend keys not wired yet.";return}
-  sb=window.supabase.createClient(SUPA_URL,SUPA_ANON);
-  sb.auth.onAuthStateChange((_e,session)=>{render(session)});
-}
-async function sendLink(){
-  const email=document.getElementById('email').value.trim();
-  if(!email)return;
-  const{error}=await sb.auth.signInWithOtp({email,options:{emailRedirectTo:location.href}});
-  document.getElementById('msg').textContent=error?("Hmm: "+error.message):"Link sent — check the inbox, then come back here.";
-}
-function render(session){
-  const on=!!session;
-  document.getElementById('auth').style.display=on?'none':'block';
-  document.getElementById('panel').style.display=on?'block':'none';
-  if(on){document.getElementById('who').textContent="Signed in as "+session.user.email;load('pending');}
-}
-async function load(status){
-  const{data,error}=await sb.from('practitioners').select('*').eq('status',status).order('created_at');
-  const el=document.getElementById('list');
-  if(error){el.innerHTML='<p class="meta">'+error.message+'</p>';return}
-  if(!data.length){el.innerHTML='<p class="meta">Nothing '+status+' right now.</p>';return}
-  el.innerHTML=data.map(p=>`
-    <div class="card">
-      <span class="pill">${p.discipline}</span>
-      <p><b>${esc(p.name)}</b></p>
-      <p class="meta">${esc(p.email)} · ${esc(p.registration_body||'no body given')} ${esc(p.registration_number||'')} · insurance: ${p.insurance_confirmed?'confirmed':'NOT confirmed'}</p>
-      <p style="font-size:14px">${esc(p.bio||'')}</p>
-      ${p.booking_url?`<p class="meta"><a href="${esc(p.booking_url)}" target="_blank" rel="noopener">${esc(p.booking_url)}</a></p>`:''}
-      <p class="meta">Apps: ${(p.apps||[]).join(', ')}</p>
-      <div class="row">
-        ${p.status!=='approved'?`<button class="gold" onclick="setStatus('${p.id}','approved')">Approve</button>`:''}
-        ${p.status!=='rejected'?`<button class="ghost" onclick="setStatus('${p.id}','rejected')">Reject</button>`:''}
-      </div>
-    </div>`).join('');
-}
-async function setStatus(id,status){
-  const{error}=await sb.from('practitioners').update({status}).eq('id',id);
-  if(error)alert(error.message);else load('pending');
-}
-async function signOut(){await sb.auth.signOut();location.reload()}
-function esc(s){return String(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
-init();
-</script>
+<script src="dist/admin.js"></script>
 </body>
 </html>
