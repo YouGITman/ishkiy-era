@@ -2,6 +2,20 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { PARTS, L5, E5, RIASEC_PHRASES } from "./items.js";
+import { createClient } from "@supabase/supabase-js";
+
+/* ---------------- backend (Supabase, connect-only v1) ----------------
+   Paste your project URL and anon public key below (Settings -> API).
+   The anon key is designed to be public; row-level security does the guarding.
+   Until these are pasted, account features show as "coming online". */
+const SUPA_URL = "PASTE_SUPABASE_URL";
+const SUPA_ANON = "PASTE_SUPABASE_ANON_KEY";
+let _supa = null;
+const getSupa = () => {
+  if (SUPA_URL.startsWith("PASTE")) return null;
+  if (!_supa) _supa = createClient(SUPA_URL, SUPA_ANON);
+  return _supa;
+};
 
 /* ---------------- storage ---------------- */
 const KEY = "era-v1";
@@ -209,7 +223,9 @@ function App() {
   if (state.phase === "home") return <Home state={state} onTheme={() => update({ dark: !state.dark })} go={(p) => update({ phase: p })} startAssessment={() => update({ phase: state.unlocked ? (Object.keys(answers).length ? "intro" : "warmup") : "unlock" })} />;
   if (state.phase === "companion") return <CompanionScreen state={state} scores={scores} onBack={() => update({ phase: "home" })} />;
   if (state.phase === "constellation") return <ConstellationScreen state={state} update={update} onBack={() => update({ phase: "home" })} />;
-  if (state.phase === "humans") return <HumansScreen scores={scores} onBack={() => update({ phase: "home" })} />;
+  if (state.phase === "humans") return <HumansScreen scores={scores} state={state} onBack={() => update({ phase: "home" })} onApply={() => update({ phase: "apply" })} />;
+  if (state.phase === "account") return <AccountScreen state={state} scores={scores} onBack={() => update({ phase: "home" })} />;
+  if (state.phase === "apply") return <ApplyScreen onBack={() => update({ phase: "humans" })} />;
   if (state.phase === "library") return <LibraryScreen onBack={() => update({ phase: "home" })} />;
   if (state.phase === "welcome") return <Welcome onStart={() => update({ phase: state.unlocked ? (Object.keys(answers).length ? "intro" : "warmup") : "unlock" })} resumable={state.part > 0 || state.item > 0} />;
   if (state.phase === "unlock") return <Unlock onUnlock={() => update({ unlocked: true, phase: "warmup" })} />;
@@ -765,6 +781,12 @@ function Home({ state, go, startAssessment, onTheme }) {
             badge={(() => { if (!state.constellationInvite) return "Invite only"; const c = state.constellation || {}; const n = Object.values(c).filter((x) => x && x.linked).length; return n ? `${n} connected` : null; })()}
             art={<svg viewBox="0 0 60 40" className="hart"><circle cx="30" cy="20" r="4" fill={gold}/><circle cx="13" cy="12" r="2.5" fill="none" stroke={gold} strokeWidth="1.6"/><circle cx="47" cy="10" r="2.5" fill="none" stroke="currentColor" strokeWidth="1.6" opacity=".4"/><circle cx="46" cy="31" r="2.5" fill="none" stroke={gold} strokeWidth="1.6"/><circle cx="12" cy="30" r="2.5" fill="none" stroke="currentColor" strokeWidth="1.6" opacity=".4"/><line x1="26.5" y1="18" x2="15.3" y2="13" stroke={gold} strokeWidth="1.2" opacity=".6"/><line x1="33.5" y1="22" x2="43.8" y2="30" stroke={gold} strokeWidth="1.2" opacity=".6"/></svg>}
           />
+          <HomeTile
+            title="Your account"
+            sub="A cloud copy of you — optional, deletable, yours."
+            onClick={() => go("account")}
+            art={<svg viewBox="0 0 60 40" className="hart"><circle cx="30" cy="13" r="6.5" fill="none" stroke={gold} strokeWidth="2"/><path d="M17 34 Q30 24 43 34" fill="none" stroke="currentColor" strokeWidth="2" opacity=".4"/></svg>}
+          />
         </div>
         <p className="hquote">The future is not artificial; it's authentically human.</p>
         <p className="privline">Everything here lives on your device. No one — iSHKiY included — sees your answers or conversations without your explicit say-so.</p>
@@ -1206,7 +1228,170 @@ function ConnectSheet({ app, link, onClose, onSave }) {
   );
 }
 
-function HumansScreen({ scores, onBack }) {
+const useSession = () => {
+  const [session, setSession] = useState(null);
+  useEffect(() => {
+    const sb = getSupa(); if (!sb) return;
+    sb.auth.getSession().then(({ data }) => setSession(data.session));
+    const { data: sub } = sb.auth.onAuthStateChange((_e, sess) => setSession(sess));
+    return () => sub.subscription.unsubscribe();
+  }, []);
+  return session;
+};
+
+function SectionHead({ kicker, title, line }) {
+  return (<>
+    <p className="kicker gold">{kicker}</p>
+    <h1 className="display ink">{title}</h1>
+    <p className="lede inkdim">{line}</p>
+  </>);
+}
+
+function AccountScreen({ state, scores, onBack }) {
+  const sb = getSupa();
+  const session = useSession();
+  const [email, setEmail] = useState("");
+  const [note, setNote] = useState("");
+  const [busy, setBusy] = useState(false);
+  const sendLink = async () => {
+    if (!email.trim() || busy) return; setBusy(true);
+    const { error } = await sb.auth.signInWithOtp({ email: email.trim(), options: { emailRedirectTo: window.location.origin } });
+    setNote(error ? "That didn't send — check the address and try again." : "A sign-in link is on its way to your inbox. Tap it and you'll land back here, signed in.");
+    setBusy(false);
+  };
+  const syncUp = async () => {
+    if (busy) return; setBusy(true);
+    const payload = { report: state.report ? { text: state.report.text, preview: !!state.report.preview } : null, scores, name: (state.answers || {})["AR-1"] || null, savedAt: Date.now() };
+    const { error } = await sb.from("living_profiles").upsert({ user_id: session.user.id, payload, updated_at: new Date().toISOString() });
+    setNote(error ? "The copy didn't take — try again in a moment." : "Backed up. Your device is still home; the cloud is just a copy.");
+    setBusy(false);
+  };
+  const burn = async () => {
+    if (busy) return;
+    if (!confirm("Delete your cloud copy? Your device keeps everything.")) return;
+    setBusy(true);
+    const { error } = await sb.from("living_profiles").delete().eq("user_id", session.user.id);
+    setNote(error ? "That didn't delete — try again." : "Gone. Nothing of you remains in the cloud.");
+    setBusy(false);
+  };
+  return (
+    <div className="reportpage">
+      <div className="rhead noprint"><button className="ghost inkghost" onClick={onBack}>← Home</button><Wordmark /><span /></div>
+      <article className="report" style={{ maxWidth: 520 }}>
+        <SectionHead kicker="Your account" title="A copy you can burn." line="ERA lives on your device — that doesn't change. An account adds one thing: a cloud copy of your profile, so a lost phone doesn't mean a lost you. Optional. Deletable. Yours." />
+        {!sb && <p className="cbridge">Accounts are coming online shortly. Everything else in ERA works fully without one — this screen simply isn't wired to the cloud yet.</p>}
+        {sb && !session && (<>
+          <input className="codeinput" style={{ textTransform: "none", letterSpacing: 0, maxWidth: 320 }} type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" onKeyDown={(e) => e.key === "Enter" && sendLink()} />
+          <button className="btn gold" disabled={busy || !email.trim()} onClick={sendLink}>{busy ? "Sending…" : "Email me a sign-in link"}</button>
+          <p className="cfoot" style={{ textAlign: "left", marginTop: 14 }}>No passwords here. A link arrives, you tap it, you're in.</p>
+        </>)}
+        {sb && session && (<>
+          <p className="cline">Signed in as <b>{session.user.email}</b>.</p>
+          <div className="cactions" style={{ justifyContent: "flex-start" }}>
+            <button className="btn gold" disabled={busy || !state.report} onClick={syncUp}>Back up my profile</button>
+            <button className="ghost inkghost" disabled={busy} onClick={burn}>Delete cloud copy</button>
+            <button className="ghost inkghost" onClick={() => sb.auth.signOut()}>Sign out</button>
+          </div>
+          {!state.report && <p className="cfoot" style={{ textAlign: "left" }}>Complete your assessment first and there'll be something worth copying.</p>}
+        </>)}
+        {note && <p className="cbridge" style={{ marginTop: 18 }}>{note}</p>}
+        <p className="integrity">Your email is used for sign-in and nothing else. Your cloud copy is readable by you alone — not practitioners, not iSHKiY — until the day you explicitly share it, and it deletes the moment you say so.</p>
+      </article>
+    </div>
+  );
+}
+
+const DISCIPLINES = { therapist: "Therapist", counsellor: "Counsellor", coach: "Coach", mentor: "Mentor", ifa: "Independent financial adviser", pt: "Personal trainer", physio: "Physiotherapist" };
+
+function Directory({ state, scores }) {
+  const sb = getSupa();
+  const session = useSession();
+  const [rows, setRows] = useState(null);
+  const [share, setShare] = useState(null); // practitioner being shared with
+  const [picks, setPicks] = useState([]);
+  useEffect(() => { if (!sb) return; sb.from("practitioners").select("*").then(({ data }) => setRows(data || [])); }, []);
+  if (!sb || rows === null) return null;
+  if (!rows.length) return <p className="cbridge">The first vetted humans are being welcomed now — this space fills as each one is approved by hand.</p>;
+  const SECTIONS = [
+    { id: "scores", label: "My dimension scores" },
+    { id: "report", label: "My full written report" },
+    { id: "words", label: "My own words (key answers)" },
+  ];
+  const buildPack = (p) => {
+    const a = state.answers || {};
+    let out = `iSHKiY ERA — shared by its owner with ${p.name} (${DISCIPLINES[p.discipline] || p.discipline})\nShared: ${new Date().toLocaleDateString("en-GB")}\nThis was shared deliberately and can be revoked. Treat it with care.\n\n`;
+    if (picks.includes("scores")) out += "== DIMENSION SCORES ==\n" + JSON.stringify(scores, null, 2) + "\n\n";
+    if (picks.includes("words")) out += `== IN THEIR OWN WORDS ==\nRole: ${a["AR-2"] || "—"}\nHardest part: ${a["AR-3"] || "—"}\nA good day: ${a["AR-4"] || "—"}\nAt my best: ${a["MI-3"] || "—"}\n\n`;
+    if (picks.includes("report")) out += "== THE REPORT ==\n" + (state.report ? state.report.text : "(no report yet)") + "\n";
+    const b = new Blob([out], { type: "text/plain" });
+    const el = document.createElement("a"); el.href = URL.createObjectURL(b); el.download = "era-share-pack.txt"; el.click(); URL.revokeObjectURL(el.href);
+    if (session) sb.from("share_grants").insert({ user_id: session.user.id, practitioner_id: p.id, sections: picks }).then(() => {});
+    setShare(null); setPicks([]);
+  };
+  return (
+    <div style={{ marginTop: 8 }}>
+      {rows.map((p) => (
+        <div key={p.id} className="capp" style={{ opacity: 1, filter: "none", cursor: "default", width: "100%", marginBottom: 12 }}>
+          <span className="cname">{p.name}</span>
+          <span className="ctag">{DISCIPLINES[p.discipline] || p.discipline}</span>
+          {p.bio && <span className="cstate">{p.bio}</span>}
+          <div className="cactions" style={{ justifyContent: "flex-start", marginTop: 10 }}>
+            {p.booking_url && <button className="btn ink" onClick={() => window.open(p.booking_url, "_blank")}>Book a conversation</button>}
+            <button className="ghost inkghost" onClick={() => { setShare(share === p.id ? null : p.id); setPicks([]); }}>Share my profile with them</button>
+          </div>
+          {share === p.id && (
+            <div style={{ marginTop: 10, width: "100%" }}>
+              {SECTIONS.map((sec) => (
+                <label key={sec.id} className="crow"><input type="checkbox" checked={picks.includes(sec.id)} onChange={() => setPicks((v) => v.includes(sec.id) ? v.filter((x) => x !== sec.id) : [...v, sec.id])} /><span><b>{sec.label}</b></span></label>
+              ))}
+              <button className="btn gold" style={{ marginTop: 12 }} disabled={!picks.length} onClick={() => buildPack(p)}>Download the share pack</button>
+              <p className="cfoot" style={{ textAlign: "left" }}>The pack downloads to your device and you hand it over yourself — by email, in person, however you choose. Nothing is sent anywhere automatically.{session ? " A record of this consent is kept in your account." : ""}</p>
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function ApplyScreen({ onBack }) {
+  const sb = getSupa();
+  const [f, setF] = useState({ name: "", email: "", discipline: "coach", registration_body: "", registration_number: "", insurance_confirmed: false, bio: "", booking_url: "", apps: ["era"] });
+  const [sent, setSent] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const set = (k, v) => setF((p) => ({ ...p, [k]: v }));
+  const submit = async () => {
+    if (busy || !f.name.trim() || !f.email.trim()) return; setBusy(true);
+    const { error } = await sb.from("practitioners").insert({ ...f, status: "pending" });
+    if (!error) setSent(true);
+    setBusy(false);
+  };
+  return (
+    <div className="reportpage">
+      <div className="rhead noprint"><button className="ghost inkghost" onClick={onBack}>← Back</button><Wordmark /><span /></div>
+      <article className="report" style={{ maxWidth: 520 }}>
+        <SectionHead kicker="For practitioners" title="Join the human layer." line="iSHKiY introduces people to vetted humans — therapists, coaches, mentors, advisers — at the moment they're ready. Every application is read and approved by a person. That's the point." />
+        {!sb && <p className="cbridge">Applications open shortly — this form isn't wired to the backend yet.</p>}
+        {sb && sent && <p className="cbridge">Received, with thanks. Every application is read personally — you'll hear back by email either way. What you build with people from here matters to us.</p>}
+        {sb && !sent && (<>
+          <input className="codeinput" style={{ textTransform: "none", letterSpacing: 0, maxWidth: "100%" }} placeholder="Your name" value={f.name} onChange={(e) => set("name", e.target.value)} />
+          <input className="codeinput" style={{ textTransform: "none", letterSpacing: 0, maxWidth: "100%" }} type="email" placeholder="Email" value={f.email} onChange={(e) => set("email", e.target.value)} />
+          <select className="codeinput" style={{ textTransform: "none", letterSpacing: 0, maxWidth: "100%" }} value={f.discipline} onChange={(e) => set("discipline", e.target.value)}>
+            {Object.entries(DISCIPLINES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+          </select>
+          <input className="codeinput" style={{ textTransform: "none", letterSpacing: 0, maxWidth: "100%" }} placeholder="Professional body (e.g. BACP, UKCP, EMCC, ICF)" value={f.registration_body} onChange={(e) => set("registration_body", e.target.value)} />
+          <input className="codeinput" style={{ textTransform: "none", letterSpacing: 0, maxWidth: "100%" }} placeholder="Registration number" value={f.registration_number} onChange={(e) => set("registration_number", e.target.value)} />
+          <input className="codeinput" style={{ textTransform: "none", letterSpacing: 0, maxWidth: "100%" }} placeholder="Booking link (Calendly or similar)" value={f.booking_url} onChange={(e) => set("booking_url", e.target.value)} />
+          <textarea className="codeinput" style={{ textTransform: "none", letterSpacing: 0, maxWidth: "100%", minHeight: 90, resize: "vertical" }} placeholder="A few lines on how you work, in your own voice — this is what people will read." value={f.bio} onChange={(e) => set("bio", e.target.value)} />
+          <label className="crow"><input type="checkbox" checked={f.insurance_confirmed} onChange={(e) => set("insurance_confirmed", e.target.checked)} /><span><b>I hold current professional indemnity insurance</b></span></label>
+          <button className="btn gold" style={{ marginTop: 14 }} disabled={busy || !f.name.trim() || !f.email.trim()} onClick={submit}>{busy ? "Sending…" : "Send my application"}</button>
+        </>)}
+      </article>
+    </div>
+  );
+}
+
+function HumansScreen({ scores, state, onBack, onApply }) {
   return (
     <div className="reportpage">
       <div className="rhead noprint">
@@ -1218,7 +1403,9 @@ function HumansScreen({ scores, onBack }) {
         <p className="kicker gold">A human, when ready</p>
         <h1 className="display ink">Real people, on your terms.</h1>
         <p className="lede inkdim">Counsellors, mentors and coaches — because human connection brings what AI never can. You choose who sees what, and when. Or no one, and that's fine too.</p>
+        <Directory state={state} scores={scores} />
         <Practitioners scores={scores} />
+        <p className="cfoot" style={{ marginTop: 26 }}>Are you a therapist, coach, mentor or adviser? <button className="cimport" style={{ display: "inline", margin: 0 }} onClick={onApply}>Apply to join the human layer →</button></p>
       </article>
     </div>
   );

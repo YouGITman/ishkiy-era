@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>iSHKiY — practitioner admin</title>
+<meta name="robots" content="noindex">
+<link href="https://fonts.googleapis.com/css2?family=Lora:wght@700&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{--ink:#0F1E3D;--bone:#F5F1E8;--gold:#D4A547}
+  body{background:var(--bone);color:var(--ink);font-family:Inter,sans-serif;max-width:680px;margin:0 auto;padding:32px 20px;line-height:1.6}
+  h1{font-family:Lora,serif;font-size:26px;margin:6px 0 4px}
+  .k{font-size:11px;letter-spacing:.2em;text-transform:uppercase;font-weight:700;color:var(--gold)}
+  input,button,select{font:inherit}
+  input{padding:12px 14px;border:1.5px solid rgba(15,30,61,.15);border-radius:12px;width:100%;max-width:320px;background:#fff}
+  button{padding:11px 18px;border:none;border-radius:12px;font-weight:700;cursor:pointer}
+  .gold{background:var(--gold);color:var(--ink)}
+  .ghost{background:none;border:1.5px solid rgba(15,30,61,.25);color:var(--ink)}
+  .card{background:#fff;border:1.5px solid rgba(15,30,61,.08);border-radius:16px;padding:18px;margin:14px 0}
+  .card b{font-size:16px}
+  .meta{font-size:13px;color:rgba(15,30,61,.6);margin:6px 0}
+  .row{display:flex;gap:10px;margin-top:12px}
+  .pill{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:3px 10px;border-radius:999px;background:rgba(212,165,71,.15);color:#8a6a1f}
+  #msg{font-size:13.5px;color:rgba(15,30,61,.6);margin-top:10px}
+</style>
+</head>
+<body>
+<p class="k">iSHKiY · admin</p>
+<h1>Practitioner applications</h1>
+<div id="auth">
+  <p>Sign in with the admin email. A magic link will arrive — no password.</p>
+  <input id="email" type="email" placeholder="tarang@ishkiy.com" autocomplete="email">
+  <div class="row"><button class="gold" onclick="sendLink()">Send magic link</button></div>
+  <p id="msg"></p>
+</div>
+<div id="panel" style="display:none">
+  <p id="who" class="meta"></p>
+  <div class="row" style="margin:0 0 8px">
+    <button class="ghost" onclick="load('pending')">Pending</button>
+    <button class="ghost" onclick="load('approved')">Approved</button>
+    <button class="ghost" onclick="signOut()">Sign out</button>
+  </div>
+  <div id="list"></div>
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/supabase/2.39.7/umd/supabase.min.js"></script>
+<script>
+const SUPA_URL  = "PASTE_SUPABASE_URL";
+const SUPA_ANON = "PASTE_SUPABASE_ANON_KEY";
+let sb=null;
+function init(){
+  if(SUPA_URL.startsWith("PASTE")){document.getElementById('msg').textContent="Backend keys not wired yet.";return}
+  sb=window.supabase.createClient(SUPA_URL,SUPA_ANON);
+  sb.auth.onAuthStateChange((_e,session)=>{render(session)});
+}
+async function sendLink(){
+  const email=document.getElementById('email').value.trim();
+  if(!email)return;
+  const{error}=await sb.auth.signInWithOtp({email,options:{emailRedirectTo:location.href}});
+  document.getElementById('msg').textContent=error?("Hmm: "+error.message):"Link sent — check the inbox, then come back here.";
+}
+function render(session){
+  const on=!!session;
+  document.getElementById('auth').style.display=on?'none':'block';
+  document.getElementById('panel').style.display=on?'block':'none';
+  if(on){document.getElementById('who').textContent="Signed in as "+session.user.email;load('pending');}
+}
+async function load(status){
+  const{data,error}=await sb.from('practitioners').select('*').eq('status',status).order('created_at');
+  const el=document.getElementById('list');
+  if(error){el.innerHTML='<p class="meta">'+error.message+'</p>';return}
+  if(!data.length){el.innerHTML='<p class="meta">Nothing '+status+' right now.</p>';return}
+  el.innerHTML=data.map(p=>`
+    <div class="card">
+      <span class="pill">${p.discipline}</span>
+      <p><b>${esc(p.name)}</b></p>
+      <p class="meta">${esc(p.email)} · ${esc(p.registration_body||'no body given')} ${esc(p.registration_number||'')} · insurance: ${p.insurance_confirmed?'confirmed':'NOT confirmed'}</p>
+      <p style="font-size:14px">${esc(p.bio||'')}</p>
+      ${p.booking_url?`<p class="meta"><a href="${esc(p.booking_url)}" target="_blank" rel="noopener">${esc(p.booking_url)}</a></p>`:''}
+      <p class="meta">Apps: ${(p.apps||[]).join(', ')}</p>
+      <div class="row">
+        ${p.status!=='approved'?`<button class="gold" onclick="setStatus('${p.id}','approved')">Approve</button>`:''}
+        ${p.status!=='rejected'?`<button class="ghost" onclick="setStatus('${p.id}','rejected')">Reject</button>`:''}
+      </div>
+    </div>`).join('');
+}
+async function setStatus(id,status){
+  const{error}=await sb.from('practitioners').update({status}).eq('id',id);
+  if(error)alert(error.message);else load('pending');
+}
+async function signOut(){await sb.auth.signOut();location.reload()}
+function esc(s){return String(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
+init();
+</script>
+</body>
+</html>
