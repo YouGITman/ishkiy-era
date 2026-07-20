@@ -8,8 +8,8 @@ import { createClient } from "@supabase/supabase-js";
    Paste your project URL and anon public key below (Settings -> API).
    The anon key is designed to be public; row-level security does the guarding.
    Until these are pasted, account features show as "coming online". */
-const SUPA_URL = "PASTE_SUPABASE_URL";
-const SUPA_ANON = "PASTE_SUPABASE_ANON_KEY";
+const SUPA_URL = "https://rstyfrjtyvtxktnynnnw.supabase.co";
+const SUPA_ANON = "sb_publishable_p-4dmXxdBcrO8oT6nlVjpw_ofYnapaS";
 let _supa = null;
 const getSupa = () => {
   if (SUPA_URL.startsWith("PASTE")) return null;
