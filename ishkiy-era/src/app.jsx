@@ -162,7 +162,7 @@ function reportCalls(answers, scores) {
 async function callClaude(prompt) {
   const res = await fetch("/api/claude", {
     method: "POST", headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ system: SYSTEM, messages: [{ role: "user", content: prompt }], max_tokens: 1400 }),
+    body: JSON.stringify({ system: SYSTEM, messages: [{ role: "user", content: prompt }], max_tokens: 1100 }),
   });
   if (!res.ok) throw new Error("proxy " + res.status);
   const data = await res.json();
@@ -221,7 +221,7 @@ function App() {
 
   if (state.phase === "breath") return <Breath onEnter={() => update({ phase: "home" })} />;
   if (state.phase === "home") return <Home state={state} onTheme={() => update({ dark: !state.dark })} go={(p) => update({ phase: p })} startAssessment={() => update({ phase: state.unlocked ? (Object.keys(answers).length ? "intro" : "warmup") : "unlock" })} />;
-  if (state.phase === "companion") return <CompanionScreen state={state} scores={scores} onBack={() => update({ phase: "home" })} />;
+  if (state.phase === "companion") return <CompanionScreen state={state} scores={scores} onBack={() => update({ phase: "home" })} onRegenerate={() => update({ phase: "generating" })} />;
   if (state.phase === "constellation") return <ConstellationScreen state={state} update={update} onBack={() => update({ phase: "home" })} />;
   if (state.phase === "humans") return <HumansScreen scores={scores} state={state} onBack={() => update({ phase: "home" })} onApply={() => update({ phase: "apply" })} />;
   if (state.phase === "account") return <AccountScreen state={state} scores={scores} onBack={() => update({ phase: "home" })} />;
@@ -239,7 +239,7 @@ function App() {
     update(next >= PARTS.length ? { completedAt, phase: "generating" } : { completedAt, part: next, item: 0, phase: "intro" });
   }} />;
   if (state.phase === "generating") return <Generating answers={answers} scores={scores} onDone={(report) => update({ report, phase: "report", companionStart: state.companionStart || Date.now() })} />;
-  if (state.phase === "report") return <Report report={state.report} name={answers["AR-1"]} answers={answers} scores={scores} companionStart={state.companionStart} completedAt={state.completedAt || {}} onBack={() => update({ phase: "home" })} onLibrary={() => update({ phase: "library" })} onRetake={(idx) => update({ part: idx, item: 0, retaking: true, phase: "intro" })} onRestart={() => { localStorage.removeItem(KEY); location.reload(); }} />;
+  if (state.phase === "report") return <Report report={state.report} name={answers["AR-1"]} answers={answers} scores={scores} companionStart={state.companionStart} completedAt={state.completedAt || {}} onBack={() => update({ phase: "home" })} onLibrary={() => update({ phase: "library" })} onRegenerate={() => update({ phase: "generating" })} onRetake={(idx) => update({ part: idx, item: 0, retaking: true, phase: "intro" })} onRestart={() => { localStorage.removeItem(KEY); location.reload(); }} />;
   return null;
 }
 
@@ -281,8 +281,13 @@ function Welcome({ onStart, resumable }) {
         <Wordmark light />
         <p className="kicker">Essence Recovery Assessment</p>
         <h1 className="display">You weren't built for a box.</h1>
-        <p className="lede">Nine parts. Around fifty minutes, taken at your own pace — your progress saves after every answer, on your device, and nowhere else.</p>
-        <p className="lede dim">At the end you'll receive a written report: how you think, how you carry yourself, what pulls you, what you're for, and where that points. Grounded in established psychological frameworks — CHC, Big Five, Goleman EI, RIASEC and Schwartz Values. A structured self-discovery tool, not a clinical instrument.</p>
+        <p className="lede">This app helps you understand yourself — and use what you learn.</p>
+        <div className="steps">
+          <div className="step"><span className="stepn">1</span><span>Answer questions about yourself. About 50 minutes, at your own pace. It saves as you go.</span></div>
+          <div className="step"><span className="stepn">2</span><span>Get a written report about you — how you think, what you enjoy, what matters to you. Yours to keep.</span></div>
+          <div className="step"><span className="stepn">3</span><span>Talk it over with your AI Companion for 7 days. Ask it anything about your life and work.</span></div>
+        </div>
+        <p className="lede dim">Built on trusted psychology (Big Five, CHC, Goleman EI, RIASEC, Schwartz Values). A self-discovery tool, not a medical test. Your answers stay on your phone — no one can read them, iSHKiY included.</p>
         <button className="btn gold" onClick={onStart}>{resumable ? "Continue where you left off" : "Begin"}</button>
       </div>
     </Shell>
@@ -300,7 +305,7 @@ function Unlock({ onUnlock }) {
       <div className="welcome">
         <p className="kicker">Founding access</p>
         <h1 className="display sm">Enter your access code</h1>
-        <p className="lede dim">Your code arrived with your payment confirmation. £29 founding access: the full assessment, your written report — yours to keep — the share card, and seven days with your Report Companion, an AI coach, mentor and sounding board that has actually read you.</p>
+        <p className="lede dim">Your code came with your payment confirmation. £29 gets you: the full assessment, your written report (yours to keep), a share card, and 7 days with your AI Companion — a coach, mentor and sounding board that has actually read you.</p>
         <input className="code" value={code} onChange={(e) => { setCode(e.target.value); setErr(false); }} onKeyDown={(e) => e.key === "Enter" && code && check()} placeholder="e.g. ERA-XXXX-XXXX" autoFocus spellCheck="false" />
         {err && <p className="err">That code isn't recognised. Check for typos — codes aren't case-sensitive.</p>}
         <button className="btn gold" disabled={!code || busy} onClick={check}>{busy ? "Checking…" : "Continue"}</button>
@@ -453,7 +458,13 @@ function Generating({ answers, scores, onDone }) {
         for (let i = 0; i < calls.length; i++) {
           if (!alive) return;
           setStep(i);
-          sections.push(await callClaude(calls[i].prompt));
+          let text = null, tries = 0;
+          while (text == null && tries < 3) {
+            tries += 1;
+            try { text = await callClaude(calls[i].prompt); }
+            catch (err) { if (tries >= 3) throw err; await new Promise((r) => setTimeout(r, 1200 * tries)); }
+          }
+          sections.push(text);
         }
         if (alive) onDone({ text: sections.join("\n\n"), preview: false, when: new Date().toISOString() });
       } catch (e) {
@@ -749,13 +760,13 @@ function Home({ state, go, startAssessment, onTheme }) {
         <div className="hgrid">
           <HomeTile
             title={hasReport ? "Your profile" : midway ? "Continue the assessment" : "Take the assessment"}
-            sub={hasReport ? "Your report, tiles, share card and retakes." : "Nine parts, about fifty minutes, at your pace."}
+            sub={hasReport ? "Read your report. Save it, share it, retake parts." : "Answer questions about yourself. About 50 minutes."}
             onClick={hasReport ? () => go("report") : startAssessment}
             art={<svg viewBox="0 0 60 40" className="hart"><circle cx="30" cy="20" r="12" fill="none" stroke={gold} strokeWidth="2"/><circle cx="30" cy="20" r="4" fill={gold}/></svg>}
           />
           <HomeTile
             title="The Companion"
-            sub="Four voices that have read you. Ten questions a day."
+            sub="Talk about your life and work with four AI voices that know your report. Ten questions a day."
             locked={!hasReport} lockNote="Opens after your report is written."
             onClick={() => go("companion")}
             badge={hasReport && compLeft != null ? `${compLeft} left today` : null}
@@ -763,27 +774,27 @@ function Home({ state, go, startAssessment, onTheme }) {
           />
           <HomeTile
             title="A human, when ready"
-            sub="Counsellors, mentors and coaches — sharing on your terms."
+            sub="Real people to talk to, later. You choose what they see of you."
             locked={!hasReport} lockNote="Opens after your report is written."
             onClick={() => go("humans")}
             art={<RotatingFaces />}
           />
           <HomeTile
             title="The Library of You"
-            sub="New lenses for the same profile — frameworks, ideas, and thinkers you trust."
+            sub="More assessments to add to your profile. Some free, some with membership."
             onClick={() => go("library")}
             art={<RotatingGlyphs />}
           />
           <HomeTile
             title="The Constellation"
-            sub="Your other iSHKiY apps — connected here, on your terms."
+            sub="Your other iSHKiY apps, connected here. Only if you choose."
             onClick={() => go("constellation")}
             badge={(() => { if (!state.constellationInvite) return "Invite only"; const c = state.constellation || {}; const n = Object.values(c).filter((x) => x && x.linked).length; return n ? `${n} connected` : null; })()}
             art={<svg viewBox="0 0 60 40" className="hart"><circle cx="30" cy="20" r="4" fill={gold}/><circle cx="13" cy="12" r="2.5" fill="none" stroke={gold} strokeWidth="1.6"/><circle cx="47" cy="10" r="2.5" fill="none" stroke="currentColor" strokeWidth="1.6" opacity=".4"/><circle cx="46" cy="31" r="2.5" fill="none" stroke={gold} strokeWidth="1.6"/><circle cx="12" cy="30" r="2.5" fill="none" stroke="currentColor" strokeWidth="1.6" opacity=".4"/><line x1="26.5" y1="18" x2="15.3" y2="13" stroke={gold} strokeWidth="1.2" opacity=".6"/><line x1="33.5" y1="22" x2="43.8" y2="30" stroke={gold} strokeWidth="1.2" opacity=".6"/></svg>}
           />
           <HomeTile
             title="Your account"
-            sub="A cloud copy of you — optional, deletable, yours."
+            sub="Back up your profile online. Optional. Delete it any time."
             onClick={() => go("account")}
             art={<svg viewBox="0 0 60 40" className="hart"><circle cx="30" cy="13" r="6.5" fill="none" stroke={gold} strokeWidth="2"/><path d="M17 34 Q30 24 43 34" fill="none" stroke="currentColor" strokeWidth="2" opacity=".4"/></svg>}
           />
@@ -823,10 +834,10 @@ Hard boundaries: you are not a clinician and the assessment is not clinically va
 You exist to help them think about decisions, work, and direction using what the assessment revealed. End answers plainly, not with offers of further help.`;
 
 const MODES = {
-  companion: { label: "Companion", desc: "Reads you back. Good for decisions and direction.", add: "" },
-  coach: { label: "Coach", desc: "Forward motion. Expects you to act.", add: "\n\nMODE — COACH: You are in coach mode. Focus on the next concrete step, not the whole staircase. Hold them to what their profile says they're capable of — kindly, but without letting them off. Each reply should surface one specific action they could take this week, drawn from their scores and words. Ask at most one sharp question per reply. Do not comfort when a nudge serves better." },
-  mentor: { label: "Mentor", desc: "The longer view. Been there, seen it.", add: "\n\nMODE — MENTOR: You are in mentor mode. Speak from experience and pattern: what tends to happen to people shaped like this, over years not weeks. Offer perspective before advice. Occasionally tell a short, plausible general truth about working life ('people with your pattern often…'). Never invent personal anecdotes or claim a biography. The gift of this mode is patience and the long view." },
-  sounding: { label: "Sounding board", desc: "Untangling, out loud. Not counselling.", add: "\n\nMODE — SOUNDING BOARD: You are in sounding-board mode. Your job is to help them hear themselves: reflect back what they've said in cleaner words, name the feeling underneath if it's visible, ask gentle questions that untangle rather than steer. Give less advice than in any other mode. Be explicit when relevant that this is thinking-out-loud, not counselling or therapy — and if what they're carrying runs deeper than untangling, warmly suggest the kind of human support that fits, including the practitioner circle when it's live." },
+  companion: { label: "Guide", slogan: "Start here. Helps you think it through.", desc: "Reads you back. Good for decisions and direction.", add: "" },
+  coach: { label: "Coach", slogan: "Pushes you to act. One step this week.", desc: "Forward motion. Expects you to act.", add: "\n\nMODE — COACH: You are in coach mode. Focus on the next concrete step, not the whole staircase. Hold them to what their profile says they're capable of — kindly, but without letting them off. Each reply should surface one specific action they could take this week, drawn from their scores and words. Ask at most one sharp question per reply. Do not comfort when a nudge serves better." },
+  mentor: { label: "Mentor", slogan: "The long view. What usually happens next.", desc: "The longer view. Been there, seen it.", add: "\n\nMODE — MENTOR: You are in mentor mode. Speak from experience and pattern: what tends to happen to people shaped like this, over years not weeks. Offer perspective before advice. Occasionally tell a short, plausible general truth about working life ('people with your pattern often…'). Never invent personal anecdotes or claim a biography. The gift of this mode is patience and the long view." },
+  sounding: { label: "Sounding board", slogan: "Listens and untangles. Advice only if you ask.", desc: "Untangling, out loud. Not counselling.", add: "\n\nMODE — SOUNDING BOARD: You are in sounding-board mode. Your job is to help them hear themselves: reflect back what they've said in cleaner words, name the feeling underneath if it's visible, ask gentle questions that untangle rather than steer. Give less advice than in any other mode. Be explicit when relevant that this is thinking-out-loud, not counselling or therapy — and if what they're carrying runs deeper than untangling, warmly suggest the kind of human support that fits, including the practitioner circle when it's live." },
 };
 
 const COMPANION_DAYS = 7;
@@ -946,7 +957,16 @@ function Companion({ scores, answers, reportText, start }) {
     <section className="companion noprint">
       <p className="kicker gold">Your Report Companion</p>
       <h2 className="ctitle">This report isn't the product. It's the beginning of one.</h2>
-      <p className="cexplain">Four voices, each with its own thread — switch below and the conversation switches with you. All four share the same {Q_CAP} questions a day. These conversations live on this device and nowhere else — no one reads them, iSHKiY included, and nothing is shared unless you explicitly choose to share it. Your founding purchase includes seven days; this is day {dayNum}.</p>
+      <p className="cexplain">Four voices. Each keeps its own conversation — switch below and the thread switches with you. They share {Q_CAP} questions a day between them. No one can read these conversations — not even iSHKiY. Day {dayNum} of your 7.</p>
+      <div className="voiceguide">
+        {Object.entries(MODES).map(([k, m]) => (
+          <button key={"vg" + k} className={"vgrow" + (mode === k ? " sel" : "")} onClick={() => pick(k)}>
+            <Avatar kind={k} size={22} />
+            <span className="vgname">{m.label}</span>
+            <span className="vgslogan">{m.slogan}</span>
+          </button>
+        ))}
+      </div>
       <div className="moderow">
         {Object.entries(MODES).map(([k, m]) => (
           <button key={k} className={"modebtn" + (mode === k ? " sel" : "")} onClick={() => pick(k)} title={m.desc}><Avatar kind={k} size={26} />{m.label}{(c.streams[k] || []).length ? <span className="mcount">{Math.ceil((c.streams[k] || []).length / 2)}</span> : null}</button>
@@ -1051,7 +1071,7 @@ function Retakes({ completedAt, onRetake }) {
 }
 
 
-function CompanionScreen({ state, scores, onBack }) {
+function CompanionScreen({ state, scores, onBack, onRegenerate }) {
   if (!state.report || !scores) return null;
   return (
     <div className="reportpage">
@@ -1069,7 +1089,7 @@ function CompanionScreen({ state, scores, onBack }) {
         </div>
         <p className="teamline">You don't have to navigate alone. Four voices, no judgement, and they've read every word you gave.</p>
         {state.report.preview
-          ? <p className="previewnote">The Companion opens once a real report has been generated.</p>
+          ? <div className="previewnote"><p>Your report didn't finish writing, so the Companion is waiting. Your answers are safe — one tap tries again.</p><button className="btn gold" onClick={onRegenerate}>Write my real report</button></div>
           : <Companion scores={scores} answers={state.answers || {}} reportText={state.report.text} start={state.companionStart} />}
         <p className="hquote">The future is not artificial; it's authentically human.</p>
       </article>
@@ -1411,7 +1431,7 @@ function HumansScreen({ scores, state, onBack, onApply }) {
   );
 }
 
-function Report({ report, name, answers, scores, companionStart, completedAt, onBack, onLibrary, onRetake, onRestart }) {
+function Report({ report, name, answers, scores, companionStart, completedAt, onBack, onLibrary, onRegenerate, onRetake, onRestart }) {
   if (!report) return null;
   return (
     <div className="reportpage">
@@ -1428,7 +1448,7 @@ function Report({ report, name, answers, scores, companionStart, completedAt, on
         <p className="kicker gold noprint">Essence Recovery Assessment</p>
         <h1 className="display ink">{name ? `${name}, this is you.` : "This is you."}</h1>
         <p className="lede inkdim noprint">Your report, your dimension tiles, your share card — the centre everything else here orbits.</p>
-        {report.preview && <p className="previewnote">Preview report — deploy with the API key to generate the real one.</p>}
+        {report.preview && <div className="previewnote"><p>Your real report didn't finish writing — usually just a connection blip. Your answers are safe on this phone. One tap tries again.</p><button className="btn gold" onClick={onRegenerate}>Write my real report</button></div>}
         {scores && <Tiles scores={scores} />}
         <div className="rbody" dangerouslySetInnerHTML={{ __html: md(report.text) }} />
         <p className="integrity">Grounded in established psychological frameworks — CHC, Big Five, Goleman EI, RIASEC and Schwartz Values. A structured self-discovery tool, not a clinical or validated psychometric instrument. Your answers never left your device, and no one — iSHKiY included — can see them or your conversations without your explicit permission. This report was written for you alone, and it belongs to you.</p>

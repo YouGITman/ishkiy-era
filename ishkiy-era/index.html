@@ -8,6 +8,10 @@
 <meta name="theme-color" content="#0F1E3D" />
 <link rel="manifest" href="/manifest.json" />
 <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="default" />
+<meta name="apple-mobile-web-app-title" content="iSHKiY" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Lora:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
@@ -322,6 +326,23 @@
   .libctak{font-size:11px; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:#8a6d1f}
   body.dm .libctak{color:var(--gold)}
   .libctat{font-family:Lora,serif; font-weight:600; font-size:17px; color:var(--ink)}
+
+
+  /* what-this-is steps */
+  .steps{display:flex; flex-direction:column; gap:12px; margin:6px 0 16px}
+  .step{display:flex; gap:12px; align-items:flex-start; font-size:15.5px; line-height:1.55; color:#F5F1E8}
+  .stepn{flex:0 0 auto; width:26px; height:26px; border-radius:50%; background:rgba(212,165,71,.2); border:1.5px solid #D4A547; color:#D4A547; font-weight:700; font-size:13px; display:flex; align-items:center; justify-content:center; margin-top:2px}
+
+  /* which voice, when */
+  .voiceguide{display:grid; grid-template-columns:1fr; gap:8px; margin:0 0 14px}
+  @media (min-width:520px){ .voiceguide{grid-template-columns:1fr 1fr} }
+  .vgrow{display:flex; align-items:center; gap:10px; text-align:left; padding:10px 12px; border-radius:12px; border:1.5px solid var(--ink06); background:rgba(255,255,255,.45)}
+  body.dm .vgrow{background:rgba(245,241,232,.05)}
+  .vgrow.sel{border-color:var(--gold); background:rgba(212,165,71,.1)}
+  .vgname{font-weight:700; font-size:14px; color:var(--ink); flex:0 0 auto}
+  .vgslogan{font-size:12.5px; color:var(--ink60); line-height:1.4}
+  .previewnote p{margin:0 0 10px}
+  .previewnote .btn{margin-top:0}
 
   /* message labels */
   .msg{display:flex; flex-direction:column; align-items:flex-start; gap:3px}
