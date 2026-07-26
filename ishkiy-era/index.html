@@ -328,6 +328,39 @@
   .libctat{font-family:Lora,serif; font-weight:600; font-size:17px; color:var(--ink)}
 
 
+
+  /* warm section tints (wayfinding colour) */
+  .tint-gold{background:linear-gradient(180deg, rgba(212,165,71,.12), var(--bone) 260px)}
+  .tint-clay{background:linear-gradient(180deg, rgba(192,107,92,.12), var(--bone) 260px)}
+  .tint-heather{background:linear-gradient(180deg, rgba(138,111,160,.12), var(--bone) 260px)}
+  .tint-steel{background:linear-gradient(180deg, rgba(92,124,163,.12), var(--bone) 260px)}
+  body.dm .tint-gold{background:linear-gradient(180deg, rgba(212,165,71,.14), #0B1830 260px)}
+  body.dm .tint-clay{background:linear-gradient(180deg, rgba(192,107,92,.16), #0B1830 260px)}
+  body.dm .tint-heather{background:linear-gradient(180deg, rgba(138,111,160,.18), #0B1830 260px)}
+  body.dm .tint-steel{background:linear-gradient(180deg, rgba(92,124,163,.18), #0B1830 260px)}
+
+  /* the orb */
+  .orbwrap{margin-bottom:22px}
+  .orb .orbhalo{transform-origin:center; animation:breathe 4.6s ease-in-out infinite}
+  @media (prefers-reduced-motion: reduce){ .orb .orbhalo{animation:none} }
+  .breath.orbwrap span{display:none}
+
+  /* voice hub */
+  .voicehub{display:grid; grid-template-columns:1fr; gap:12px; margin:6px 0 18px}
+  @media (min-width:520px){ .voicehub{grid-template-columns:1fr 1fr} }
+  .vcard{display:flex; flex-direction:column; align-items:flex-start; gap:6px; text-align:left; padding:16px; border-radius:16px; border:1.5px solid var(--ink06); border-top-width:4px; background:rgba(255,255,255,.5)}
+  body.dm .vcard{background:rgba(245,241,232,.05)}
+  .vcname{font-family:Lora,serif; font-weight:700; font-size:18px}
+  .vcname.big{font-size:22px; margin:0}
+  .vcslogan{font-size:13px; color:var(--ink60); line-height:1.45}
+  .vclast{font-size:12.5px; font-style:italic; color:var(--ink60); margin-top:2px}
+  .room{border-top:4px solid var(--gold)}
+  .roomhead{display:flex; gap:14px; align-items:center; border-radius:14px; padding:14px; margin:10px 0 14px}
+  .roomvibe{font-size:13.5px; color:var(--ink60); margin:2px 0 0; font-style:italic}
+  .topicdiv{display:flex; align-items:center; gap:10px; margin:6px 0}
+  .topicdiv::before,.topicdiv::after{content:""; flex:1; height:1px; background:var(--ink12)}
+  .topicdiv span{font-size:10.5px; letter-spacing:.12em; text-transform:uppercase; color:var(--ink60)}
+
   /* what-this-is steps */
   .steps{display:flex; flex-direction:column; gap:12px; margin:6px 0 16px}
   .step{display:flex; gap:12px; align-items:flex-start; font-size:15.5px; line-height:1.55; color:#F5F1E8}

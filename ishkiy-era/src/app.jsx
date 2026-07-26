@@ -17,6 +17,12 @@ const getSupa = () => {
   return _supa;
 };
 
+/* ---------------- anonymous, content-free event counts ----------------
+   We count taps (e.g. "assessment_start"), never words. No answers, no
+   conversations, no names ever leave the device. */
+const sid = (() => { try { let x = localStorage.getItem("era-sid"); if (!x) { x = Math.random().toString(36).slice(2, 10); localStorage.setItem("era-sid", x); } return x; } catch { return "anon"; } })();
+const track = (e, d) => { try { const sp = getSupa(); if (!sp) return; sp.from("era_events").insert({ e, d: d == null ? null : String(d).slice(0, 40), sid, v: "1.10" }).then(() => {}, () => {}); } catch {} };
+
 /* ---------------- storage ---------------- */
 const KEY = "era-v1";
 const load = () => { try { return JSON.parse(localStorage.getItem(KEY)) || {}; } catch { return {}; } };
@@ -466,9 +472,9 @@ function Generating({ answers, scores, onDone }) {
           }
           sections.push(text);
         }
-        if (alive) onDone({ text: sections.join("\n\n"), preview: false, when: new Date().toISOString() });
+        if (alive) { track("report_ok"); onDone({ text: sections.join("\n\n"), preview: false, when: new Date().toISOString() }); }
       } catch (e) {
-        if (alive) onDone({ text: SAMPLE, preview: true, when: new Date().toISOString() });
+        if (alive) { track("report_fail"); onDone({ text: SAMPLE, preview: true, when: new Date().toISOString() }); }
       }
     })();
     return () => { alive = false; };
@@ -477,7 +483,7 @@ function Generating({ answers, scores, onDone }) {
   return (
     <Shell dark>
       <div className="glimmer">
-        <GlimmerArt kind="ring" />
+        <div className="orbwrap"><Orb size={100} /></div>
         <p className="gline">That's everything. Most people never sit with themselves this long.</p>
         <p className="gsub">{lines[Math.min(step, lines.length - 1)]}…</p>
       </div>
@@ -639,14 +645,26 @@ const qNext = () => {
   } catch { return QUOTES[Math.floor(Math.random() * QUOTES.length)]; }
 };
 
+function Orb({ size = 96 }) {
+  return (
+    <svg viewBox="0 0 96 96" width={size} height={size} className="orb" aria-hidden="true">
+      <circle cx="48" cy="48" r="40" fill="rgba(212,165,71,0.14)" className="orbhalo" />
+      <circle cx="48" cy="48" r="27" fill="#D4A547" />
+      <path d="M38 46 q4 -4 8 0" fill="none" stroke="#0F1E3D" strokeWidth="2.6" strokeLinecap="round" />
+      <path d="M52 46 q4 -4 8 0" fill="none" stroke="#0F1E3D" strokeWidth="2.6" strokeLinecap="round" />
+      <path d="M42 56 q6 4 12 0" fill="none" stroke="#0F1E3D" strokeWidth="2.6" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 function Breath({ onEnter }) {
   const quote = useMemo(qNext, []);
   return (
     <Shell dark>
       <div className="glimmer breathscreen">
-        <div className="breath" aria-hidden="true"><span /></div>
+        <div className="breath orbwrap" aria-hidden="true"><Orb size={110} /></div>
         <p className="gline bquote">{quote}</p>
-        <button className="btn gold" onClick={onEnter}>Enter</button>
+        <button className="btn gold" onClick={() => { track("enter"); onEnter(); }}>Enter</button>
         <div className="bfoot"><Wordmark light /></div>
       </div>
     </Shell>
@@ -677,7 +695,7 @@ function Constellation() {
 function LibraryScreen({ onBack }) {
   const mailto = (n) => "mailto:ops@ishkiy.com?subject=" + encodeURIComponent("Library vote — " + n) + "&body=" + encodeURIComponent("Build \u201C" + n + "\u201D first. I'd take it.");
   return (
-    <div className="reportpage">
+    <div className="reportpage tint-heather">
       <div className="rhead noprint">
         <button className="ghost inkghost" onClick={onBack}>← Home</button>
         <Wordmark />
@@ -706,9 +724,9 @@ function LibraryScreen({ onBack }) {
 }
 
 /* ---------------- the cockpit ---------------- */
-function HomeTile({ title, sub, locked, lockNote, onClick, art, badge }) {
+function HomeTile({ title, sub, locked, lockNote, onClick, art, badge, acc }) {
   return (
-    <button className={"htile" + (locked ? " locked" : "")} onClick={locked ? undefined : onClick} aria-disabled={locked}>
+    <button className={"htile" + (locked ? " locked" : "")} style={acc ? { borderTopColor: acc, borderTopWidth: "4px", background: `linear-gradient(180deg, ${acc}14, transparent 55%)` } : undefined} onClick={locked ? undefined : onClick} aria-disabled={locked}>
       {badge != null && <span className="htbadge">{badge}</span>}
       {art}
       <span className="httitle">{title}</span>
@@ -759,12 +777,14 @@ function Home({ state, go, startAssessment, onTheme }) {
         <p className="lede inkdim hsub">{hasReport ? "Your profile is waiting. So is the team." : midway ? "You're partway through. Pick up where you left off — your answers kept your place." : "Everything here begins with one honest hour. Start when you're ready."}</p>
         <div className="hgrid">
           <HomeTile
+            acc="#5C7CA3"
             title={hasReport ? "Your profile" : midway ? "Continue the assessment" : "Take the assessment"}
             sub={hasReport ? "Read your report. Save it, share it, retake parts." : "Answer questions about yourself. About 50 minutes."}
-            onClick={hasReport ? () => go("report") : startAssessment}
+            onClick={hasReport ? () => { track("view_report"); go("report"); } : () => { track("assessment_start"); startAssessment(); }}
             art={<svg viewBox="0 0 60 40" className="hart"><circle cx="30" cy="20" r="12" fill="none" stroke={gold} strokeWidth="2"/><circle cx="30" cy="20" r="4" fill={gold}/></svg>}
           />
           <HomeTile
+            acc="#D4A547"
             title="The Companion"
             sub="Talk about your life and work with four AI voices that know your report. Ten questions a day."
             locked={!hasReport} lockNote="Opens after your report is written."
@@ -773,19 +793,22 @@ function Home({ state, go, startAssessment, onTheme }) {
             art={<svg viewBox="0 0 60 40" className="hart"><circle cx="22" cy="20" r="9" fill="none" stroke={gold} strokeWidth="2"/><circle cx="38" cy="20" r="9" fill="none" stroke={faint} strokeWidth="2"/></svg>}
           />
           <HomeTile
+            acc="#C06B5C"
             title="A human, when ready"
             sub="Real people to talk to, later. You choose what they see of you."
             locked={!hasReport} lockNote="Opens after your report is written."
-            onClick={() => go("humans")}
+            onClick={() => { track("view_humans"); go("humans"); }}
             art={<RotatingFaces />}
           />
           <HomeTile
+            acc="#8A6FA0"
             title="The Library of You"
             sub="More assessments to add to your profile. Some free, some with membership."
-            onClick={() => go("library")}
+            onClick={() => { track("view_library"); go("library"); }}
             art={<RotatingGlyphs />}
           />
           <HomeTile
+            acc="#D4A547"
             title="The Constellation"
             sub="Your other iSHKiY apps, connected here. Only if you choose."
             onClick={() => go("constellation")}
@@ -793,6 +816,7 @@ function Home({ state, go, startAssessment, onTheme }) {
             art={<svg viewBox="0 0 60 40" className="hart"><circle cx="30" cy="20" r="4" fill={gold}/><circle cx="13" cy="12" r="2.5" fill="none" stroke={gold} strokeWidth="1.6"/><circle cx="47" cy="10" r="2.5" fill="none" stroke="currentColor" strokeWidth="1.6" opacity=".4"/><circle cx="46" cy="31" r="2.5" fill="none" stroke={gold} strokeWidth="1.6"/><circle cx="12" cy="30" r="2.5" fill="none" stroke="currentColor" strokeWidth="1.6" opacity=".4"/><line x1="26.5" y1="18" x2="15.3" y2="13" stroke={gold} strokeWidth="1.2" opacity=".6"/><line x1="33.5" y1="22" x2="43.8" y2="30" stroke={gold} strokeWidth="1.2" opacity=".6"/></svg>}
           />
           <HomeTile
+            acc="#6F8F5E"
             title="Your account"
             sub="Back up your profile online. Optional. Delete it any time."
             onClick={() => go("account")}
@@ -800,7 +824,7 @@ function Home({ state, go, startAssessment, onTheme }) {
           />
         </div>
         <p className="hquote">The future is not artificial; it's authentically human.</p>
-        <p className="privline">Everything here lives on your device. No one — iSHKiY included — sees your answers or conversations without your explicit say-so.</p>
+        <p className="privline">Everything here lives on your device. No one — iSHKiY included — sees your answers or conversations without your explicit say-so. We count anonymous taps (like “assessment started”) to improve the app — never your words.</p>
       </div>
     </Shell>
   );
@@ -831,13 +855,13 @@ Ground every answer in THEIR profile — quote their scores and their own words 
 
 Hard boundaries: you are not a clinician and the assessment is not clinically validated — never diagnose, never advise on medication or medical or legal matters; suggest a proper professional instead. If they express serious distress or thoughts of harming themselves, respond with warmth and care, don't lecture, and gently encourage them to talk to someone they trust or a professional soon. You may be honest that some questions deserve a human. Whenever you state a boundary or disclaimer — that you are not a clinician, that this is not therapy or medical or legal advice, or that a professional is the right next step — wrap that exact sentence in [! and !] markers so it can be shown clearly.
 
-You exist to help them think about decisions, work, and direction using what the assessment revealed. End answers plainly, not with offers of further help.`;
+Always answer their newest message first — earlier turns are background only. If the newest message changes subject, follow the new subject fully; never drag the previous topic back in uninvited. You exist to help them think about decisions, work, and direction using what the assessment revealed. End answers plainly, not with offers of further help.`;
 
 const MODES = {
-  companion: { label: "Guide", slogan: "Start here. Helps you think it through.", desc: "Reads you back. Good for decisions and direction.", add: "" },
-  coach: { label: "Coach", slogan: "Pushes you to act. One step this week.", desc: "Forward motion. Expects you to act.", add: "\n\nMODE — COACH: You are in coach mode. Focus on the next concrete step, not the whole staircase. Hold them to what their profile says they're capable of — kindly, but without letting them off. Each reply should surface one specific action they could take this week, drawn from their scores and words. Ask at most one sharp question per reply. Do not comfort when a nudge serves better." },
-  mentor: { label: "Mentor", slogan: "The long view. What usually happens next.", desc: "The longer view. Been there, seen it.", add: "\n\nMODE — MENTOR: You are in mentor mode. Speak from experience and pattern: what tends to happen to people shaped like this, over years not weeks. Offer perspective before advice. Occasionally tell a short, plausible general truth about working life ('people with your pattern often…'). Never invent personal anecdotes or claim a biography. The gift of this mode is patience and the long view." },
-  sounding: { label: "Sounding board", slogan: "Listens and untangles. Advice only if you ask.", desc: "Untangling, out loud. Not counselling.", add: "\n\nMODE — SOUNDING BOARD: You are in sounding-board mode. Your job is to help them hear themselves: reflect back what they've said in cleaner words, name the feeling underneath if it's visible, ask gentle questions that untangle rather than steer. Give less advice than in any other mode. Be explicit when relevant that this is thinking-out-loud, not counselling or therapy — and if what they're carrying runs deeper than untangling, warmly suggest the kind of human support that fits, including the practitioner circle when it's live." },
+  companion: { label: "Guide", colour: "#D4A547", vibe: "Steady and warm. A hand on the tiller while you think.", slogan: "Start here. Helps you think it through.", desc: "Reads you back. Good for decisions and direction.", add: "" },
+  coach: { label: "Coach", colour: "#C06B5C", vibe: "Direct and kind. Believes in you enough to push.", slogan: "Pushes you to act. One step this week.", desc: "Forward motion. Expects you to act.", add: "\n\nMODE — COACH: You are in coach mode. Focus on the next concrete step, not the whole staircase. Hold them to what their profile says they're capable of — kindly, but without letting them off. Each reply should surface one specific action they could take this week, drawn from their scores and words. Ask at most one sharp question per reply. Do not comfort when a nudge serves better." },
+  mentor: { label: "Mentor", colour: "#5C7CA3", vibe: "Unhurried. Sees the years, not just the week.", slogan: "The long view. What usually happens next.", desc: "The longer view. Been there, seen it.", add: "\n\nMODE — MENTOR: You are in mentor mode. Speak from experience and pattern: what tends to happen to people shaped like this, over years not weeks. Offer perspective before advice. Occasionally tell a short, plausible general truth about working life ('people with your pattern often…'). Never invent personal anecdotes or claim a biography. The gift of this mode is patience and the long view." },
+  sounding: { label: "Sounding board", colour: "#6F8F5E", vibe: "Quiet and roomy. Space to hear yourself.", slogan: "Listens and untangles. Advice only if you ask.", desc: "Untangling, out loud. Not counselling.", add: "\n\nMODE — SOUNDING BOARD: You are in sounding-board mode. Your job is to help them hear themselves: reflect back what they've said in cleaner words, name the feeling underneath if it's visible, ask gentle questions that untangle rather than steer. Give less advice than in any other mode. Be explicit when relevant that this is thinking-out-loud, not counselling or therapy — and if what they're carrying runs deeper than untangling, warmly suggest the kind of human support that fits, including the practitioner circle when it's live." },
 };
 
 const COMPANION_DAYS = 7;
@@ -853,7 +877,7 @@ function Pulse({ mode, pulse, busy, onRefresh, canRefresh }) {
   return (
     <div className="pulse">
       <div className="pulsehead">
-        <span className="mlabel"><Avatar kind={mode} size={15} /> Pulse — {MODES[mode].label}</span>
+        <span className="mlabel"><Avatar kind={mode} size={15} /> Summary — the latest from this conversation</span>
         <button className="pulsebtn" disabled={busy || !canRefresh} onClick={onRefresh}>{busy ? "Listening…" : "Refresh"}</button>
       </div>
       {pulse
@@ -873,6 +897,7 @@ function Companion({ scores, answers, reportText, start }) {
   const [busy, setBusy] = useState(false);
   const [busyPulse, setBusyPulse] = useState(false);
   const [showOld, setShowOld] = useState(false);
+  const [room, setRoom] = useState(null);
   const endRef = useRef(null);
   const stream = c.streams[mode] || [];
   useEffect(() => { endRef.current?.scrollIntoView({ block: "nearest" }); }, [stream.length, busy]);
@@ -922,7 +947,7 @@ function Companion({ scores, answers, reportText, start }) {
     setBusyPulse(true);
     const transcript = st.slice(-12).map((m) => (m.role === "user" ? "You said: " : "Voice: ") + m.content).join("\n");
     const text = await fetchAI({
-      system: "You distil a conversation for iSHKiY, speaking directly to the person it belongs to. Address them as \"you\" — never \"they\", \"them\" or \"the user\". UK English, plain, warm, no corporate words, no bullets, no headings. Return at most three short lines, each on its own line: what you are circling; any goal or decision you have named; one line worth remembering. If a line has nothing real to hold, leave it out. Nothing else.",
+      system: "You summarise the LATEST part of a conversation for iSHKiY, speaking directly to the person it belongs to. Address them as \"you\" — never \"they\" or \"the user\". Weight the most recent exchanges heavily; older turns only if still live. UK English, plain, warm, no corporate words, no bullets, no headings. Return at most three short lines, each on its own line: what you just worked through; any decision or next step you named; one line worth keeping. If a line has nothing real to hold, leave it out. Nothing else.",
       messages: [{ role: "user", content: transcript }], max_tokens: 220,
     });
     if (text) commit((prev) => ({ ...prev, pulses: { ...(prev.pulses || {}), [mode]: text } }));
@@ -935,7 +960,10 @@ function Companion({ scores, answers, reportText, start }) {
     commit((prev) => ({ ...prev, streams: { ...prev.streams, [mode]: [...(prev.streams[mode] || []), { role: "user", content: q }].slice(-40) } }));
     const st = [...stream, { role: "user", content: q }].slice(-40);
     const ctx = `PROFILE: ${JSON.stringify({ scores, theirWords: { role: answers["AR-2"], hardestPart: answers["AR-3"], goodDay: answers["AR-4"], neverTold: answers["MI-1"], atMyBest: answers["MI-3"] } })}\n\nTHEIR REPORT (for reference): ${String(reportText || "").slice(0, 5000)}`;
-    const text = await fetchAI({ system: COMPANION_SYSTEM + MODES[mode].add + "\n\n" + ctx, messages: st.slice(-8).map(({ role, content }) => ({ role, content })), max_tokens: 500 });
+    const lastDiv = st.map((m, i) => (m.divider ? i : -1)).reduce((a, b) => Math.max(a, b), -1);
+    const hist = st.slice(lastDiv + 1).filter((m) => !m.divider);
+    track("ask", mode);
+    const text = await fetchAI({ system: COMPANION_SYSTEM + MODES[mode].add + "\n\n" + ctx, messages: hist.slice(-8).map(({ role, content }) => ({ role, content })), max_tokens: 500 });
     if (text) {
       let after = null;
       commit((prev) => {
@@ -952,33 +980,48 @@ function Companion({ scores, answers, reportText, start }) {
 
   const visible = showOld ? stream : stream.slice(-4);
   const hidden = stream.length - visible.length;
+  const lastLine = (k) => { const st = c.streams[k] || []; const last = [...st].reverse().find((m) => m.content && !m.divider); return last ? String(last.content).replace(/\[!|!\]/g, "").slice(0, 64) : null; };
+  const newTopic = () => commit((prev) => ({ ...prev, streams: { ...prev.streams, [mode]: [...(prev.streams[mode] || []), { divider: true }].slice(-40) } }));
+  const enterRoom = (k) => { pick(k); setRoom(k); track("voice_open", k); };
 
-  return (
+  if (!room) return (
     <section className="companion noprint">
-      <p className="kicker gold">Your Report Companion</p>
-      <h2 className="ctitle">This report isn't the product. It's the beginning of one.</h2>
-      <p className="cexplain">Four voices. Each keeps its own conversation — switch below and the thread switches with you. They share {Q_CAP} questions a day between them. No one can read these conversations — not even iSHKiY. Day {dayNum} of your 7.</p>
-      <div className="voiceguide">
+      <p className="kicker gold">Your Companion</p>
+      <h2 className="ctitle">Four voices. One of them fits today.</h2>
+      <p className="cexplain">Each voice keeps its own conversation. They share {Q_CAP} questions a day between them — {left} left today. Day {dayNum} of your 7. No one can read these conversations, iSHKiY included.</p>
+      <div className="voicehub">
         {Object.entries(MODES).map(([k, m]) => (
-          <button key={"vg" + k} className={"vgrow" + (mode === k ? " sel" : "")} onClick={() => pick(k)}>
-            <Avatar kind={k} size={22} />
-            <span className="vgname">{m.label}</span>
-            <span className="vgslogan">{m.slogan}</span>
+          <button key={k} className="vcard" style={{ borderTopColor: m.colour }} onClick={() => enterRoom(k)}>
+            <Avatar kind={k} size={40} />
+            <span className="vcname" style={{ color: m.colour }}>{m.label}</span>
+            <span className="vcslogan">{m.slogan}</span>
+            {lastLine(k) ? <span className="vclast">“{lastLine(k)}…”</span> : <span className="vclast dimtext">No conversation yet</span>}
           </button>
         ))}
       </div>
-      <div className="moderow">
-        {Object.entries(MODES).map(([k, m]) => (
-          <button key={k} className={"modebtn" + (mode === k ? " sel" : "")} onClick={() => pick(k)} title={m.desc}><Avatar kind={k} size={26} />{m.label}{(c.streams[k] || []).length ? <span className="mcount">{Math.ceil((c.streams[k] || []).length / 2)}</span> : null}</button>
-        ))}
+      <p className="hquote">The future is not artificial; it's authentically human.</p>
+    </section>
+  );
+
+  const M = MODES[mode];
+  return (
+    <section className="companion noprint room" style={{ borderTopColor: M.colour }}>
+      <button className="ghost inkghost" onClick={() => setRoom(null)}>← All voices</button>
+      <div className="roomhead" style={{ background: `linear-gradient(180deg, ${M.colour}1f, transparent)` }}>
+        <Avatar kind={mode} size={46} />
+        <div>
+          <p className="vcname big" style={{ color: M.colour }}>{M.label}</p>
+          <p className="roomvibe">{M.vibe}</p>
+        </div>
       </div>
-      <p className="modedesc">{MODES[mode].desc}</p>
       <Pulse mode={mode} pulse={(c.pulses || {})[mode]} busy={busyPulse} onRefresh={() => refreshPulse()} canRefresh={stream.length >= 2} />
       <div className="chat">
         {hidden > 0 && !showOld && <button className="showold" onClick={() => setShowOld(true)}>Show the {hidden} earlier {hidden === 1 ? "message" : "messages"}</button>}
         {showOld && stream.length > 4 && <button className="showold" onClick={() => setShowOld(false)}>Fold the earlier messages away</button>}
-        {visible.map((m, i) => (<div key={i + (showOld ? 0 : hidden)} className={"msg " + m.role}>
-          {m.role === "assistant" && !m.err && <span className="mlabel"><Avatar kind={m.m || "companion"} size={15} /> {MODES[m.m || "companion"].label}</span>}
+        {visible.map((m, i) => m.divider
+          ? <div key={i + (showOld ? 0 : hidden)} className="topicdiv"><span>new topic</span></div>
+          : (<div key={i + (showOld ? 0 : hidden)} className={"msg " + m.role}>
+          {m.role === "assistant" && !m.err && <span className="mlabel" style={{ color: M.colour }}><Avatar kind={m.m || "companion"} size={15} /> {MODES[m.m || "companion"].label}</span>}
           {m.role === "assistant" && m.err && <span className="mlabel dimmed">connection</span>}
           <div className={"bubble" + (m.err ? " errb" : "")} dangerouslySetInnerHTML={{ __html: md(m.content) }} />
         </div>))}
@@ -986,10 +1029,13 @@ function Companion({ scores, answers, reportText, start }) {
         <div ref={endRef} />
       </div>
       {left > 0 ? (
+        <>
         <div className="askrow">
-          <textarea className="tarea askta" rows={3} value={input} placeholder="Ask about a decision, a doubt, a direction…" onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); ask(); } }} />
+          <textarea className="tarea askta" rows={3} value={input} placeholder={"Ask " + M.label + " anything…"} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); ask(); } }} />
           <button className="btn ink" disabled={busy || !input.trim()} onClick={ask}>Ask</button>
         </div>
+        {stream.length > 0 && <button className="showold" onClick={newTopic}>Start a new topic — fresh page, same voice</button>}
+        </>
       ) : (
         <p className="tnote">That's your {Q_CAP} for today. A night's thinking between conversations does more than an eleventh question would. It resets tomorrow.</p>
       )}
@@ -997,79 +1043,6 @@ function Companion({ scores, answers, reportText, start }) {
     </section>
   );
 }
-
-/* ---------------- practitioner branch (honest demo) ---------------- */
-const TIERS = [
-  { id: "basic", name: "Basic", shares: ["Your strongest pull (one line)", "Your leading value (one line)", "Your thinking lean (one word)"] },
-  { id: "detailed", name: "Detailed", shares: ["Everything in Basic", "All dimension scores (the numbers)", "The Tensions section of your report"] },
-  { id: "full", name: "Full", shares: ["Everything in Detailed", "Your complete written report", "Your own written answers, word for word"] },
-];
-const PRACTITIONERS = [
-  { name: "Maya Okafor", role: "Career counsellor", line: "Twenty years helping people leave roles that fit their CV but not their character.", fit: "when the problem is the path itself" },
-  { name: "David Hartley", role: "Mentor", line: "Built and sold two firms. Now sits with founders and lifers who suspect there's more.", fit: "when you know the direction but not the next move" },
-  { name: "Priya Sharma", role: "Therapist, integrative", line: "Works where work and worth get tangled. Warm, unhurried, direct when it matters.", fit: "when the pattern is older than the job" },
-  { name: "James Whitcombe", role: "Executive coach", line: "Former CFO who coaches the humans inside senior roles, not the roles.", fit: "when the title is fine and the Tuesday isn't" },
-];
-
-function Practitioners({ scores }) {
-  const [tier, setTier] = useState("basic");
-  const chosen = TIERS.find((t) => t.id === tier);
-  const mailto = (p) => `mailto:ops@ishkiy.com?subject=${encodeURIComponent(`Practitioner interest — ${p.role}`)}&body=${encodeURIComponent(`I'd like to be matched with a ${p.role.toLowerCase()} when iSHKiY practitioners launch.\n\nSharing preference: ${chosen.name}\n\nNothing is shared yet — this registers interest only, and I'll confirm consent before anything moves.`)}`;
-  return (
-    <section className="pracs noprint">
-      <p className="kicker gold">When you're ready for a human</p>
-      <h2 className="ctitle">Some questions deserve a person across the table.</h2>
-      <p className="cexplain">We're building a vetted circle of counsellors, mentors, coaches and therapists who can read your profile — with your say-so, at the depth you choose — before you ever meet. The circle isn't live yet. The profiles below show how it will work, and registering interest shapes who we bring in first.</p>
-      <div className="tierbox">
-        <p className="tlabel">What would you be willing to share?</p>
-        <div className="tierrow">{TIERS.map((t) => (<button key={t.id} className={"tierbtn" + (tier === t.id ? " sel" : "")} onClick={() => setTier(t.id)}>{t.name}</button>))}</div>
-        <ul className="tierlist">{chosen.shares.map((s) => (<li key={s}>{s}</li>))}</ul>
-        <p className="tnote">Nothing leaves this device today. This sets your preference for when the circle is real — and you'd confirm again before anything is shared.</p>
-      </div>
-      <div className="praclist">
-        {PRACTITIONERS.map((p) => (
-          <div key={p.name} className="prac">
-            <span className="demobadge">Illustrative profile — not yet a real practitioner</span>
-            <p className="pname">{p.name} <span className="prole">· {p.role}</span></p>
-            <p className="pline">{p.line}</p>
-            <p className="pfit">Works well {p.fit}.</p>
-            <a className="rtbtn" href={mailto(p)}>Register interest</a>
-          </div>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-const DAY = 24 * 60 * 60 * 1000;
-function Retakes({ completedAt, onRetake }) {
-  const [openList, setOpenList] = useState(false);
-  const now = Date.now();
-  return (
-    <div className="retakes noprint">
-      <button className="ghost inkghost" onClick={() => setOpenList(!openList)}>{openList ? "Hide retakes" : "Retake a part"}</button>
-      {openList && (
-        <div className="rtlist">
-          <p className="tnote">A part can be retaken 24 hours after you last completed it — a night's sleep between attempts keeps the answers honest. Retaking rewrites your report.</p>
-          {PARTS.map((p, idx) => {
-            const done = completedAt[p.id]; if (!done) return null;
-            const ready = now - done > DAY;
-            const hrs = Math.ceil((DAY - (now - done)) / 3600000);
-            return (
-              <div key={p.id} className="trow">
-                <span>{p.title}</span>
-                {ready
-                  ? <button className="rtbtn" onClick={() => { if (confirm(`Retake “${p.title}”? Your previous answers for this part are replaced, and your report is rewritten.`)) onRetake(idx); }}>Retake</button>
-                  : <span className="tnum">in {hrs}h</span>}
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-}
-
 
 function CompanionScreen({ state, scores, onBack, onRegenerate }) {
   if (!state.report || !scores) return null;
@@ -1413,7 +1386,7 @@ function ApplyScreen({ onBack }) {
 
 function HumansScreen({ scores, state, onBack, onApply }) {
   return (
-    <div className="reportpage">
+    <div className="reportpage tint-clay">
       <div className="rhead noprint">
         <button className="ghost inkghost" onClick={onBack}>← Home</button>
         <Wordmark />
@@ -1439,8 +1412,8 @@ function Report({ report, name, answers, scores, companionStart, completedAt, on
         <button className="ghost inkghost" onClick={onBack}>← Home</button>
         <Wordmark />
         <div className="ractions">
-          <button className="btn ink" onClick={() => window.print()}>Save as PDF</button>
-          <button className="btn gold" onClick={() => downloadShareCard(scores, name)}>Share card</button>
+          <button className="btn ink" onClick={() => { track("pdf"); window.print(); }}>Save as PDF</button>
+          <button className="btn gold" onClick={() => { track("share_card"); downloadShareCard(scores, name); }}>Share card</button>
         </div>
       </div>
       <article className="report">
