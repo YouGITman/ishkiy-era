@@ -662,7 +662,7 @@ function Breath({ onEnter }) {
   return (
     <Shell dark>
       <div className="glimmer breathscreen">
-        <div className="breath orbwrap" aria-hidden="true"><Orb size={110} /></div>
+        <div className="breath" aria-hidden="true"><span /></div>
         <p className="gline bquote">{quote}</p>
         <button className="btn gold" onClick={() => { track("enter"); onEnter(); }}>Enter</button>
         <div className="bfoot"><Wordmark light /></div>
@@ -1043,6 +1043,79 @@ function Companion({ scores, answers, reportText, start }) {
     </section>
   );
 }
+
+/* ---------------- practitioner branch (honest demo) ---------------- */
+const TIERS = [
+  { id: "basic", name: "Basic", shares: ["Your strongest pull (one line)", "Your leading value (one line)", "Your thinking lean (one word)"] },
+  { id: "detailed", name: "Detailed", shares: ["Everything in Basic", "All dimension scores (the numbers)", "The Tensions section of your report"] },
+  { id: "full", name: "Full", shares: ["Everything in Detailed", "Your complete written report", "Your own written answers, word for word"] },
+];
+const PRACTITIONERS = [
+  { name: "Maya Okafor", role: "Career counsellor", line: "Twenty years helping people leave roles that fit their CV but not their character.", fit: "when the problem is the path itself" },
+  { name: "David Hartley", role: "Mentor", line: "Built and sold two firms. Now sits with founders and lifers who suspect there's more.", fit: "when you know the direction but not the next move" },
+  { name: "Priya Sharma", role: "Therapist, integrative", line: "Works where work and worth get tangled. Warm, unhurried, direct when it matters.", fit: "when the pattern is older than the job" },
+  { name: "James Whitcombe", role: "Executive coach", line: "Former CFO who coaches the humans inside senior roles, not the roles.", fit: "when the title is fine and the Tuesday isn't" },
+];
+
+function Practitioners({ scores }) {
+  const [tier, setTier] = useState("basic");
+  const chosen = TIERS.find((t) => t.id === tier);
+  const mailto = (p) => `mailto:ops@ishkiy.com?subject=${encodeURIComponent(`Practitioner interest — ${p.role}`)}&body=${encodeURIComponent(`I'd like to be matched with a ${p.role.toLowerCase()} when iSHKiY practitioners launch.\n\nSharing preference: ${chosen.name}\n\nNothing is shared yet — this registers interest only, and I'll confirm consent before anything moves.`)}`;
+  return (
+    <section className="pracs noprint">
+      <p className="kicker gold">When you're ready for a human</p>
+      <h2 className="ctitle">Some questions deserve a person across the table.</h2>
+      <p className="cexplain">We're building a vetted circle of counsellors, mentors, coaches and therapists who can read your profile — with your say-so, at the depth you choose — before you ever meet. The circle isn't live yet. The profiles below show how it will work, and registering interest shapes who we bring in first.</p>
+      <div className="tierbox">
+        <p className="tlabel">What would you be willing to share?</p>
+        <div className="tierrow">{TIERS.map((t) => (<button key={t.id} className={"tierbtn" + (tier === t.id ? " sel" : "")} onClick={() => setTier(t.id)}>{t.name}</button>))}</div>
+        <ul className="tierlist">{chosen.shares.map((s) => (<li key={s}>{s}</li>))}</ul>
+        <p className="tnote">Nothing leaves this device today. This sets your preference for when the circle is real — and you'd confirm again before anything is shared.</p>
+      </div>
+      <div className="praclist">
+        {PRACTITIONERS.map((p) => (
+          <div key={p.name} className="prac">
+            <span className="demobadge">Illustrative profile — not yet a real practitioner</span>
+            <p className="pname">{p.name} <span className="prole">· {p.role}</span></p>
+            <p className="pline">{p.line}</p>
+            <p className="pfit">Works well {p.fit}.</p>
+            <a className="rtbtn" href={mailto(p)}>Register interest</a>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+const DAY = 24 * 60 * 60 * 1000;
+function Retakes({ completedAt, onRetake }) {
+  const [openList, setOpenList] = useState(false);
+  const now = Date.now();
+  return (
+    <div className="retakes noprint">
+      <button className="ghost inkghost" onClick={() => setOpenList(!openList)}>{openList ? "Hide retakes" : "Retake a part"}</button>
+      {openList && (
+        <div className="rtlist">
+          <p className="tnote">A part can be retaken 24 hours after you last completed it — a night's sleep between attempts keeps the answers honest. Retaking rewrites your report.</p>
+          {PARTS.map((p, idx) => {
+            const done = completedAt[p.id]; if (!done) return null;
+            const ready = now - done > DAY;
+            const hrs = Math.ceil((DAY - (now - done)) / 3600000);
+            return (
+              <div key={p.id} className="trow">
+                <span>{p.title}</span>
+                {ready
+                  ? <button className="rtbtn" onClick={() => { if (confirm(`Retake “${p.title}”? Your previous answers for this part are replaced, and your report is rewritten.`)) onRetake(idx); }}>Retake</button>
+                  : <span className="tnum">in {hrs}h</span>}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 
 function CompanionScreen({ state, scores, onBack, onRegenerate }) {
   if (!state.report || !scores) return null;
