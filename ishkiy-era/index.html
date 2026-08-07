@@ -303,6 +303,54 @@
   @keyframes rotfade{from{opacity:0} to{opacity:1}}
   @media (prefers-reduced-motion: reduce){ .rotwrap{animation:none} }
 
+
+  /* explainer */
+  .explainer .exwrap{margin-bottom:22px; animation:rotfade 1s ease both}
+  .exart{width:120px; height:auto}
+  .exline{animation:rotfade .8s ease both}
+  .exdots{display:flex; gap:8px; justify-content:center; margin:18px 0 6px}
+  .exdot{width:7px; height:7px; border-radius:50%; background:rgba(245,241,232,.25)}
+  .exdot.on{background:var(--gold)}
+  .exskip{display:block; margin:12px auto 0; color:rgba(245,241,232,.5); font-size:13px}
+
+  /* choose depth */
+  .depthgrid{display:flex; flex-direction:column; gap:12px; margin:18px 0 8px}
+  .depthcard{text-align:left; padding:18px; border-radius:16px; border:1.5px solid var(--ink06); background:rgba(255,255,255,.5); display:flex; flex-direction:column; gap:5px; transition:border-color .15s}
+  body.dm .depthcard{background:rgba(245,241,232,.05)}
+  .depthcard:hover{border-color:var(--gold)}
+  .depthtime{font-size:11px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:#8a6d1f}
+  body.dm .depthtime{color:var(--gold)}
+  .depthname{font-family:Lora,serif; font-weight:700; font-size:20px; color:var(--ink)}
+  .depthsub{font-size:14px; color:var(--ink60); line-height:1.5}
+
+  /* badge */
+  .badgeorb{position:relative; margin-bottom:20px}
+  .badgestars{position:absolute; inset:0; display:block}
+  .bstar{position:absolute; width:6px; height:6px; border-radius:50%; background:rgba(245,241,232,.25)}
+  .bstar.lit{background:var(--gold)}
+  .bstar:nth-child(1){top:-6px; left:50%} .bstar:nth-child(2){top:20%; right:-8px}
+  .bstar:nth-child(3){bottom:0; right:6%} .bstar:nth-child(4){bottom:0; left:6%} .bstar:nth-child(5){top:20%; left:-8px}
+  .badgenext{color:var(--bone70); font-size:14px; margin-top:12px; max-width:360px}
+
+  /* go-deeper band on report */
+  .deeperband{display:flex; flex-direction:column; gap:4px; align-items:flex-start; text-align:left; width:100%; margin:26px 0 6px; padding:18px; border-radius:16px; border:1.5px solid rgba(92,124,163,.5); background:rgba(92,124,163,.1)}
+
+  /* match score */
+  .pmatchrow{display:flex; justify-content:space-between; align-items:baseline; width:100%; gap:10px}
+  .pmatch{flex:0 0 auto; font-size:12px; font-weight:700; color:#5d7a4e; background:rgba(111,143,94,.16); border:1px solid rgba(111,143,94,.4); border-radius:999px; padding:3px 9px}
+  body.dm .pmatch{color:#9CC08A}
+  .pwhy{font-size:13px; color:var(--ink60); font-style:italic; margin:2px 0 4px}
+
+  /* mini result */
+  .minibody{margin:8px 0 20px}
+  .minirow{display:flex; justify-content:space-between; padding:12px 0; border-bottom:1px solid var(--ink06); font-size:16px}
+  .minibody .rbody{margin-top:16px}
+
+  /* human signal in companion */
+  .humansignal{border:1.5px solid rgba(192,107,92,.4); background:rgba(192,107,92,.09); border-radius:14px; padding:14px; margin-bottom:14px; font-size:14.5px; line-height:1.55; color:var(--ink)}
+  .hsrow{display:flex; gap:10px; align-items:center; margin-top:10px}
+  .hsdismiss{font-size:13px; color:var(--ink60)}
+
   /* the library */
   .constel{width:100%; max-width:340px; margin:6px auto 18px; display:block}
   .libnarr{font-size:16px; line-height:1.7; margin:0 0 26px}

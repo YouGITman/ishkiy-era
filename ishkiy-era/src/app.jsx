@@ -2,6 +2,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { PARTS, L5, E5, RIASEC_PHRASES } from "./items.js";
+import { MINIS, scoreMini } from "./mini.js";
 import { createClient } from "@supabase/supabase-js";
 
 /* ---------------- backend (Supabase, connect-only v1) ----------------
@@ -22,6 +23,29 @@ const getSupa = () => {
    conversations, no names ever leave the device. */
 const sid = (() => { try { let x = localStorage.getItem("era-sid"); if (!x) { x = Math.random().toString(36).slice(2, 10); localStorage.setItem("era-sid", x); } return x; } catch { return "anon"; } })();
 const track = (e, d) => { try { const sp = getSupa(); if (!sp) return; sp.from("era_events").insert({ e, d: d == null ? null : String(d).slice(0, 40), sid, v: "1.10" }).then(() => {}, () => {}); } catch {} };
+
+/* ---------------- completion levels & badges ----------------
+   Three tiers of self-knowledge. Each unlocks more, quietly. */
+const STARTER_PARTS = ["values", "big5", "think1"];   // ~12 min: what you're for, how you work, a thinking taste
+const CORE_ADDED = ["riasec", "ei1", "ei2"];          // rounds the picture
+// everything else (arrival, think2, mirror) completes the full ERA
+const LEVELS = [
+  { id: "starter", name: "First Light", need: 1, blurb: "You've met yourself. The first honest look — your values and how you work.", accuracy: "a clear sketch" },
+  { id: "core", name: "In Focus", need: 5, blurb: "The picture sharpens. Thinking, feeling, and what pulls you now sit alongside the rest.", accuracy: "a rounded read" },
+  { id: "full", name: "Full Portrait", need: 9, blurb: "Every part complete. The deepest, truest mirror iSHKiY can hold up today.", accuracy: "the fullest picture" },
+];
+const partsDone = (completedAt) => Object.keys(completedAt || {}).length;
+const PART_IX = Object.fromEntries(PARTS.map((p, i) => [p.id, i]));
+// Which part-indices a given arc walks, in order. "starter" walks a short set; anything else walks all.
+const arcParts = (arc, completedAt) => {
+  const done = completedAt || {};
+  if (arc === "starter") return STARTER_PARTS.map((id) => PART_IX[id]);
+  if (arc === "core") return [...STARTER_PARTS, ...CORE_ADDED].filter((id) => !done[id]).map((id) => PART_IX[id]);
+  if (arc === "more") return PARTS.map((_, i) => i).filter((i) => !done[PARTS[i].id]); // remaining, for "go deeper"
+  return PARTS.map((_, i) => i); // full
+};
+const levelFor = (n) => LEVELS.slice().reverse().find((l) => n >= l.need) || null;
+const nextLevel = (n) => LEVELS.find((l) => n < l.need) || null;
 
 /* ---------------- storage ---------------- */
 const KEY = "era-v1";
@@ -51,7 +75,7 @@ async function sha256(text) {
 
 /* ---------------- scoring ---------------- */
 const likertVal = (idx, reverse) => (reverse ? 4 - idx : idx) + 1; // 1..5
-const to100 = (mean) => Math.round(((mean - 1) / 4) * 100);
+const to100 = (mean) => mean == null ? null : Math.round(((mean - 1) / 4) * 100);
 
 export function computeScores(answers) {
   const flat = PARTS.flatMap((p) => p.items);
@@ -121,7 +145,14 @@ export function computeScores(answers) {
   const coherence = Math.abs((byId["BF-C1"] ? likertVal(get("BF-C1") ?? 2, false) : 3) - (byId["BF-C5"] ? likertVal(get("BF-C5") ?? 2, true) : 3));
   qc.consistencyGap = coherence; // 0 = coherent, 4 = contradictory
 
-  return { thinking, ei, riasec, values, big5, qc };
+  const measured = {
+    thinking: flat.some((i) => i.dim && i.key && get(i.id) != null),
+    ei: ["sa","so","sm","rm"].some((d) => flat.some((i) => i.domain === d && get(i.id) != null)),
+    riasec: flat.some((i) => i.code && get(i.id) != null),
+    values: flat.some((i) => i.value && get(i.id) != null),
+    big5: flat.some((i) => i.trait && get(i.id) != null),
+  };
+  return { thinking, ei, riasec, values, big5, qc, measured };
 }
 function opt(byId, answers, id) { const i = byId[id]; const v = answers[id]; return i && v != null ? i.options[v] : null; }
 function fcPhrase(v, wins) {
@@ -156,13 +187,16 @@ function reportCalls(answers, scores) {
     scores,
   });
   const name = (answers["AR-1"] || "").trim() || "friend";
-  return [
-    { title: "Opening", prompt: `Data: ${ctx}\n\nWrite the OPENING section (~230 words) for ${name}. Start with the "### " headline line. Then reflect their own words back — the hardest part, the good day, what brought them here — woven with one thing the data already confirms. Quote their actual phrases in quotation marks where they're vivid. End on a sentence that earns trust for what follows.` },
-    { title: "How you think & how you feel", prompt: `Data: ${ctx}\n\nWrite two sections (~190 words each). "## How you think" — their thinking-style profile (numerical/spatial/verbal/logical accuracy and the two approach answers); describe HOW they move through problems, never an IQ framing. "## How you carry yourself" — the four EI domains and what the scenario choices reveal about them under heat. Each section starts with its "### " headline after the ## title. One insight per section they could not get from a horoscope.` },
-    { title: "What pulls you & what you're for", prompt: `Data: ${ctx}\n\nWrite two sections (~190 words each). "## What pulls you" — top two RIASEC inclinations in plain words, and what the lowest one quietly says. "## What you're for" — their ranked values and especially the forced-choice pattern; name the trade they keep making, and what it costs. Each section starts with its "### " headline after the ## title.` },
-    { title: "How you work & the tensions", prompt: `Data: ${ctx}\n\nWrite two sections. "## How you work" (~170 words) — the Big Five profile in plain language (Steadiness = inverted Neuroticism, explain plainly if their score makes it relevant). "## The tensions" (~220 words) — the two or three places their dimensions pull against each other, and what living inside each tension probably feels like on a Tuesday. Each section starts with its "### " headline after the ## title. Tensions are where the real story lives — be brave here.` },
-    { title: "What this suggests", prompt: `Data: ${ctx}\n\nWrite the final section "## What this suggests" (~290 words), starting with its "### " headline after the ## title. Read their current path honestly against the profile. Offer two or three shapes of work that fit the pattern — not job titles pulled from air — each with one concrete first step they could take this month. Close the whole report with this exact line on its own: The box was never you.` },
-  ];
+  const m = scores.measured || { thinking: true, ei: true, riasec: true, values: true, big5: true };
+  const full = m.thinking && m.ei && m.riasec && m.values && m.big5;
+  const calls = [];
+  calls.push({ title: "Opening", prompt: `Data: ${ctx}\n\nWrite the OPENING section (~210 words) for ${name}. Start with the "### " headline line. Reflect their own words back where you have them — woven with one thing the data already confirms. Quote vivid phrases. Only discuss dimensions actually present in the scores. End on a sentence that earns trust.` });
+  if (m.values || m.big5) calls.push({ title: "Values & work", prompt: `Data: ${ctx}\n\nWrite ${m.values && m.big5 ? "two sections" : "one section"}. ${m.values ? '"## What you\'re for" — their ranked values and especially the forced-choice pattern; name the trade they keep making.' : ""} ${m.big5 ? '"## How you work" — the Big Five in plain language (Steadiness = inverted Neuroticism, explain plainly if relevant).' : ""} Each starts with its "### " headline after the ## title. Discuss ONLY these.` });
+  if (m.thinking || m.ei) calls.push({ title: "Think & feel", prompt: `Data: ${ctx}\n\nWrite ${m.thinking && m.ei ? "two sections" : "one section"}. ${m.thinking ? '"## How you think" — thinking-style profile, never IQ framing.' : ""} ${m.ei ? '"## How you carry yourself" — the four EI domains and what the scenario choices reveal.' : ""} Each starts with its "### " headline. Discuss ONLY these.` });
+  if (m.riasec) calls.push({ title: "What pulls you", prompt: `Data: ${ctx}\n\nWrite "## What pulls you" (~180 words), "### " headline first — top two RIASEC inclinations in plain words, and what the lowest one quietly says.` });
+  if (full) calls.push({ title: "The tensions", prompt: `Data: ${ctx}\n\nWrite "## The tensions" (~220 words), "### " headline first — the two or three places their dimensions pull against each other, and what living inside each tension feels like on a Tuesday. Be brave.` });
+  calls.push({ title: "What this suggests", prompt: `Data: ${ctx}\n\nWrite the final section "## What this suggests" (~${full ? 260 : 180} words), "### " headline first. Read honestly against ${full ? "the whole profile" : "what's been measured so far, and gently note that going deeper would sharpen it"}. Offer ${full ? "two or three" : "one or two"} shapes of work that fit, each with one concrete first step. ${full ? "" : "Encourage them warmly to complete more parts when ready — more answers, truer mirror."} Close the whole report with this exact line on its own: The box was never you.` });
+  return calls;
 }
 
 async function callClaude(prompt) {
@@ -225,27 +259,34 @@ function App() {
   useEffect(() => { window.scrollTo(0, 0); }, [state.phase, state.part, state.item]);
   useEffect(() => { document.body.classList.toggle("dm", !!state.dark); }, [state.dark]);
 
-  if (state.phase === "breath") return <Breath onEnter={() => update({ phase: "home" })} />;
-  if (state.phase === "home") return <Home state={state} onTheme={() => update({ dark: !state.dark })} go={(p) => update({ phase: p })} startAssessment={() => update({ phase: state.unlocked ? (Object.keys(answers).length ? "intro" : "warmup") : "unlock" })} />;
-  if (state.phase === "companion") return <CompanionScreen state={state} scores={scores} onBack={() => update({ phase: "home" })} onRegenerate={() => update({ phase: "generating" })} />;
+  if (state.phase === "breath") return <Breath onEnter={() => update({ phase: state.seenExplainer ? "home" : "explainer" })} />;
+  if (state.phase === "home") return <Home state={state} onTheme={() => update({ dark: !state.dark })} go={(p) => update({ phase: p })} startAssessment={() => update({ phase: Object.keys(answers).length ? "chooseDepth" : "chooseDepth" })} />;
+  if (state.phase === "companion") return <CompanionScreen state={state} scores={scores} onBack={() => update({ phase: "home" })} onRegenerate={() => update({ phase: "generating" })} onHuman={() => update({ phase: "humans" })} />;
   if (state.phase === "constellation") return <ConstellationScreen state={state} update={update} onBack={() => update({ phase: "home" })} />;
   if (state.phase === "humans") return <HumansScreen scores={scores} state={state} onBack={() => update({ phase: "home" })} onApply={() => update({ phase: "apply" })} />;
   if (state.phase === "account") return <AccountScreen state={state} scores={scores} onBack={() => update({ phase: "home" })} />;
   if (state.phase === "apply") return <ApplyScreen onBack={() => update({ phase: "humans" })} />;
-  if (state.phase === "library") return <LibraryScreen onBack={() => update({ phase: "home" })} />;
+  if (state.phase === "library") return <LibraryScreen onBack={() => update({ phase: "home" })} onMini={(id) => update({ miniId: id, phase: (state.miniResults || {})[id] ? "miniResult" : "miniRun" })} miniDone={state.miniResults} />;
+  if (state.phase === "miniRun") return <MiniRunner miniId={state.miniId} answers={(state.miniAnswers || {})[state.miniId]} onBack={() => update({ phase: "library" })} onDone={(a) => { const res = scoreMini(state.miniId, a); track("mini_done", state.miniId); update({ miniAnswers: { ...(state.miniAnswers || {}), [state.miniId]: a }, miniResults: { ...(state.miniResults || {}), [state.miniId]: res }, phase: "miniResult" }); }} />;
+  if (state.phase === "miniResult") return <MiniResult miniId={state.miniId} result={(state.miniResults || {})[state.miniId]} onBack={() => update({ phase: "library" })} />;
   if (state.phase === "welcome") return <Welcome onStart={() => update({ phase: state.unlocked ? (Object.keys(answers).length ? "intro" : "warmup") : "unlock" })} resumable={state.part > 0 || state.item > 0} />;
   if (state.phase === "unlock") return <Unlock onUnlock={() => update({ unlocked: true, phase: "warmup" })} />;
   if (state.phase === "warmup") return <Warmup onDone={() => update({ phase: "intro" })} />;
+  if (state.phase === "explainer") return <Explainer onDone={() => update({ phase: "home", seenExplainer: true })} />;
+  if (state.phase === "chooseDepth") return <ChooseDepth state={state} onPick={(arc) => { const parts = arcParts(arc, state.completedAt); const first = parts[0] ?? 0; update({ arc, part: first, item: 0, phase: state.unlocked ? "warmup" : "unlock" }); }} onBack={() => update({ phase: "home" })} />;
+  if (state.phase === "badge") return <BadgeScreen state={state} onDone={() => update({ phase: "report" })} />;
   if (state.phase === "intro") return <PartIntro part={PARTS[state.part]} n={state.part} onGo={() => update({ phase: "run" })} />;
   if (state.phase === "run") return <Runner state={state} update={update} />;
   if (state.phase === "glimmer") return <Glimmer part={PARTS[state.part]} answers={answers} scores={scores} onNext={() => {
     const completedAt = { ...(state.completedAt || {}), [PARTS[state.part].id]: Date.now() };
     if (state.retaking) return update({ completedAt, retaking: false, phase: "generating", report: null });
-    const next = state.part + 1;
-    update(next >= PARTS.length ? { completedAt, phase: "generating" } : { completedAt, part: next, item: 0, phase: "intro" });
+    const arc = arcParts(state.arc, state.completedAt);
+    const pos = arc.indexOf(state.part);
+    const next = arc[pos + 1];
+    update(next == null ? { completedAt, phase: "badge" } : { completedAt, part: next, item: 0, phase: "intro" });
   }} />;
   if (state.phase === "generating") return <Generating answers={answers} scores={scores} onDone={(report) => update({ report, phase: "report", companionStart: state.companionStart || Date.now() })} />;
-  if (state.phase === "report") return <Report report={state.report} name={answers["AR-1"]} answers={answers} scores={scores} companionStart={state.companionStart} completedAt={state.completedAt || {}} onBack={() => update({ phase: "home" })} onLibrary={() => update({ phase: "library" })} onRegenerate={() => update({ phase: "generating" })} onRetake={(idx) => update({ part: idx, item: 0, retaking: true, phase: "intro" })} onRestart={() => { localStorage.removeItem(KEY); location.reload(); }} />;
+  if (state.phase === "report") return <Report report={state.report} name={answers["AR-1"]} answers={answers} scores={scores} companionStart={state.companionStart} completedAt={state.completedAt || {}} onBack={() => update({ phase: "home" })} onLibrary={() => update({ phase: "library" })} onDeeper={() => { const parts = arcParts("more", state.completedAt); if (parts.length) update({ arc: "more", part: parts[0], item: 0, phase: "intro" }); }} onRegenerate={() => update({ phase: "generating" })} onRetake={(idx) => update({ part: idx, item: 0, retaking: true, phase: "intro" })} onRestart={() => { localStorage.removeItem(KEY); location.reload(); }} />;
   return null;
 }
 
@@ -370,8 +411,12 @@ function Runner({ state, update }) {
     const next = state.item + 1;
     if (next >= total) {
       const completedAt = { ...(state.completedAt || {}), [part.id]: Date.now() };
-      if (part.glimmer) update({ answers, completedAt, item: 0, phase: "glimmer" });
-      else update({ answers, completedAt, item: 0, retaking: false, phase: "generating", report: null });
+      if (part.glimmer) { update({ answers, completedAt, item: 0, phase: "glimmer" }); return; }
+      if (state.retaking) { update({ answers, completedAt, item: 0, retaking: false, phase: "generating", report: null }); return; }
+      const arc = arcParts(state.arc, state.completedAt);
+      const pos = arc.indexOf(state.part);
+      const next = arc[pos + 1];
+      update(next == null ? { answers, completedAt, item: 0, phase: "badge" } : { answers, completedAt, item: 0, part: next, phase: "intro" });
     }
     else update({ answers, item: next });
   };
@@ -530,9 +575,11 @@ function Tiles({ scores }) {
     { id: "values", acc: "#6F8F5E", label: "What you're for", stat: scores.values.ranked[0], art: <MiniBeam values={scores.values} />, detail: scores.values.ranked.map((v) => [v, scores.values.scores[v] + (scores.values.fcWins[v] ? ` · chose it ${scores.values.fcWins[v]}×` : "")]), note: "Ranked by importance, weighted by what you chose when forced to pick. Forced choices tell the truth.", about: "Drawn from Shalom Schwartz's theory of basic human values — a model validated across more than eighty countries. We sample six values most alive in working life, and weight the forced choices heavily because trade-offs reveal what ratings flatter. What it can't claim: values shift with seasons of life. This is your now, not your always." },
     { id: "work", acc: "#8A6FA0", label: "How you work", stat: Object.entries(b5).sort((a, b) => b[1] - a[1])[0][0].toLowerCase(), art: <MiniBars pairs={Object.entries(b5).sort((a, b) => b[1] - a[1])} />, detail: Object.entries(b5).map(([k, v]) => [k, v]), note: "The Big Five, 0–100. Steadiness is Neuroticism turned right-side up: high means the weather passes through you quickly.", about: "The Big Five is the most replicated personality model in psychology — five broad traits that describe how people differ in daily working life. We present Neuroticism as Steadiness (same scale, inverted) because it reads truer that way. What it can't claim: five items per trait gives a sketch, not a portrait. The written report adds the shading." },
   ];
+  const mk = { think: "thinking", heart: "ei", pull: "riasec", values: "values", work: "big5" };
+  const shown = (scores.measured ? tiles.filter((t) => scores.measured[mk[t.id]]) : tiles);
   return (
     <div className="tiles">
-      {tiles.map((tile) => (
+      {shown.map((tile) => (
         <div key={tile.id} className={"tile" + (open === tile.id ? " open" : "")} style={{ borderTopColor: tile.acc, borderTopWidth: "4px" }}>
           <button className="tilehead" onClick={() => setOpen(open === tile.id ? null : tile.id)} aria-expanded={open === tile.id}>
             {tile.art}
@@ -674,8 +721,8 @@ function Breath({ onEnter }) {
 
 /* ---------------- the library of you ---------------- */
 const EXPANSIONS = [
-  { name: "How you attach", from: "Grounded in attachment theory", line: "The patterns you carry into closeness — at work, at home, and in every room between.", tier: "FREE", status: "In design" },
-  { name: "The habit architecture", from: "Grounded in behavioural science", line: "What you repeat is what you become. Where your days are built, and where they quietly leak.", tier: "FREE", status: "In design" },
+  { name: MINIS.friend.name, mini: "friend", from: MINIS.friend.from, line: MINIS.friend.blurb, tier: "FREE", status: "Ready" },
+  { name: MINIS.approach.name, mini: "approach", from: MINIS.approach.from, line: MINIS.approach.blurb, tier: "FREE", status: "Ready" },
   { name: "Money and you", from: "Grounded in wealth psychology", line: "What money means to you, what it protects you from, and what that protection costs.", tier: "MEMBERSHIP", status: "In design" },
   { name: "The builder's pattern", from: "Grounded in entrepreneurial disposition research", line: "Some people can't stop starting things. An honest measure of whether you're one of them.", tier: "MEMBERSHIP", status: "In design" },
   { name: "The Partner Series", from: "With thinkers you already trust", line: "Their life's philosophy, distilled with them into a mirror you can take. Conversations underway — names when the ink is dry.", tier: "PARTNER", status: "In conversation" },
@@ -692,7 +739,7 @@ function Constellation() {
     <circle cx="272" cy="70" r="3" fill="none" stroke={d} strokeWidth="1.2"/><circle cx="34" cy="62" r="3" fill="none" stroke={d} strokeWidth="1.2"/>
   </svg>);
 }
-function LibraryScreen({ onBack }) {
+function LibraryScreen({ onBack, onMini, miniDone }) {
   const mailto = (n) => "mailto:ops@ishkiy.com?subject=" + encodeURIComponent("Library vote — " + n) + "&body=" + encodeURIComponent("Build \u201C" + n + "\u201D first. I'd take it.");
   return (
     <div className="reportpage tint-heather">
@@ -709,11 +756,13 @@ function LibraryScreen({ onBack }) {
         <div className="libgrid">
           {EXPANSIONS.map((e) => (
             <div key={e.name} className="libtile">
-              <div className="librow"><span className={"libtier t" + e.tier}>{e.tier}</span><span className="libstatus">{e.status}</span></div>
+              <div className="librow"><span className={"libtier t" + e.tier}>{e.tier}</span><span className="libstatus">{e.mini && miniDone && miniDone[e.mini] ? "Done" : e.status}</span></div>
               <p className="libname">{e.name}</p>
               <p className="libfrom">{e.from}</p>
               <p className="libline">{e.line}</p>
-              <a className="rtbtn" href={mailto(e.name)}>Build this one first</a>
+              {e.mini
+                ? <button className="rtbtn" onClick={() => onMini(e.mini)}>{miniDone && miniDone[e.mini] ? "See it again" : "Take this lens"}</button>
+                : <a className="rtbtn" href={mailto(e.name)}>Build this one first</a>}
             </div>
           ))}
         </div>
@@ -779,13 +828,14 @@ function Home({ state, go, startAssessment, onTheme }) {
           <HomeTile
             acc="#5C7CA3"
             title={hasReport ? "Your profile" : midway ? "Continue the assessment" : "Take the assessment"}
+            badge={hasReport ? (levelFor(partsDone(state.completedAt)) || {}).name : null}
             sub={hasReport ? "Read your report. Save it, share it, retake parts." : "Answer questions about yourself. About 50 minutes."}
             onClick={hasReport ? () => { track("view_report"); go("report"); } : () => { track("assessment_start"); startAssessment(); }}
             art={<svg viewBox="0 0 60 40" className="hart"><circle cx="30" cy="20" r="12" fill="none" stroke={gold} strokeWidth="2"/><circle cx="30" cy="20" r="4" fill={gold}/></svg>}
           />
           <HomeTile
             acc="#D4A547"
-            title="The Companion"
+            title="Your companion"
             sub="Talk about your life and work with four AI voices that know your report. Ten questions a day."
             locked={!hasReport} lockNote="Opens after your report is written."
             onClick={() => go("companion")}
@@ -861,7 +911,7 @@ const MODES = {
   companion: { label: "Guide", colour: "#D4A547", vibe: "Steady and warm. A hand on the tiller while you think.", slogan: "Start here. Helps you think it through.", desc: "Reads you back. Good for decisions and direction.", add: "" },
   coach: { label: "Coach", colour: "#C06B5C", vibe: "Direct and kind. Believes in you enough to push.", slogan: "Pushes you to act. One step this week.", desc: "Forward motion. Expects you to act.", add: "\n\nMODE — COACH: You are in coach mode. Focus on the next concrete step, not the whole staircase. Hold them to what their profile says they're capable of — kindly, but without letting them off. Each reply should surface one specific action they could take this week, drawn from their scores and words. Ask at most one sharp question per reply. Do not comfort when a nudge serves better." },
   mentor: { label: "Mentor", colour: "#5C7CA3", vibe: "Unhurried. Sees the years, not just the week.", slogan: "The long view. What usually happens next.", desc: "The longer view. Been there, seen it.", add: "\n\nMODE — MENTOR: You are in mentor mode. Speak from experience and pattern: what tends to happen to people shaped like this, over years not weeks. Offer perspective before advice. Occasionally tell a short, plausible general truth about working life ('people with your pattern often…'). Never invent personal anecdotes or claim a biography. The gift of this mode is patience and the long view." },
-  sounding: { label: "Sounding board", colour: "#6F8F5E", vibe: "Quiet and roomy. Space to hear yourself.", slogan: "Listens and untangles. Advice only if you ask.", desc: "Untangling, out loud. Not counselling.", add: "\n\nMODE — SOUNDING BOARD: You are in sounding-board mode. Your job is to help them hear themselves: reflect back what they've said in cleaner words, name the feeling underneath if it's visible, ask gentle questions that untangle rather than steer. Give less advice than in any other mode. Be explicit when relevant that this is thinking-out-loud, not counselling or therapy — and if what they're carrying runs deeper than untangling, warmly suggest the kind of human support that fits, including the practitioner circle when it's live." },
+  sounding: { label: "Sounding board", colour: "#6F8F5E", vibe: "Quiet and roomy. Space to hear yourself.", slogan: "Listens and untangles. Advice only if you ask.", desc: "Untangling, out loud. Not counselling.", add: "\n\nMODE — SOUNDING BOARD: You are in sounding-board mode. If, and only if, what they raise clearly runs deeper than a chat can hold, you may once mention — gently, without selling — that iSHKiY can match them to a real person suited to how they work. Never pitch it twice, never when it does not fit. Your job is to help them hear themselves: reflect back what they've said in cleaner words, name the feeling underneath if it's visible, ask gentle questions that untangle rather than steer. Give less advice than in any other mode. Be explicit when relevant that this is thinking-out-loud, not counselling or therapy — and if what they're carrying runs deeper than untangling, warmly suggest the kind of human support that fits, including the practitioner circle when it's live." },
 };
 
 const COMPANION_DAYS = 7;
@@ -887,7 +937,7 @@ function Pulse({ mode, pulse, busy, onRefresh, canRefresh }) {
   );
 }
 
-function Companion({ scores, answers, reportText, start }) {
+function Companion({ scores, answers, reportText, start, onHuman }) {
   const begun = start || Date.now();
   const dayNum = Math.min(COMPANION_DAYS, Math.floor((Date.now() - begun) / DAY) + 1);
   const ended = Date.now() - begun > COMPANION_DAYS * DAY;
@@ -898,6 +948,7 @@ function Companion({ scores, answers, reportText, start }) {
   const [busyPulse, setBusyPulse] = useState(false);
   const [showOld, setShowOld] = useState(false);
   const [room, setRoom] = useState(null);
+  const [dismissHuman, setDismissHuman] = useState(false);
   const endRef = useRef(null);
   const stream = c.streams[mode] || [];
   useEffect(() => { endRef.current?.scrollIntoView({ block: "nearest" }); }, [stream.length, busy]);
@@ -1015,6 +1066,12 @@ function Companion({ scores, answers, reportText, start }) {
         </div>
       </div>
       <Pulse mode={mode} pulse={(c.pulses || {})[mode]} busy={busyPulse} onRefresh={() => refreshPulse()} canRefresh={stream.length >= 2} />
+      {mode === "sounding" && stream.length >= 8 && !dismissHuman && (
+        <div className="humansignal">
+          <span>Some things are easier with a person. When you're ready, iSHKiY can find one who fits how you work.</span>
+          <div className="hsrow"><button className="rtbtn" onClick={onHuman}>See who fits</button><button className="hsdismiss" onClick={() => setDismissHuman(true)}>Not now</button></div>
+        </div>
+      )}
       <div className="chat">
         {hidden > 0 && !showOld && <button className="showold" onClick={() => setShowOld(true)}>Show the {hidden} earlier {hidden === 1 ? "message" : "messages"}</button>}
         {showOld && stream.length > 4 && <button className="showold" onClick={() => setShowOld(false)}>Fold the earlier messages away</button>}
@@ -1072,17 +1129,28 @@ function Practitioners({ scores }) {
         <ul className="tierlist">{chosen.shares.map((s) => (<li key={s}>{s}</li>))}</ul>
         <p className="tnote">Nothing leaves this device today. This sets your preference for when the circle is real — and you'd confirm again before anything is shared.</p>
       </div>
+      {scores && scores.measured
+        ? <p className="tnote">Your matches below are worked out from your profile — and we show you why. The better we know you, the sharper they get.</p>
+        : <p className="tnote">Finish your assessment and we'll match you to the people who fit how you actually work.</p>}
       <div className="praclist">
-        {PRACTITIONERS.map((p) => (
+        {[...PRACTITIONERS].map((p) => ({ p, m: matchScore(p, scores) }))
+          .sort((a, b) => (b.m?.pct ?? -1) - (a.m?.pct ?? -1))
+          .map(({ p, m }) => (
           <div key={p.name} className="prac">
             <span className="demobadge">Illustrative profile — not yet a real practitioner</span>
-            <p className="pname">{p.name} <span className="prole">· {p.role}</span></p>
+            <div className="pmatchrow">
+              <p className="pname">{p.name} <span className="prole">· {p.role}</span></p>
+              {m && m.pct != null && <span className="pmatch">{m.pct}% match</span>}
+            </div>
             <p className="pline">{p.line}</p>
-            <p className="pfit">Works well {p.fit}.</p>
+            {m && m.reasons.length
+              ? <p className="pwhy">Why you: {m.reasons.join("; ")}.</p>
+              : <p className="pfit">For {p.suits.forWho}.</p>}
             <a className="rtbtn" href={mailto(p)}>Register interest</a>
           </div>
         ))}
       </div>
+      <p className="tnote">When the circle is real, any booking fee will be built into the session price — never charged on top. Practitioners join free to begin with.</p>
     </section>
   );
 }
@@ -1117,7 +1185,7 @@ function Retakes({ completedAt, onRetake }) {
 }
 
 
-function CompanionScreen({ state, scores, onBack, onRegenerate }) {
+function CompanionScreen({ state, scores, onBack, onRegenerate, onHuman }) {
   if (!state.report || !scores) return null;
   return (
     <div className="reportpage">
@@ -1136,7 +1204,7 @@ function CompanionScreen({ state, scores, onBack, onRegenerate }) {
         <p className="teamline">You don't have to navigate alone. Four voices, no judgement, and they've read every word you gave.</p>
         {state.report.preview
           ? <div className="previewnote"><p>Your report didn't finish writing, so the Companion is waiting. Your answers are safe — one tap tries again.</p><button className="btn gold" onClick={onRegenerate}>Write my real report</button></div>
-          : <Companion scores={scores} answers={state.answers || {}} reportText={state.report.text} start={state.companionStart} />}
+          : <Companion scores={scores} answers={state.answers || {}} reportText={state.report.text} start={state.companionStart} onHuman={onHuman} />}
         <p className="hquote">The future is not artificial; it's authentically human.</p>
       </article>
     </div>
@@ -1477,7 +1545,149 @@ function HumansScreen({ scores, state, onBack, onApply }) {
   );
 }
 
-function Report({ report, name, answers, scores, companionStart, completedAt, onBack, onLibrary, onRegenerate, onRetake, onRestart }) {
+
+/* ---------------- explainer (what iSHKiY is) ---------------- */
+const EXPLAIN = [
+  { art: "orb", line: "iSHKiY is a place to understand yourself.", sub: "Not to fix you. You were never broken." },
+  { art: "mirror", line: "It starts with a few honest questions.", sub: "What you're for. How you work. What pulls you." },
+  { art: "report", line: "You get a report written just for you.", sub: "Yours to keep. No one else can read it." },
+  { art: "voices", line: "Then a companion who has read it — for life's turns.", sub: "A coach, a mentor, a sounding board. For the good days and the hard ones." },
+  { art: "heart", line: "And, when you're ready, a real human to talk to.", sub: "Chosen to fit you — because they understand how you work." },
+];
+function ExplainArt({ kind }) {
+  if (kind === "orb") return <Orb size={104} />;
+  if (kind === "mirror") return <svg viewBox="0 0 120 104" className="exart"><ellipse cx="60" cy="50" rx="30" ry="40" fill="none" stroke="#D4A547" strokeWidth="2.4"/><ellipse cx="60" cy="50" rx="20" ry="30" fill="rgba(212,165,71,0.12)"/></svg>;
+  if (kind === "report") return <svg viewBox="0 0 120 104" className="exart"><rect x="38" y="24" width="44" height="56" rx="5" fill="none" stroke="#D4A547" strokeWidth="2.4"/><line x1="46" y1="38" x2="74" y2="38" stroke="#D4A547" strokeWidth="2"/><line x1="46" y1="48" x2="70" y2="48" stroke="#F5F1E8" strokeWidth="2" opacity="0.6"/><line x1="46" y1="58" x2="72" y2="58" stroke="#F5F1E8" strokeWidth="2" opacity="0.6"/></svg>;
+  if (kind === "voices") return <svg viewBox="0 0 120 104" className="exart"><circle cx="44" cy="52" r="13" fill="none" stroke="#D4A547" strokeWidth="2.2"/><circle cx="76" cy="52" r="13" fill="none" stroke="rgba(245,241,232,0.4)" strokeWidth="2.2"/><circle cx="44" cy="52" r="4" fill="#D4A547"/></svg>;
+  return <svg viewBox="0 0 120 104" className="exart"><path d="M60 76 C30 56 34 34 50 34 C58 34 60 42 60 42 C60 42 62 34 70 34 C86 34 90 56 60 76 Z" fill="none" stroke="#D4A547" strokeWidth="2.4" strokeLinejoin="round"/></svg>;
+}
+function Explainer({ onDone }) {
+  const [i, setI] = useState(0);
+  const last = i === EXPLAIN.length - 1;
+  return (
+    <Shell dark>
+      <div className="glimmer explainer">
+        <div className="exwrap" key={i}><ExplainArt kind={EXPLAIN[i].art} /></div>
+        <p className="gline exline" key={"l" + i}>{EXPLAIN[i].line}</p>
+        <p className="gsub" key={"s" + i}>{EXPLAIN[i].sub}</p>
+        <div className="exdots">{EXPLAIN.map((_, k) => <span key={k} className={"exdot" + (k === i ? " on" : "")} />)}</div>
+        <button className="btn gold" onClick={() => (last ? onDone() : setI(i + 1))}>{last ? "Begin" : "Next"}</button>
+        {!last && <button className="exskip" onClick={onDone}>Skip</button>}
+      </div>
+    </Shell>
+  );
+}
+
+/* ---------------- choose your depth ---------------- */
+function ChooseDepth({ state, onPick, onBack }) {
+  const done = partsDone(state.completedAt);
+  const hasStarter = (state.completedAt || {})["values"] && (state.completedAt || {})["big5"];
+  return (
+    <Shell>
+      <div className="intro">
+        <button className="ghost inkghost" onClick={onBack}>← Home</button>
+        <p className="kicker gold">How deep, today?</p>
+        <h1 className="display ink">Start small. Go deeper when you want.</h1>
+        <p className="lede inkdim">You don't have to do it all at once. Every part you finish makes your report truer — and you can always come back.</p>
+        <div className="depthgrid">
+          <button className="depthcard" onClick={() => onPick("starter")}>
+            <span className="depthtime">10–15 min</span>
+            <span className="depthname">A first look</span>
+            <span className="depthsub">Your values and how you work. Enough for a real report and your first badge.</span>
+          </button>
+          <button className="depthcard" onClick={() => onPick("core")}>
+            <span className="depthtime">~30 min</span>
+            <span className="depthname">A fuller picture</span>
+            <span className="depthsub">Adds how you think, how you feel, and what pulls you.</span>
+          </button>
+          <button className="depthcard" onClick={() => onPick("full")}>
+            <span className="depthtime">~50 min</span>
+            <span className="depthname">The whole portrait</span>
+            <span className="depthsub">Every part. The deepest, truest mirror. Best in a quiet hour.</span>
+          </button>
+        </div>
+        <p className="tnote">Most people start small. The report grows with you.</p>
+      </div>
+    </Shell>
+  );
+}
+
+/* ---------------- badge earned ---------------- */
+function BadgeScreen({ state, onDone }) {
+  const n = partsDone(state.completedAt);
+  const level = levelFor(n);
+  const next = nextLevel(n);
+  return (
+    <Shell dark>
+      <div className="glimmer">
+        <div className="badgeorb"><Orb size={92} /><span className="badgestars" aria-hidden="true">{[0,1,2,3,4].map((k) => <i key={k} className={"bstar" + (k < (level ? level.need : 0) / 2 ? " lit" : "")} />)}</span></div>
+        <p className="kicker gold">Badge earned</p>
+        <p className="gline">{level ? level.name : "First steps"}</p>
+        <p className="gsub">{level ? level.blurb : "You've begun."}</p>
+        {next && <p className="badgenext">Finish {next.need - n} more part{next.need - n === 1 ? "" : "s"} to earn <strong>{next.name}</strong> — {next.accuracy}.</p>}
+        <button className="btn gold" onClick={onDone}>See my report</button>
+      </div>
+    </Shell>
+  );
+}
+
+
+/* ---------------- mini-assessment runner ---------------- */
+function MiniRunner({ miniId, answers, onDone, onBack }) {
+  const m = MINIS[miniId];
+  const [i, setI] = useState(0);
+  const [a, setA] = useState(answers || {});
+  const item = m.items[i];
+  const total = m.items.length;
+  const set = (val, auto) => {
+    const na = { ...a, [item.id]: val }; setA(na);
+    const adv = () => { if (i + 1 >= total) onDone(na); else setI(i + 1); };
+    if (auto) setTimeout(adv, 220); else adv();
+  };
+  const chosen = a[item.id];
+  return (
+    <Shell footer={<div className="foot"><button className="ghost" onClick={() => (i > 0 ? setI(i - 1) : onBack())}>← Back</button><span className="count">{i + 1} / {total}</span></div>}>
+      <div className={"col tint-" + m.tint}>
+        <div className="track"><div className="fill" style={{ width: `${(i / total) * 100}%` }} /></div>
+        <div className="qwrap" key={item.id}>
+          <p className="kicker gold">{m.kicker}</p>
+          <h2 className="question">{item.text}</h2>
+          {item.format === "L5" && <div className="opts">{L5.map((o, k) => (<button key={o} className={"opt" + (chosen === k ? " sel" : "")} onClick={() => set(k, true)}><span className="odot" />{o}</button>))}</div>}
+          {item.format === "FC" && <div className="fc">{["a", "b"].map((kk) => (<button key={kk} className={"fccard" + (chosen === kk ? " sel" : "")} onClick={() => set(kk, true)}>{item[kk].text}</button>))}</div>}
+        </div>
+      </div>
+    </Shell>
+  );
+}
+function MiniResult({ miniId, result, onBack }) {
+  const m = MINIS[miniId];
+  return (
+    <div className={"reportpage tint-" + m.tint}>
+      <div className="rhead noprint"><button className="ghost inkghost" onClick={onBack}>← Library</button><Wordmark /><span /></div>
+      <article className="report">
+        <p className="kicker gold">{m.kicker}</p>
+        <h1 className="display ink">{m.name}</h1>
+        {result.kind === "friend" ? (
+          <div className="minibody">
+            <div className="minirow"><span>What you give</span><span className="tnum">{result.give ?? "—"}</span></div>
+            <div className="minirow"><span>What you need</span><span className="tnum">{result.need ?? "—"}</span></div>
+            <p className="rbody"><em>{result.give != null && result.need != null && result.give - result.need > 15 ? "You give more than you ask for. A quiet strength — and worth watching, so the well doesn't run dry." : result.need != null && result.give != null && result.need - result.give > 15 ? "You feel the need for closeness keenly. That's not weakness; it's how you're wired to bond." : "You give and need in fair balance. Rarer than it sounds."}</em></p>
+            {result.needMost && <p className="rbody">When it comes to it, the friend you need most is one who offers <strong>{result.needMost === "reliability" ? "reliability — someone who simply shows up" : "depth — someone who really gets you"}</strong>.</p>}
+          </div>
+        ) : (
+          <div className="minibody">
+            <div className="minirow"><span>Moving toward what you want</span><span className="tnum">{result.approach ?? "—"}</span></div>
+            <div className="minirow"><span>Moving away from what you fear</span><span className="tnum">{result.avoid ?? "—"}</span></div>
+            <p className="rbody"><em>{result.orientation === "toward" ? "You lead with the upside. You move toward what you want more than away from what you fear — which makes you brave, and occasionally blind to the cliff edge." : "You lead with care. You move to protect what matters before you reach for more — which makes you steady, and sometimes slower to the thing you'd love."}</em></p>
+          </div>
+        )}
+        <p className="integrity">A short lens, {m.from.toLowerCase()}. It adds to your profile — your Companion now knows this about you too. A self-discovery tool, not a clinical measure.</p>
+      </article>
+    </div>
+  );
+}
+
+function Report({ report, name, answers, scores, companionStart, completedAt, onBack, onLibrary, onDeeper, onRegenerate, onRetake, onRestart }) {
   if (!report) return null;
   return (
     <div className="reportpage">
@@ -1498,6 +1708,12 @@ function Report({ report, name, answers, scores, companionStart, completedAt, on
         {scores && <Tiles scores={scores} />}
         <div className="rbody" dangerouslySetInnerHTML={{ __html: md(report.text) }} />
         <p className="integrity">Grounded in established psychological frameworks — CHC, Big Five, Goleman EI, RIASEC and Schwartz Values. A structured self-discovery tool, not a clinical or validated psychometric instrument. Your answers never left your device, and no one — iSHKiY included — can see them or your conversations without your explicit permission. This report was written for you alone, and it belongs to you.</p>
+        {onDeeper && scores && scores.measured && !(scores.measured.thinking && scores.measured.ei && scores.measured.riasec && scores.measured.values && scores.measured.big5) && (
+          <button className="deeperband noprint" onClick={onDeeper}>
+            <span className="libctak">Your report is real — and it can go deeper</span>
+            <span className="libctat">Answer more parts to sharpen it. Each one earns a badge. →</span>
+          </button>
+        )}
         <button className="libcta noprint" onClick={onLibrary}>
           <span className="libctak">The Library of You</span>
           <span className="libctat">Take more assessments — new lenses, one deepening profile →</span>
