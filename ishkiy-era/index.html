@@ -304,6 +304,35 @@
   @media (prefers-reduced-motion: reduce){ .rotwrap{animation:none} }
 
 
+
+  /* distinctive section tints (already have gold/clay/heather/steel; add sage) */
+  .tint-sage{background:linear-gradient(180deg, rgba(111,143,94,.13), var(--bone) 260px)}
+  body.dm .tint-sage{background:linear-gradient(180deg, rgba(111,143,94,.17), #0B1830 260px)}
+
+  /* badge strip on report */
+  .badgestrip{margin:14px 0 26px; padding:14px 16px; border:1.5px solid var(--ink06); border-radius:14px; background:rgba(212,165,71,.06)}
+  .badgechips{display:flex; gap:8px; flex-wrap:wrap; margin-bottom:8px}
+  .bchip{display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:600; padding:5px 11px; border-radius:999px; border:1.5px solid var(--ink12); color:var(--ink60)}
+  .bchip.earned{border-color:var(--gold); color:var(--ink); background:rgba(212,165,71,.14)}
+  .bchipdot{width:7px; height:7px; border-radius:50%; background:var(--ink12)}
+  .bchip.earned .bchipdot{background:var(--gold)}
+  .badgeexplain{font-size:13.5px; color:var(--ink60); margin:0; line-height:1.55}
+
+  /* settings */
+  .setgroup{margin:22px 0; padding-bottom:6px; border-bottom:1px solid var(--ink06)}
+  .setlabel{font-size:12px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:var(--ink60); margin:0 0 10px}
+  .setrow{display:flex; justify-content:space-between; align-items:center; padding:9px 0; font-size:15.5px}
+  .setbtn{display:block; width:100%; text-align:left; padding:13px 16px; margin:8px 0 0; border-radius:12px; border:1.5px solid var(--ink12); background:rgba(255,255,255,.5); font-size:15px; font-weight:500; color:var(--ink)}
+  body.dm .setbtn{background:rgba(245,241,232,.05)}
+  .setbtn.warn{color:#a84a3a; border-color:rgba(168,74,58,.3)}
+  body.dm .setbtn.warn{color:#e09484}
+  .setmini{font-size:13px; font-weight:600; color:var(--ink60); border:1.5px solid var(--ink12); border-radius:9px; padding:6px 12px}
+  .settingslink{display:block; margin:26px auto 0; font-size:14px; font-weight:600; color:var(--ink60); border:1.5px solid var(--ink12); border-radius:999px; padding:9px 20px}
+
+  /* mini result larger help */
+  .minihelp{background:rgba(255,255,255,.5); border:1.5px solid var(--ink06); border-radius:14px; padding:16px; margin:8px 0 16px; font-size:15px; line-height:1.65}
+  body.dm .minihelp{background:rgba(245,241,232,.05)}
+
   /* explainer */
   .explainer .exwrap{margin-bottom:22px; animation:rotfade 1s ease both}
   .exart{width:120px; height:auto}

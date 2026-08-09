@@ -254,7 +254,7 @@ function App() {
   const [state, setState] = useState(() => ({ part: 0, item: 0, answers: {}, unlocked: false, report: null, ...load(), phase: "breath" }));
   const update = (patch) => setState((s) => { const n = { ...s, ...patch }; save(n); return n; });
   const answers = state.answers;
-  const scores = useMemo(() => (["glimmer", "generating", "report", "companion", "humans"].includes(state.phase)) ? computeScores(answers) : null, [state.phase, answers]);
+  const scores = useMemo(() => (["glimmer", "generating", "report", "companion", "humans", "library", "account", "settings", "constellation"].includes(state.phase) && Object.keys(answers).length) ? computeScores(answers) : null, [state.phase, answers]);
 
   useEffect(() => { window.scrollTo(0, 0); }, [state.phase, state.part, state.item]);
   useEffect(() => { document.body.classList.toggle("dm", !!state.dark); }, [state.dark]);
@@ -265,6 +265,7 @@ function App() {
   if (state.phase === "constellation") return <ConstellationScreen state={state} update={update} onBack={() => update({ phase: "home" })} />;
   if (state.phase === "humans") return <HumansScreen scores={scores} state={state} onBack={() => update({ phase: "home" })} onApply={() => update({ phase: "apply" })} />;
   if (state.phase === "account") return <AccountScreen state={state} scores={scores} onBack={() => update({ phase: "home" })} />;
+  if (state.phase === "settings") return <SettingsScreen state={state} update={update} onBack={() => update({ phase: "home" })} />;
   if (state.phase === "apply") return <ApplyScreen onBack={() => update({ phase: "humans" })} />;
   if (state.phase === "library") return <LibraryScreen onBack={() => update({ phase: "home" })} onMini={(id) => update({ miniId: id, phase: (state.miniResults || {})[id] ? "miniResult" : "miniRun" })} miniDone={state.miniResults} />;
   if (state.phase === "miniRun") return <MiniRunner miniId={state.miniId} answers={(state.miniAnswers || {})[state.miniId]} onBack={() => update({ phase: "library" })} onDone={(a) => { const res = scoreMini(state.miniId, a); track("mini_done", state.miniId); update({ miniAnswers: { ...(state.miniAnswers || {}), [state.miniId]: a }, miniResults: { ...(state.miniResults || {}), [state.miniId]: res }, phase: "miniResult" }); }} />;
@@ -565,15 +566,16 @@ function MiniBeam({ values }) {
     <line x1="60" y1="50" x2="60" y2="78" stroke={INK18} strokeWidth="2" /><circle cx="28" cy="43" r="7" fill={GOLD} /><circle cx="93" cy="57" r="5" fill="none" stroke={INK18} strokeWidth="1.5" /></svg>);
 }
 
+const band100 = (v) => v == null ? "—" : v >= 75 ? "very high" : v >= 60 ? "high" : v >= 40 ? "moderate" : v >= 25 ? "lower" : "low";
 function Tiles({ scores }) {
   const [open, setOpen] = useState(null);
   const t = scores.thinking, ei = scores.ei, b5 = scores.big5;
   const tiles = [
-    { id: "think", acc: "#5C7CA3", label: "How you think", stat: t.lean, art: <MiniBars pairs={[[t.lean, 100], ["", 55]].slice(0, 1).concat([["numerical", t.numerical], ["spatial", t.spatial], ["verbal", t.verbal], ["logical", t.logical]].sort((a, b) => b[1] - a[1]).slice(0, 3))} />, detail: [["Numerical", t.numerical + "%"], ["Spatial", t.spatial + "%"], ["Verbal", t.verbal + "%"], ["Logical", t.logical + "%"]], note: "Accuracy by problem type. The lean is your first language for a hard problem — not a ceiling on the others.", about: "Grounded in Cattell–Horn–Carroll (CHC) theory, the most widely used map of human cognitive abilities. Our short, untimed puzzles sample four problem types to read your thinking style. What it can't claim: this is a style indicator, not an IQ measure — a handful of puzzles can suggest how you approach problems, not the size of the engine." },
-    { id: "heart", acc: "#C06B5C", label: "How you carry yourself", stat: "the compass", art: <MiniCompass ei={ei} />, detail: [["Self-awareness", ei.selfAwareness], ["Social awareness", ei.socialAwareness], ["Self-management", ei.selfManagement], ["With others", ei.relationshipManagement]], note: "Goleman's four domains, 0–100 from your answers. The needle points where you're strongest.", about: "Based on Daniel Goleman's four-domain model of emotional intelligence: knowing yourself, steadying yourself, reading others, and working with others. What it can't claim: this is self-report — it measures how you see yourself, which is itself useful information, but a colleague might score you differently." },
-    { id: "pull", acc: "#D4A547", label: "What pulls you", stat: scores.riasec.top + " · " + scores.riasec.second, art: <MiniPetals riasec={scores.riasec} />, detail: ["R", "I", "A", "S", "E", "C"].map((c) => [{ R: "Making (R)", I: "Understanding (I)", A: "Creating (A)", S: "People (S)", E: "Starting (E)", C: "Ordering (C)" }[c], scores.riasec.scores[c]]), note: "The gold petal is the strongest pull. The faint one is second. Low petals matter too — they're honest about what drains you.", about: "John Holland's RIASEC model — six themes of vocational interest, used in career guidance for over sixty years. People tend to thrive where their environment matches their strongest themes. What it can't claim: interests aren't abilities. Loving a thing and being built for it usually travel together, but not always." },
-    { id: "values", acc: "#6F8F5E", label: "What you're for", stat: scores.values.ranked[0], art: <MiniBeam values={scores.values} />, detail: scores.values.ranked.map((v) => [v, scores.values.scores[v] + (scores.values.fcWins[v] ? ` · chose it ${scores.values.fcWins[v]}×` : "")]), note: "Ranked by importance, weighted by what you chose when forced to pick. Forced choices tell the truth.", about: "Drawn from Shalom Schwartz's theory of basic human values — a model validated across more than eighty countries. We sample six values most alive in working life, and weight the forced choices heavily because trade-offs reveal what ratings flatter. What it can't claim: values shift with seasons of life. This is your now, not your always." },
-    { id: "work", acc: "#8A6FA0", label: "How you work", stat: Object.entries(b5).sort((a, b) => b[1] - a[1])[0][0].toLowerCase(), art: <MiniBars pairs={Object.entries(b5).sort((a, b) => b[1] - a[1])} />, detail: Object.entries(b5).map(([k, v]) => [k, v]), note: "The Big Five, 0–100. Steadiness is Neuroticism turned right-side up: high means the weather passes through you quickly.", about: "The Big Five is the most replicated personality model in psychology — five broad traits that describe how people differ in daily working life. We present Neuroticism as Steadiness (same scale, inverted) because it reads truer that way. What it can't claim: five items per trait gives a sketch, not a portrait. The written report adds the shading." },
+    { id: "think", acc: "#5C7CA3", label: "How you think", stat: t.lean, art: <MiniBars pairs={[[t.lean, 100], ["", 55]].slice(0, 1).concat([["numerical", t.numerical], ["spatial", t.spatial], ["verbal", t.verbal], ["logical", t.logical]].sort((a, b) => b[1] - a[1]).slice(0, 3))} />, detail: [["Numerical", band100(t.numerical)], ["Spatial", band100(t.spatial)], ["Verbal", band100(t.verbal)], ["Logical", band100(t.logical)]], note: "Accuracy by problem type. The lean is your first language for a hard problem — not a ceiling on the others.", about: "Grounded in Cattell–Horn–Carroll (CHC) theory, the most widely used map of human cognitive abilities. Our short, untimed puzzles sample four problem types to read your thinking style. What it can't claim: this is a style indicator, not an IQ measure — a handful of puzzles can suggest how you approach problems, not the size of the engine." },
+    { id: "heart", acc: "#C06B5C", label: "How you carry yourself", stat: "the compass", art: <MiniCompass ei={ei} />, detail: [["Self-awareness", band100(ei.selfAwareness)], ["Social awareness", band100(ei.socialAwareness)], ["Self-management", band100(ei.selfManagement)], ["With others", band100(ei.relationshipManagement)]], note: "Goleman's four domains, 0–100 from your answers. The needle points where you're strongest.", about: "Based on Daniel Goleman's four-domain model of emotional intelligence: knowing yourself, steadying yourself, reading others, and working with others. What it can't claim: this is self-report — it measures how you see yourself, which is itself useful information, but a colleague might score you differently." },
+    { id: "pull", acc: "#D4A547", label: "What pulls you", stat: scores.riasec.top + " · " + scores.riasec.second, art: <MiniPetals riasec={scores.riasec} />, detail: ["R", "I", "A", "S", "E", "C"].map((c) => [{ R: "Making", I: "Understanding", A: "Creating", S: "People", E: "Starting", C: "Ordering" }[c], band100(scores.riasec.scores[c])]), note: "The gold petal is the strongest pull. The faint one is second. Low petals matter too — they're honest about what drains you.", about: "John Holland's RIASEC model — six themes of vocational interest, used in career guidance for over sixty years. People tend to thrive where their environment matches their strongest themes. What it can't claim: interests aren't abilities. Loving a thing and being built for it usually travel together, but not always." },
+    { id: "values", acc: "#6F8F5E", label: "What you're for", stat: scores.values.ranked[0], art: <MiniBeam values={scores.values} />, detail: scores.values.ranked.map((v) => [v, band100(scores.values.scores[v]) + (scores.values.fcWins[v] ? " · you chose it often" : "")]), note: "Ranked by importance, weighted by what you chose when forced to pick. Forced choices tell the truth.", about: "Drawn from Shalom Schwartz's theory of basic human values — a model validated across more than eighty countries. We sample six values most alive in working life, and weight the forced choices heavily because trade-offs reveal what ratings flatter. What it can't claim: values shift with seasons of life. This is your now, not your always." },
+    { id: "work", acc: "#8A6FA0", label: "How you work", stat: Object.entries(b5).sort((a, b) => b[1] - a[1])[0][0].toLowerCase(), art: <MiniBars pairs={Object.entries(b5).sort((a, b) => b[1] - a[1])} />, detail: Object.entries(b5).map(([k, v]) => [k, band100(v)]), note: "The Big Five, 0–100. Steadiness is Neuroticism turned right-side up: high means the weather passes through you quickly.", about: "The Big Five is the most replicated personality model in psychology — five broad traits that describe how people differ in daily working life. We present Neuroticism as Steadiness (same scale, inverted) because it reads truer that way. What it can't claim: five items per trait gives a sketch, not a portrait. The written report adds the shading." },
   ];
   const mk = { think: "thinking", heart: "ei", pull: "riasec", values: "values", work: "big5" };
   const shown = (scores.measured ? tiles.filter((t) => scores.measured[mk[t.id]]) : tiles);
@@ -873,6 +875,7 @@ function Home({ state, go, startAssessment, onTheme }) {
             art={<svg viewBox="0 0 60 40" className="hart"><circle cx="30" cy="13" r="6.5" fill="none" stroke={gold} strokeWidth="2"/><path d="M17 34 Q30 24 43 34" fill="none" stroke="currentColor" strokeWidth="2" opacity=".4"/></svg>}
           />
         </div>
+        <button className="settingslink" onClick={() => go("settings")}>Settings & your data</button>
         <p className="hquote">The future is not artificial; it's authentically human.</p>
         <p className="privline">Everything here lives on your device. No one — iSHKiY included — sees your answers or conversations without your explicit say-so. We count anonymous taps (like “assessment started”) to improve the app — never your words.</p>
       </div>
@@ -901,7 +904,7 @@ const saveC = (c) => { try { localStorage.setItem(CKEY, JSON.stringify(c)); } ca
 
 const COMPANION_SYSTEM = `You are the Report Companion inside iSHKiY's Essence Recovery Assessment. You have read this person's full profile and you speak as someone who knows them properly — plain, warm, honest. UK English. Short sentences. Under 170 words per reply. Same banned words and constructions as the report voice: no leverage/optimise/journey/unlock/delve/navigate, no "it's worth noting", no "not just X but Y", no bullet lists, no exclamation marks.
 
-Ground every answer in THEIR profile — quote their scores and their own words when relevant. If a question can't be answered from the profile plus ordinary life-and-work wisdom, say so plainly rather than inventing.
+Ground every answer in THEIR profile — their traits, values, interests, AND any mini-assessments they have taken (friend/attachment, approach-avoidance), plus their own words. If they have completed a lens like the friend assessment, weave what it revealed into your answer when relevant. Describe what their profile shows in plain human language; never quote raw numbers or scores at them — they have no context for a number. Say "you lean toward the long view", not "your openness is 72". If a question can't be answered from the profile plus ordinary life-and-work wisdom, say so plainly rather than inventing.
 
 Hard boundaries: you are not a clinician and the assessment is not clinically validated — never diagnose, never advise on medication or medical or legal matters; suggest a proper professional instead. If they express serious distress or thoughts of harming themselves, respond with warmth and care, don't lecture, and gently encourage them to talk to someone they trust or a professional soon. You may be honest that some questions deserve a human. Whenever you state a boundary or disclaimer — that you are not a clinician, that this is not therapy or medical or legal advice, or that a professional is the right next step — wrap that exact sentence in [! and !] markers so it can be shown clearly.
 
@@ -1010,7 +1013,7 @@ function Companion({ scores, answers, reportText, start, onHuman }) {
     setInput(""); setBusy(true);
     commit((prev) => ({ ...prev, streams: { ...prev.streams, [mode]: [...(prev.streams[mode] || []), { role: "user", content: q }].slice(-40) } }));
     const st = [...stream, { role: "user", content: q }].slice(-40);
-    const ctx = `PROFILE: ${JSON.stringify({ scores, theirWords: { role: answers["AR-2"], hardestPart: answers["AR-3"], goodDay: answers["AR-4"], neverTold: answers["MI-1"], atMyBest: answers["MI-3"] } })}\n\nTHEIR REPORT (for reference): ${String(reportText || "").slice(0, 5000)}`;
+    const ctx = `PROFILE: ${JSON.stringify({ scores, minis: window.__eraMinis || null, theirWords: { role: answers["AR-2"], hardestPart: answers["AR-3"], goodDay: answers["AR-4"], neverTold: answers["MI-1"], atMyBest: answers["MI-3"] } })}\n\nTHEIR REPORT (for reference): ${String(reportText || "").slice(0, 5000)}`;
     const lastDiv = st.map((m, i) => (m.divider ? i : -1)).reduce((a, b) => Math.max(a, b), -1);
     const hist = st.slice(lastDiv + 1).filter((m) => !m.divider);
     track("ask", mode);
@@ -1108,11 +1111,40 @@ const TIERS = [
   { id: "full", name: "Full", shares: ["Everything in Detailed", "Your complete written report", "Your own written answers, word for word"] },
 ];
 const PRACTITIONERS = [
-  { name: "Maya Okafor", role: "Career counsellor", line: "Twenty years helping people leave roles that fit their CV but not their character.", fit: "when the problem is the path itself" },
-  { name: "David Hartley", role: "Mentor", line: "Built and sold two firms. Now sits with founders and lifers who suspect there's more.", fit: "when you know the direction but not the next move" },
-  { name: "Priya Sharma", role: "Therapist, integrative", line: "Works where work and worth get tangled. Warm, unhurried, direct when it matters.", fit: "when the pattern is older than the job" },
-  { name: "James Whitcombe", role: "Executive coach", line: "Former CFO who coaches the humans inside senior roles, not the roles.", fit: "when the title is fine and the Tuesday isn't" },
+  { name: "Maya Okafor", role: "Career counsellor", line: "Twenty years helping people leave roles that fit their CV but not their character.", fit: "when the problem is the path itself",
+    suits: { values: ["Self-direction", "Stimulation"], riasec: ["A", "S"], forWho: "people ready to leave a box that no longer fits" } },
+  { name: "David Hartley", role: "Mentor", line: "Built and sold two firms. Now sits with founders and lifers who suspect there's more.", fit: "when you know the direction but not the next move",
+    suits: { values: ["Achievement", "Power"], riasec: ["E", "I"], forWho: "builders and starters weighing a bold next move" } },
+  { name: "Priya Sharma", role: "Therapist, integrative", line: "Works where work and worth get tangled. Warm, unhurried, direct when it matters.", fit: "when the pattern is older than the job",
+    suits: { values: ["Universalism", "Security"], big5Low: ["Steadiness"], forWho: "people whose pattern runs deeper than any one job" } },
+  { name: "James Whitcombe", role: "Executive coach", line: "Former CFO who coaches the humans inside senior roles, not the roles.", fit: "when the title is fine and the Tuesday isn't",
+    suits: { values: ["Achievement", "Security"], riasec: ["C", "E"], forWho: "senior people who look fine on paper and flat on Tuesday" } },
 ];
+
+// Match score, described in words (never raw numbers to the user).
+function matchScore(p, scores) {
+  if (!scores || !scores.measured) return null;
+  let pts = 0, max = 0; const reasons = [];
+  const su = p.suits || {};
+  if (su.values && scores.measured.values && scores.values) {
+    max += 2; const top3 = scores.values.ranked.slice(0, 3);
+    const hit = su.values.filter((v) => top3.includes(v));
+    if (hit.length) { pts += Math.min(2, hit.length); reasons.push("shares what you care about most"); }
+  }
+  if (su.riasec && scores.measured.riasec && scores.riasec) {
+    max += 2; const top2 = [scores.riasec.top, scores.riasec.second];
+    const hit = su.riasec.filter((c) => top2.includes(c));
+    if (hit.length) { pts += Math.min(2, hit.length); reasons.push("works where your interests point"); }
+  }
+  if (su.big5Low && scores.measured.big5 && scores.big5) {
+    max += 1; const low = su.big5Low.some((t) => (scores.big5[t] ?? 100) < 45);
+    if (low) { pts += 1; reasons.push("used to sitting with the harder weeks"); }
+  }
+  if (max === 0) return { band: null, reasons: [], forWho: su.forWho };
+  const r = pts / max;
+  const band = r >= 0.66 ? "Strong fit" : r >= 0.33 ? "Good fit" : "Worth a look";
+  return { band, reasons: reasons.slice(0, 2), forWho: su.forWho };
+}
 
 function Practitioners({ scores }) {
   const [tier, setTier] = useState("basic");
@@ -1140,7 +1172,7 @@ function Practitioners({ scores }) {
             <span className="demobadge">Illustrative profile — not yet a real practitioner</span>
             <div className="pmatchrow">
               <p className="pname">{p.name} <span className="prole">· {p.role}</span></p>
-              {m && m.pct != null && <span className="pmatch">{m.pct}% match</span>}
+              {m && m.band && <span className="pmatch">{m.band}</span>}
             </div>
             <p className="pline">{p.line}</p>
             {m && m.reasons.length
@@ -1186,6 +1218,7 @@ function Retakes({ completedAt, onRetake }) {
 
 
 function CompanionScreen({ state, scores, onBack, onRegenerate, onHuman }) {
+  try { window.__eraMinis = state.miniResults || null; } catch {}
   if (!state.report || !scores) return null;
   return (
     <div className="reportpage">
@@ -1379,6 +1412,65 @@ function SectionHead({ kicker, title, line }) {
     <h1 className="display ink">{title}</h1>
     <p className="lede inkdim">{line}</p>
   </>);
+}
+
+
+/* ---------------- settings ---------------- */
+function SettingsScreen({ state, update, onBack }) {
+  const done = partsDone(state.completedAt);
+  const level = levelFor(done);
+  const exportAll = () => {
+    const dump = { exportedAt: new Date().toISOString(), version: "1.12", answers: state.answers, completedAt: state.completedAt, report: state.report, miniResults: state.miniResults, level: level ? level.name : null };
+    const b = new Blob([JSON.stringify(dump, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(b); const a = document.createElement("a");
+    a.href = url; a.download = "my-ishkiy-data.json"; a.click(); URL.revokeObjectURL(url);
+    track("export");
+  };
+  const resetAssessment = () => { if (confirm("Reset your main assessment? Your answers, report and badges are cleared from this device. Your Library lenses stay. This can't be undone.")) { const n = { ...state, answers: {}, completedAt: {}, report: null, arc: null, part: 0, item: 0 }; save(n); location.reload(); } };
+  const resetMini = (id) => { if (confirm("Reset this lens?")) { const mr = { ...(state.miniResults || {}) }; delete mr[id]; const ma = { ...(state.miniAnswers || {}) }; delete ma[id]; update({ miniResults: mr, miniAnswers: ma }); } };
+  const resetAll = () => { if (confirm("Clear EVERYTHING on this device — assessment, report, lenses, conversations? This cannot be undone.")) { localStorage.clear(); location.reload(); } };
+  return (
+    <div className="reportpage tint-sage">
+      <div className="rhead noprint"><button className="ghost inkghost" onClick={onBack}>← Home</button><Wordmark /><span /></div>
+      <article className="report">
+        <p className="kicker gold">Settings</p>
+        <h1 className="display ink">Your space, your say.</h1>
+
+        <div className="setgroup">
+          <p className="setlabel">Your assessment</p>
+          <div className="setrow"><span>Progress</span><span className="tnum">{done} of {PARTS.length} parts{level ? " · " + level.name : ""}</span></div>
+          {done > 0 && done < PARTS.length && <button className="setbtn" onClick={() => update({ arc: "more", phase: "chooseDepth" })}>Continue the assessment →</button>}
+          <button className="setbtn warn" onClick={resetAssessment}>Reset main assessment</button>
+        </div>
+
+        <div className="setgroup">
+          <p className="setlabel">Your Library lenses</p>
+          {Object.keys(MINIS).map((id) => (
+            <div key={id} className="setrow"><span>{MINIS[id].name}</span>
+              {(state.miniResults || {})[id]
+                ? <button className="setmini" onClick={() => resetMini(id)}>Reset</button>
+                : <span className="tnote" style={{margin:0}}>Not taken</span>}
+            </div>
+          ))}
+        </div>
+
+        <div className="setgroup">
+          <p className="setlabel">Appearance</p>
+          <button className="setbtn" onClick={() => update({ dark: !state.dark })}>{state.dark ? "Switch to light mode" : "Switch to dark mode"}</button>
+          <button className="setbtn" onClick={() => update({ phase: "explainer" })}>Watch the intro again</button>
+        </div>
+
+        <div className="setgroup">
+          <p className="setlabel">Your data</p>
+          <p className="tnote">Everything lives on this device. No one — iSHKiY included — can read your answers or conversations. We count anonymous taps to improve the app, never your words.</p>
+          <button className="setbtn" onClick={exportAll}>Export my data (a file I keep)</button>
+          <button className="setbtn warn" onClick={resetAll}>Delete everything from this device</button>
+        </div>
+
+        <p className="hquote">Stay yourself. The rest follows.</p>
+      </article>
+    </div>
+  );
 }
 
 function AccountScreen({ state, scores, onBack }) {
@@ -1681,6 +1773,7 @@ function MiniResult({ miniId, result, onBack }) {
             <p className="rbody"><em>{result.orientation === "toward" ? "You lead with the upside. You move toward what you want more than away from what you fear — which makes you brave, and occasionally blind to the cliff edge." : "You lead with care. You move to protect what matters before you reach for more — which makes you steady, and sometimes slower to the thing you'd love."}</em></p>
           </div>
         )}
+        <div className="minihelp"><p><strong>What this means.</strong> {result.kind === "friend" ? "This lens looks at two sides of closeness: what you naturally give the people you love, and what you quietly need back from them. Neither number is good or bad — the interesting part is the gap between them, and whether the people around you know what you need." : "This lens looks at what drives you: whether you move toward the things you want, or away from the things you fear. Most people do both, but one usually leads. Knowing which one leads helps you understand why some choices feel easy and others feel like a fight."}</p></div>
         <p className="integrity">A short lens, {m.from.toLowerCase()}. It adds to your profile — your Companion now knows this about you too. A self-discovery tool, not a clinical measure.</p>
       </article>
     </div>
@@ -1701,6 +1794,14 @@ function Report({ report, name, answers, scores, companionStart, completedAt, on
       </div>
       <article className="report">
         <div className="printonly phead"><Wordmark /><p className="kicker gold">Essence Recovery Assessment &amp; Companion</p></div>
+        {(() => { const n = partsDone(completedAt); const lvl = levelFor(n); const nx = nextLevel(n); return (
+          <div className="badgestrip noprint">
+            <div className="badgechips">
+              {LEVELS.map((L) => (<span key={L.id} className={"bchip" + (n >= L.need ? " earned" : "")}><i className="bchipdot" />{L.name}</span>))}
+            </div>
+            <p className="badgeexplain">{lvl ? `You've earned ${lvl.name} — ${lvl.accuracy}.` : "Answer a few parts to earn your first badge."}{nx ? ` ${nx.need - n} more part${nx.need - n === 1 ? "" : "s"} unlocks ${nx.name}.` : ""}</p>
+          </div>
+        ); })()}
         <p className="kicker gold noprint">Essence Recovery Assessment</p>
         <h1 className="display ink">{name ? `${name}, this is you.` : "This is you."}</h1>
         <p className="lede inkdim noprint">Your report, your dimension tiles, your share card — the centre everything else here orbits.</p>
