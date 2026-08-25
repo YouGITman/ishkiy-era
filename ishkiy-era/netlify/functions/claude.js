@@ -13,8 +13,11 @@ export default async (req) => {
     // max_tokens. The budgets here are small (220-1400), so keep it off.
     thinking: { type: "disabled" },
     max_tokens: Math.min(body.max_tokens || 1400, 2000),
-    system: typeof body.system === "string" ? body.system.slice(0, 8000) : undefined,
-    messages: Array.isArray(body.messages) ? body.messages.slice(0, 4) : [],
+    // 8000 used to sit here and the Companion silently overran it — the profile,
+    // the report and the shared memory together run past 20k, and the tail of the
+    // prompt (the "answer this message now" instruction) was being cut off.
+    system: typeof body.system === "string" ? body.system.slice(0, 32000) : undefined,
+    messages: Array.isArray(body.messages) ? body.messages.slice(0, 8) : [],
   };
 
   const res = await fetch("https://api.anthropic.com/v1/messages", {

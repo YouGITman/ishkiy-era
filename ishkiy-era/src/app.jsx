@@ -353,7 +353,7 @@ function Unlock({ onUnlock }) {
       <div className="welcome">
         <p className="kicker">Founding access</p>
         <h1 className="display sm">Enter your access code</h1>
-        <p className="lede dim">Your code came with your payment confirmation. £29 gets you: the full assessment, your written report (yours to keep), a share card, and 7 days with your AI Companion — a coach, mentor and sounding board that has actually read you.</p>
+        <p className="lede dim">Your code came with your payment confirmation. £29 gets you: the full assessment, your written report (yours to keep), a share card, and 7 days with your AI Companion — a coach, a mentor and a sounding voice that have actually read you.</p>
         <input className="code" value={code} onChange={(e) => { setCode(e.target.value); setErr(false); }} onKeyDown={(e) => e.key === "Enter" && code && check()} placeholder="e.g. ERA-XXXX-XXXX" autoFocus spellCheck="false" />
         {err && <p className="err">That code isn't recognised. Check for typos — codes aren't case-sensitive.</p>}
         <button className="btn gold" disabled={!code || busy} onClick={check}>{busy ? "Checking…" : "Continue"}</button>
@@ -853,7 +853,7 @@ function RotatingGlyphs() { return <Rotator items={GLYPHS} every={4200} />; }
 function Home({ state, go, startAssessment, onTheme }) {
   const name = (state.answers["AR-1"] || "").trim();
   let compLeft = null;
-  try { const cc = migrate(loadC()); compLeft = Math.max(0, Q_CAP - (cc.count || 0)); } catch {}
+  try { const cc = loadCompanion(); compLeft = Math.max(0, Q_CAP - (cc.count || 0)); } catch {}
   const hasReport = !!state.report;
   const midway = !hasReport && Object.keys(state.answers).length > 0;
   const gold = "#D4A547", faint = "rgba(15,30,61,0.18)";
@@ -875,7 +875,7 @@ function Home({ state, go, startAssessment, onTheme }) {
           <HomeTile
             acc="#D4A547"
             title="Your companion"
-            sub="Talk about your life and work with four AI voices that know your report. Ten questions a day."
+            sub="Talk about your life and work with three AI voices that know your report and share one memory. Ten questions a day."
             locked={!hasReport} lockNote="Opens after your report is written."
             onClick={() => go("companion")}
             badge={hasReport && compLeft != null ? `${compLeft} left today` : null}
@@ -924,9 +924,12 @@ function Home({ state, go, startAssessment, onTheme }) {
 function Avatar({ kind, size = 34 }) {
   const g = "#D4A547", b = "#F5F1E8", i = "#0F1E3D";
   const inner = {
-    companion: <><circle cx="17" cy="17" r="11" fill="none" stroke={g} strokeWidth="1.8"/><circle cx="17" cy="17" r="3.6" fill={g}/></>,
+    // Sounding: ripples spreading from a dropped weight — how you find the depth.
+    companion: <><circle cx="17" cy="17" r="4" fill={g}/><circle cx="17" cy="17" r="8" fill="none" stroke={g} strokeWidth="1.4" opacity=".55"/><circle cx="17" cy="17" r="12" fill="none" stroke={g} strokeWidth="1.2" opacity=".3"/></>,
     coach: <><circle cx="17" cy="17" r="11" fill="none" stroke={g} strokeWidth="1.8"/><path d="M11.5 20 L17 12.5 L22.5 20" fill="none" stroke={g} strokeWidth="2" strokeLinecap="round"/></>,
     mentor: <><path d="M7 22 A10 10 0 0 1 27 22" fill="none" stroke={g} strokeWidth="1.8"/><path d="M11 22 A6 6 0 0 1 23 22" fill="none" stroke={g} strokeWidth="1.8" opacity=".55"/><circle cx="17" cy="21" r="2.6" fill={g}/></>,
+    // iSHKiY chooses: three arcs converging on one point.
+    auto: <><circle cx="17" cy="17" r="3.2" fill={g}/><path d="M17 6 A11 11 0 0 1 26.5 22.5" fill="none" stroke={g} strokeWidth="1.6" opacity=".75"/><path d="M26.5 22.5 A11 11 0 0 1 7.5 22.5" fill="none" stroke={g} strokeWidth="1.6" opacity=".45"/><path d="M7.5 22.5 A11 11 0 0 1 17 6" fill="none" stroke={g} strokeWidth="1.6" opacity=".6"/></>,
     sounding: <><circle cx="17" cy="17" r="4" fill={g}/><circle cx="17" cy="17" r="8" fill="none" stroke={g} strokeWidth="1.4" opacity=".55"/><circle cx="17" cy="17" r="12" fill="none" stroke={g} strokeWidth="1.2" opacity=".3"/></>,
   }[kind];
   return <svg viewBox="0 0 34 34" width={size} height={size} className="avatar"><circle cx="17" cy="17" r="16" fill="rgba(212,165,71,0.10)" className="halo"/>{inner}</svg>;
@@ -950,19 +953,71 @@ Always answer their newest message first — earlier turns are background only. 
 FORMAT — always. Your first line must be a subject line in this exact form: ~three to five words naming what this exchange is about~ then a blank line, then your reply. The subject names THIS message's subject, not the conversation's history. End answers plainly, not with offers of further help.`;
 
 const MODES = {
-  companion: { label: "Guide", colour: "#D4A547", vibe: "Steady and warm. A hand on the tiller while you think.", slogan: "Start here. Helps you think it through.", desc: "Reads you back. Good for decisions and direction.", add: "" },
+  /* Sounding is the old Guide and Sounding board merged — they were the same
+     voice wearing two hats. A sounding is how you find the depth of the water
+     you're actually in. It stays the default and the place you start. */
+  companion: { label: "Sounding", colour: "#D4A547", vibe: "Quiet and roomy. Space to hear yourself think.", slogan: "Start here. Listens first, and helps you find the depth.", desc: "Reads you back. Good for untangling, and for decisions.", add: "\n\nMODE — SOUNDING: You are in sounding mode, the voice they start with. Your job is to help them hear themselves. Reflect back what they've said in cleaner words than they managed. Name the feeling underneath it if it's visible. Ask gentle questions that untangle rather than steer. Give less advice than Coach or Mentor would — but when they ask a direct question, or when a decision is genuinely on the table, answer it properly rather than hiding behind another question. Be explicit when relevant that this is thinking out loud, not counselling or therapy. If, and only if, what they raise clearly runs deeper than a chat can hold, you may once mention — gently, without selling — that iSHKiY can match them to a real person suited to how they work. Never pitch it twice, and never when it does not fit." },
   coach: { label: "Coach", colour: "#C06B5C", vibe: "Direct and kind. Believes in you enough to push.", slogan: "Pushes you to act. One step this week.", desc: "Forward motion. Expects you to act.", add: "\n\nMODE — COACH: You are in coach mode. Focus on the next concrete step, not the whole staircase. Hold them to what their profile says they're capable of — kindly, but without letting them off. Each reply should surface one specific action they could take this week, drawn from their scores and words. Ask at most one sharp question per reply. Do not comfort when a nudge serves better." },
   mentor: { label: "Mentor", colour: "#5C7CA3", vibe: "Unhurried. Sees the years, not just the week.", slogan: "The long view. What usually happens next.", desc: "The longer view. Been there, seen it.", add: "\n\nMODE — MENTOR: You are in mentor mode. Speak from experience and pattern: what tends to happen to people shaped like this, over years not weeks. Offer perspective before advice. Occasionally tell a short, plausible general truth about working life ('people with your pattern often…'). Never invent personal anecdotes or claim a biography. The gift of this mode is patience and the long view." },
-  sounding: { label: "Sounding board", colour: "#6F8F5E", vibe: "Quiet and roomy. Space to hear yourself.", slogan: "Listens and untangles. Advice only if you ask.", desc: "Untangling, out loud. Not counselling.", add: "\n\nMODE — SOUNDING BOARD: You are in sounding-board mode. If, and only if, what they raise clearly runs deeper than a chat can hold, you may once mention — gently, without selling — that iSHKiY can match them to a real person suited to how they work. Never pitch it twice, never when it does not fit. Your job is to help them hear themselves: reflect back what they've said in cleaner words, name the feeling underneath if it's visible, ask gentle questions that untangle rather than steer. Give less advice than in any other mode. Be explicit when relevant that this is thinking-out-loud, not counselling or therapy — and if what they're carrying runs deeper than untangling, warmly suggest the kind of human support that fits, including the practitioner circle when it's live." },
 };
+const VOICES = Object.keys(MODES);
 
 const COMPANION_DAYS = 7;
+/* Two migrations, both idempotent and both safe to run on every load.
+   v1 -> v2: one flat msgs array became a stream per voice.
+   v2 -> v3: Guide and Sounding board merged into Sounding. Messages carry no
+   timestamps, so the two histories can't be interleaved truthfully — the old
+   sounding-board conversation is appended after the guide one behind a topic
+   divider, which is honest about the seam rather than pretending there wasn't one. */
 const migrate = (c) => {
-  if (c.streams) return c;
-  const streams = { companion: [], coach: [], mentor: [], sounding: [] };
-  const home = streams[c.mode] ? c.mode : "companion";
-  (c.msgs || []).forEach((m) => { const k = (m.m && streams[m.m]) ? m.m : home; streams[k].push(m); });
-  return { day: c.day, count: c.count || 0, mode: c.mode || "companion", streams, pulses: c.pulses || {} };
+  let out = c;
+  if (!out.streams) {
+    const streams = { companion: [], coach: [], mentor: [], sounding: [] };
+    const home = streams[out.mode] ? out.mode : "companion";
+    (out.msgs || []).forEach((m) => { const k = (m.m && streams[m.m]) ? m.m : home; streams[k].push(m); });
+    out = { day: out.day, count: out.count || 0, mode: out.mode || "companion", streams, pulses: out.pulses || {} };
+  }
+  const old = (out.streams || {}).sounding;
+  if (old) {
+    const kept = [...(out.streams.companion || [])];
+    const carried = old.filter((m) => !m.divider);
+    if (carried.length) {
+      if (kept.length) kept.push({ divider: true });
+      carried.forEach((m) => kept.push(m.role === "assistant" ? { ...m, m: "companion" } : m));
+    }
+    const streams = { ...out.streams, companion: kept.slice(-40) };
+    delete streams.sounding;
+    const pulses = { ...(out.pulses || {}) };
+    if (!pulses.companion && pulses.sounding) pulses.companion = pulses.sounding;
+    delete pulses.sounding;
+    out = { ...out, streams, pulses, mode: MODES[out.mode] ? out.mode : "companion" };
+  }
+  if (!MODES[out.mode]) out = { ...out, mode: "companion" };
+  return out;
+};
+/* Migrate on read and write the result straight back, so the merge happens once
+   rather than being redone from the old shape on every load. */
+const loadCompanion = () => { const raw = loadC(); const m = migrate(raw); if (m !== raw) saveC(m); return m; };
+
+/* Central memory. Every voice sees every conversation — the summaries first,
+   then the last few lines verbatim so nothing important is lost to paraphrase.
+   Deterministic on purpose: no extra API call, so it cannot fail or go stale. */
+const centralMemory = (c, mode) => {
+  const bits = [];
+  VOICES.forEach((k) => {
+    const st = (c.streams || {})[k] || [];
+    const real = st.filter((m) => m.content && !m.divider);
+    if (!real.length) return;
+    const label = MODES[k].label;
+    const pulse = (c.pulses || {})[k];
+    const recent = real.slice(k === mode ? -2 : -4).map((m) =>
+      (m.role === "user" ? "They said: " : label + " said: ") + String(m.content).replace(/\[!|!\]/g, "").replace(/\s+/g, " ").slice(0, 260));
+    bits.push(`— With ${label}${k === mode ? " (this conversation)" : ""}, ${real.length} message${real.length === 1 ? "" : "s"} so far:`
+      + (pulse ? `\n  Where it got to: ${pulse.replace(/\s+/g, " ")}` : "")
+      + `\n  ${recent.join("\n  ")}`);
+  });
+  if (!bits.length) return "";
+  return `\n\nSHARED MEMORY — everything this person has talked about with any voice:\n${bits.join("\n")}\n\nAll three voices share one memory. If something they raised elsewhere is relevant, use it as naturally as if they had told you directly — never announce that you are reading another conversation, never say "you mentioned to Coach". If they are picking up a thread from another voice, just continue it.`;
 };
 
 function Pulse({ mode, pulse, busy, onRefresh, canRefresh }) {
@@ -983,13 +1038,15 @@ function Companion({ scores, answers, reportText, start, onHuman }) {
   const begun = start || Date.now();
   const dayNum = Math.min(COMPANION_DAYS, Math.floor((Date.now() - begun) / DAY) + 1);
   const ended = Date.now() - begun > COMPANION_DAYS * DAY;
-  const [c, setC] = useState(() => migrate(loadC()));
+  const [c, setC] = useState(() => loadCompanion());
   const [mode, setMode] = useState(() => c.mode || "companion");
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [busyPulse, setBusyPulse] = useState(false);
   const [showOld, setShowOld] = useState(false);
   const [room, setRoom] = useState(null);
+  const [routing, setRouting] = useState(false);
+  const [choice, setChoice] = useState(null);
   const [dismissHuman, setDismissHuman] = useState(false);
   const endRef = useRef(null);
   const stream = c.streams[mode] || [];
@@ -1004,7 +1061,7 @@ const pick = (m) => { setMode(m); commit((prev) => ({ ...prev, mode: m })); };
     <section className="companion noprint">
       <p className="kicker gold">Your Report Companion</p>
       <h2 className="ctitle">Your founding week has ended. Your report hasn't.</h2>
-      <p className="cexplain">The report on this page is yours for good. The Companion — the four voices that read you properly — returns with iSHKiY membership, which founding members will hear about first. If a week of it earned a place in your thinking, tell us and we'll keep your seat.</p>
+      <p className="cexplain">The report on this page is yours for good. The Companion — the three voices that read you properly — returns with iSHKiY membership, which founding members will hear about first. If a week of it earned a place in your thinking, tell us and we'll keep your seat.</p>
       <a className="rtbtn" href={"mailto:ops@ishkiy.com?subject=" + encodeURIComponent("Keep my Companion seat") + "&body=" + encodeURIComponent("My founding Companion week is over and I'd want it back when membership launches.")}>Keep my seat</a>
     </section>
   );
@@ -1035,8 +1092,9 @@ const pick = (m) => { setMode(m); commit((prev) => ({ ...prev, mode: m })); };
     return null;
   };
 
-  const refreshPulse = async (streams) => {
-    const st = (streams || cRef.current.streams)[mode] || [];
+  const refreshPulse = async (streams, forMode) => {
+    const target = forMode || mode;
+    const st = (streams || cRef.current.streams)[target] || [];
     if (st.length < 2 || busyPulse) return;
     setBusyPulse(true);
     const transcript = st.slice(-12).map((m) => (m.role === "user" ? "You said: " : "Voice: ") + m.content).join("\n");
@@ -1044,52 +1102,144 @@ const pick = (m) => { setMode(m); commit((prev) => ({ ...prev, mode: m })); };
       system: "You summarise the LATEST part of a conversation for iSHKiY, speaking directly to the person it belongs to. Address them as \"you\" — never \"they\" or \"the user\". Weight the most recent exchanges heavily; older turns only if still live. UK English, plain, warm, no corporate words, no bullets, no headings. Return at most three short lines, each on its own line: what you just worked through; any decision or next step you named; one line worth keeping. If a line has nothing real to hold, leave it out. Nothing else.",
       messages: [{ role: "user", content: transcript }], max_tokens: 220,
     });
-    if (text) commit((prev) => ({ ...prev, pulses: { ...(prev.pulses || {}), [mode]: text } }));
+    if (text) commit((prev) => ({ ...prev, pulses: { ...(prev.pulses || {}), [target]: text } }));
     setBusyPulse(false);
   };
 
-  const ask = async () => {
-    const q = input.trim(); if (!q || busy || left === 0) return;
-    setInput(""); setBusy(true);
-    commit((prev) => ({ ...prev, streams: { ...prev.streams, [mode]: [...(prev.streams[mode] || []), { role: "user", content: q }].slice(-40) } }));
-    const st = [...stream, { role: "user", content: q }].slice(-40);
-    const ctx = `PROFILE: ${JSON.stringify({ scores, minis: window.__eraMinis || null, theirWords: { role: answers["AR-2"], hardestPart: answers["AR-3"], goodDay: answers["AR-4"], neverTold: answers["MI-1"], atMyBest: answers["MI-3"] } })}\n\nTHEIR REPORT (for reference): ${String(reportText || "").slice(0, 5000)}`;
+  const profileCtx = () => `PROFILE: ${JSON.stringify({ scores, minis: window.__eraMinis || null, theirWords: { role: answers["AR-2"], hardestPart: answers["AR-3"], goodDay: answers["AR-4"], neverTold: answers["MI-1"], atMyBest: answers["MI-3"] } })}\n\nTHEIR REPORT (for reference): ${String(reportText || "").slice(0, 5000)}`;
+
+  /* ask({ q, to, fresh }) — `to` lets the router send a question to a voice the
+     person isn't sitting in; `fresh` opens a new topic in that voice first. */
+  const ask = async (opts = {}) => {
+    const q = (opts.q != null ? opts.q : input).trim();
+    const tm = opts.to && MODES[opts.to] ? opts.to : mode;
+    if (!q || busy || left === 0) return;
+    if (opts.q == null) setInput("");
+    setBusy(true);
+    const opening = (base) => {
+      const b = [...base];
+      if (opts.fresh && b.filter((m) => m.content).length) b.push({ divider: true });
+      return [...b, { role: "user", content: q }].slice(-40);
+    };
+    commit((prev) => ({ ...prev, streams: { ...prev.streams, [tm]: opening(prev.streams[tm] || []) } }));
+    /* Mirror the commit locally rather than reading cRef back — commit goes through
+       a React state updater, which has not run yet at this point. */
+    const before = cRef.current;
+    const st = opening(before.streams[tm] || []);
+    const ctx = profileCtx() + centralMemory(before, tm);
     const lastDiv = st.map((m, i) => (m.divider ? i : -1)).reduce((a, b) => Math.max(a, b), -1);
     const hist = st.slice(lastDiv + 1).filter((m) => !m.divider);
-    track("ask", mode);
+    track("ask", tm);
     const prevSubj = [...hist].reverse().find((m) => m.subj)?.subj || null;
     const focus = `\n\nTHE MESSAGE YOU MUST ANSWER NOW: "${q}"\nAnswer this and only this. Earlier turns are background. If this changes the subject${prevSubj ? ` from "${prevSubj}"` : ""}, follow it completely and do not return to the earlier subject unless asked.`;
-    const raw = await fetchAI({ system: COMPANION_SYSTEM + MODES[mode].add + "\n\n" + ctx + focus, messages: hist.slice(-4).map(({ role, content }) => ({ role, content })), max_tokens: 500 });
+    const raw = await fetchAI({ system: COMPANION_SYSTEM + MODES[tm].add + "\n\n" + ctx + focus, messages: hist.slice(-4).map(({ role, content }) => ({ role, content })), max_tokens: 500 });
     let subj = null, text = raw;
     if (raw) { const m0 = raw.match(/^\s*~([^~\n]{2,60})~\s*/); if (m0) { subj = m0[1].trim(); text = raw.slice(m0[0].length).trim(); } }
     if (text) {
-      let after = null;
-      commit((prev) => {
-        const base = [...(prev.streams[mode] || [])];
-        for (let k = base.length - 1; k >= 0; k--) { if (base[k].role === "user") { base[k] = { ...base[k], subj }; break; } }
-        const st2 = [...base, { role: "assistant", m: mode, subj, content: text }].slice(-40);
-        after = st2;
-        return { ...prev, day: today(), count: prev.count + 1, mode, streams: { ...prev.streams, [mode]: st2 } };
-      });
-      if (after && after.length % 6 === 0) refreshPulse({ ...cRef.current.streams, [mode]: after });
+      /* Same shape as `opening` above: computed here, not inside the updater, so
+         the pulse refresh can see the result instead of reading a null. */
+      const closing = (base) => {
+        const b = [...base];
+        for (let k = b.length - 1; k >= 0; k--) { if (b[k].role === "user") { b[k] = { ...b[k], subj }; break; } }
+        return [...b, { role: "assistant", m: tm, subj, content: text }].slice(-40);
+      };
+      commit((prev) => ({ ...prev, day: today(), count: prev.count + 1, mode: tm, streams: { ...prev.streams, [tm]: closing(prev.streams[tm] || []) } }));
+      const after = closing(st);
+      if (after.length % 6 === 0) refreshPulse({ ...before.streams, [tm]: after }, tm);
     } else {
-      commit((prev) => ({ ...prev, streams: { ...prev.streams, [mode]: [...(prev.streams[mode] || []), { role: "assistant", m: mode, err: true, content: "The line dropped before that reached me — a connection hiccup, not you. That question didn't use one of your ten. Give it a moment and ask again." }].slice(-40) } }));
+      commit((prev) => ({ ...prev, streams: { ...prev.streams, [tm]: [...(prev.streams[tm] || []), { role: "assistant", m: tm, err: true, content: "The line dropped before that reached me — a connection hiccup, not you. That question didn't use one of your ten. Give it a moment and ask again." }].slice(-40) } }));
     }
     setBusy(false);
+  };
+
+  /* The router. One cheap call decides which voice suits the question and whether
+     it belongs to a conversation already running. It does not spend one of the
+     ten — routing is plumbing, not an answer. If it fails for any reason we fall
+     through to Sounding on a fresh topic, which is the safe default. */
+  const routeQuestion = async (q) => {
+    const running = VOICES.map((k) => {
+      const real = ((cRef.current.streams || {})[k] || []).filter((m) => m.content && !m.divider);
+      const lastDiv = ((cRef.current.streams || {})[k] || []).map((m, i) => (m.divider ? i : -1)).reduce((a, b) => Math.max(a, b), -1);
+      const live = ((cRef.current.streams || {})[k] || []).slice(lastDiv + 1).filter((m) => m.content);
+      const subj = [...live].reverse().find((m) => m.subj)?.subj;
+      return real.length ? `${k} (${MODES[k].label}) — current topic: ${subj || "unnamed"}; ${live.length} messages in it` : `${k} (${MODES[k].label}) — no conversation yet`;
+    }).join("\n");
+    const raw = await fetchAI({
+      system: `You route a question to one of three voices inside iSHKiY, then decide whether it continues a conversation already running or deserves a fresh one.
+
+THE VOICES
+companion (Sounding) — listening and untangling. Choose for feelings, confusion, "I don't know what I think", anything heavy, anything they need to hear themselves say. This is the default when it is not clearly one of the others.
+coach (Coach) — pushes toward action. Choose when they want a decision made, a next step, accountability, or they are stuck in circles and need moving.
+mentor (Mentor) — the long view. Choose for career shape, "where does this lead", patterns over years, questions about what usually happens to people like them.
+
+CONVERSATIONS CURRENTLY RUNNING
+${running}
+
+Reply with exactly two lines and nothing else:
+VOICE: <companion|coach|mentor>
+NEW: <yes|no>
+
+NEW is yes if the question opens a subject unrelated to that voice's current topic, or that voice has no conversation yet. NEW is no if it clearly continues the topic named above.`,
+      messages: [{ role: "user", content: q }], max_tokens: 24,
+    });
+    const to = (String(raw || "").match(/VOICE:\s*(companion|coach|mentor)/i) || [])[1];
+    const fresh = /NEW:\s*yes/i.test(String(raw || ""));
+    const picked = to ? to.toLowerCase() : "companion";
+    return { to: picked, fresh: to ? fresh : true, guessed: !to };
+  };
+
+  const askAuto = async () => {
+    const q = input.trim(); if (!q || busy || left === 0) return;
+    setInput(""); setRouting(true);
+    const { to, fresh, guessed } = await routeQuestion(q);
+    setRouting(false);
+    track("auto_route", guessed ? "fallback" : to);
+    setChoice({ to, fresh });
+    pick(to); setRoom(to);
+    await ask({ q, to, fresh });
   };
 
   const visible = showOld ? stream : stream.slice(-4);
   const hidden = stream.length - visible.length;
   const lastLine = (k) => { const st = c.streams[k] || []; const last = [...st].reverse().find((m) => m.content && !m.divider); return last ? String(last.content).replace(/\[!|!\]/g, "").slice(0, 64) : null; };
   const newTopic = () => commit((prev) => ({ ...prev, streams: { ...prev.streams, [mode]: [...(prev.streams[mode] || []), { divider: true }].slice(-40) } }));
-  const enterRoom = (k) => { pick(k); setRoom(k); track("voice_open", k); };
+  const enterRoom = (k) => { if (k !== "auto") pick(k); setChoice(null); setRoom(k); track("voice_open", k); };
+
+  if (room === "auto") return (
+    <section className="companion noprint room autoroom" style={{ borderTopColor: "#D4A547" }}>
+      <button className="ghost inkghost" onClick={() => setRoom(null)}>← All voices</button>
+      <div className="roomhead" style={{ background: "linear-gradient(180deg, #D4A5471f, transparent)" }}>
+        <Avatar kind="auto" size={46} />
+        <div>
+          <p className="vcname big" style={{ color: "#D4A547" }}>Let iSHKiY choose</p>
+          <p className="roomvibe">Say what's on your mind. We'll pick the voice that fits it.</p>
+        </div>
+      </div>
+      <p className="cexplain">You don't have to know whether you need listening, pushing, or the long view. Ask, and we'll send it to whichever of the three suits — and start a new conversation if it's a new subject. Choosing costs you nothing; only the answer uses one of your {Q_CAP}.</p>
+      {left > 0 ? (
+        <div className="askrow">
+          <textarea className="tarea askta" rows={3} value={input} placeholder="What's on your mind?" onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); askAuto(); } }} />
+          <button className="btn gold" disabled={busy || !input.trim()} onClick={askAuto}>{routing ? "Choosing…" : "Ask iSHKiY"}</button>
+        </div>
+      ) : (
+        <p className="tnote">That's your {Q_CAP} for today. A night's thinking between conversations does more than an eleventh question would. It resets tomorrow.</p>
+      )}
+      <p className="tnote">{left} of {Q_CAP} questions left today, shared across all three voices.</p>
+    </section>
+  );
 
   if (!room) return (
     <section className="companion noprint">
       <p className="kicker gold">Your Companion</p>
-      <h2 className="ctitle">Four voices. One of them fits today.</h2>
-      <p className="cexplain">Each voice keeps its own conversation. They share {Q_CAP} questions a day between them — {left} left today. Day {dayNum} of your 7. No one can read these conversations, iSHKiY included.</p>
+      <h2 className="ctitle">Three voices. One memory between them.</h2>
+      <p className="cexplain">Each voice keeps its own conversation, but all three remember everything you've said to any of them. They share {Q_CAP} questions a day between them — {left} left today. Day {dayNum} of your 7. No one can read these conversations, iSHKiY included.</p>
       <div className="voicehub">
+        <button className="vcard vcauto" style={{ borderTopColor: "#D4A547" }} onClick={() => enterRoom("auto")}>
+          <Avatar kind="auto" size={40} />
+          <span className="vcname" style={{ color: "#D4A547" }}>Let iSHKiY choose</span>
+          <span className="vcslogan">Not sure who you need? Just ask.</span>
+          <span className="vclast dimtext">We'll pick the voice and the moment</span>
+        </button>
         {Object.entries(MODES).map(([k, m]) => (
           <button key={k} className="vcard" style={{ borderTopColor: m.colour }} onClick={() => enterRoom(k)}>
             <Avatar kind={k} size={40} />
@@ -1114,8 +1264,11 @@ const pick = (m) => { setMode(m); commit((prev) => ({ ...prev, mode: m })); };
           <p className="roomvibe">{M.vibe}</p>
         </div>
       </div>
+      {choice && choice.to === mode && (
+        <p className="routed"><Avatar kind="auto" size={14} /> iSHKiY sent this to {M.label}{choice.fresh ? ", on a new page" : ", carrying on where you left off"}.</p>
+      )}
       <Pulse mode={mode} pulse={(c.pulses || {})[mode]} busy={busyPulse} onRefresh={() => refreshPulse()} canRefresh={stream.length >= 2} />
-      {mode === "sounding" && stream.length >= 8 && !dismissHuman && (
+      {mode === "companion" && stream.length >= 8 && !dismissHuman && (
         <div className="humansignal">
           <span>Some things are easier with a person. When you're ready, iSHKiY can find one who fits how you work.</span>
           <div className="hsrow"><button className="rtbtn" onClick={onHuman}>See who fits</button><button className="hsdismiss" onClick={() => setDismissHuman(true)}>Not now</button></div>
@@ -1127,7 +1280,7 @@ const pick = (m) => { setMode(m); commit((prev) => ({ ...prev, mode: m })); };
         {visible.map((m, i) => m.divider
           ? <div key={i + (showOld ? 0 : hidden)} className="topicdiv"><span>new topic</span></div>
           : (<div key={i + (showOld ? 0 : hidden)} className={"msg " + m.role}>
-          {m.role === "assistant" && !m.err && <span className="mlabel" style={{ color: M.colour }}><Avatar kind={m.m || "companion"} size={15} /> {MODES[m.m || "companion"].label}{m.subj ? <em className="msubj">· {m.subj}</em> : null}</span>}
+          {m.role === "assistant" && !m.err && <span className="mlabel" style={{ color: M.colour }}><Avatar kind={m.m || "companion"} size={15} /> {(MODES[m.m] || MODES.companion).label}{m.subj ? <em className="msubj">· {m.subj}</em> : null}</span>}
           {m.role === "assistant" && m.err && <span className="mlabel dimmed">connection</span>}
           {m.role === "user" && m.subj && <span className="mlabel usubj">{m.subj}</span>}
           <div className={"bubble" + (m.err ? " errb" : "")} dangerouslySetInnerHTML={{ __html: md(m.content) }} />
@@ -1139,14 +1292,14 @@ const pick = (m) => { setMode(m); commit((prev) => ({ ...prev, mode: m })); };
         <>
         <div className="askrow">
           <textarea className="tarea askta" rows={3} value={input} placeholder={"Ask " + M.label + " anything…"} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); ask(); } }} />
-          <button className="btn ink" disabled={busy || !input.trim()} onClick={ask}>Ask</button>
+          <button className="btn ink" disabled={busy || !input.trim()} onClick={() => ask()}>Ask</button>
         </div>
         {stream.length > 0 && <button className="showold" onClick={newTopic}>Start a new topic — fresh page, same voice</button>}
         </>
       ) : (
         <p className="tnote">That's your {Q_CAP} for today. A night's thinking between conversations does more than an eleventh question would. It resets tomorrow.</p>
       )}
-      <p className="tnote">{left} of {Q_CAP} questions left today, shared across all four voices.</p>
+      <p className="tnote">{left} of {Q_CAP} questions left today, shared across all three voices.</p>
     </section>
   );
 }
@@ -1276,12 +1429,12 @@ function CompanionScreen({ state, scores, onBack, onRegenerate, onHuman }) {
       </div>
       <article className="report">
         <p className="kicker gold">The Companion</p>
-        <h1 className="display ink">Four voices that read you.</h1>
-        <p className="lede inkdim">Coach, mentor, companion, sounding board — ten questions a day, answered by voices that know your report line by line.</p>
+        <h1 className="display ink">Three voices that read you.</h1>
+        <p className="lede inkdim">Sounding, Coach, Mentor — ten questions a day, answered by voices that know your report line by line and remember everything you've told any of them.</p>
         <div className="teamrow">
-          <Avatar kind="companion" /><Avatar kind="coach" /><Avatar kind="mentor" /><Avatar kind="sounding" />
+          <Avatar kind="companion" /><Avatar kind="coach" /><Avatar kind="mentor" />
         </div>
-        <p className="teamline">You don't have to navigate alone. Four voices, no judgement, and they've read every word you gave.</p>
+        <p className="teamline">You don't have to know which one you need — iSHKiY can choose. Three voices, one memory, no judgement, and they've read every word you gave.</p>
         {state.report.preview
           ? <div className="previewnote"><p>Your report didn't finish writing, so the Companion is waiting. Your answers are safe — one tap tries again.</p><button className="btn gold" onClick={onRegenerate}>Write my real report</button></div>
           : <Companion scores={scores} answers={state.answers || {}} reportText={state.report.text} start={state.companionStart} onHuman={onHuman} />}
@@ -1690,7 +1843,7 @@ const EXPLAIN = [
   { art: "orb", line: "iSHKiY is a place to understand yourself.", sub: "Not to fix you. You were never broken." },
   { art: "mirror", line: "It starts with a few honest questions.", sub: "What you're for. How you work. What pulls you." },
   { art: "report", line: "You get a report written just for you.", sub: "Yours to keep. No one else can read it." },
-  { art: "voices", line: "Then a companion who has read it — for life's turns.", sub: "A coach, a mentor, a sounding board. For the good days and the hard ones." },
+  { art: "voices", line: "Then a companion who has read it — for life's turns.", sub: "One to listen, one to push, one for the long view. They share one memory of you." },
   { art: "heart", line: "And, when you're ready, a real human to talk to.", sub: "Chosen to fit you — because they understand how you work." },
 ];
 function ExplainArt({ kind }) {
