@@ -86,7 +86,21 @@ const save = (s) => { try { localStorage.setItem(KEY, JSON.stringify(s)); } catc
 
 /* ---------------- unlock ----------------
    Codes are checked as SHA-256 hashes so they aren't readable in source.
-   Regenerate with gen-codes.mjs (see README). "PREVIEW" is the founder test code. */
+   Regenerate with gen-codes.mjs (see README).
+
+   PREVIEW is the founder test code and it is deliberately NOT in CODE_HASHES.
+   It works only where the app is not the live site — localhost, and Netlify
+   deploy previews and branch deploys, which all carry "--" in the hostname
+   that a production domain never does. That means the test code cannot be
+   used against production even by someone who reads this source, and there is
+   no launch-day checklist item to forget. */
+const isPreviewHost = () => {
+  try {
+    const h = location.hostname;
+    return h === "localhost" || h === "127.0.0.1" || h.endsWith(".local") || h.includes("--");
+  } catch { return false; }
+};
+const PREVIEW_HASH = "59e1f415bf9d7761b450dcb4785daac53307323451bc453bfaa06a46d4649e2a";
 const CODE_HASHES = [
   "d6afc90d0d2e75e35418f883fae0a10f7cdfe70f6dd9ec7fbcecceb31be3f28f", // COMP — founder giveaway
   "dcf9f89d2a5da4ac2a42aea2e481c1f6f492b96c042f5aea4e422ed7631ec4e5",
@@ -333,7 +347,7 @@ function Shell({ dark, children, footer }) {
 const WARMUP = [
   { line: "Take a breath. This isn't a test you can fail.", sub: "There are no wrong answers here. Only true ones and polite ones." },
   { line: "Answer as you are, not as the job advert wants you to be.", sub: "No one is scoring you against anyone. The only person who loses from a polished answer is you." },
-  { line: "Fifty minutes, at your own pace. Slow is fine.", sub: "Your answers stay on this device. Honest is everything." },
+  { line: "Ten to fifteen minutes to begin. Slow is fine.", sub: "You can stop after that with a real report in hand, or keep going. Your answers stay on this device." },
 ];
 
 function Warmup({ onDone }) {
@@ -366,7 +380,7 @@ function Welcome({ onStart, resumable }) {
         <h1 className="display">You weren't built for a box.</h1>
         <p className="lede">This app helps you understand yourself — and use what you learn.</p>
         <div className="steps">
-          <div className="step"><span className="stepn">1</span><span>Answer questions about yourself. About 50 minutes, at your own pace. It saves as you go.</span></div>
+          <div className="step"><span className="stepn">1</span><span>Answer questions about yourself. Ten to fifteen minutes for your first profile, and you can go deeper whenever you want. It saves as you go.</span></div>
           <div className="step"><span className="stepn">2</span><span>Get a written report about you — how you think, what you enjoy, what matters to you. Yours to keep.</span></div>
           <div className="step"><span className="stepn">3</span><span>Talk it over with your AI Companion for 7 days. Ask it anything about your life and work.</span></div>
         </div>
@@ -381,7 +395,7 @@ function Unlock({ onUnlock }) {
   const [code, setCode] = useState(""); const [err, setErr] = useState(false); const [busy, setBusy] = useState(false);
   const check = async () => {
     setBusy(true); const h = await sha256(code); setBusy(false);
-    if (CODE_HASHES.includes(h)) onUnlock(); else setErr(true);
+    if (CODE_HASHES.includes(h) || (isPreviewHost() && h === PREVIEW_HASH)) onUnlock(); else setErr(true);
   };
   return (
     <Shell dark>
@@ -391,6 +405,7 @@ function Unlock({ onUnlock }) {
         <p className="lede dim">Your code came with your payment confirmation. £29 gets you: the full assessment, your written report (yours to keep), a share card, and 7 days with your AI Companion — a coach, a mentor and a sounding voice that have actually read you.</p>
         <input className="code" value={code} onChange={(e) => { setCode(e.target.value); setErr(false); }} onKeyDown={(e) => e.key === "Enter" && code && check()} placeholder="e.g. ERA-XXXX-XXXX" autoFocus spellCheck="false" />
         {err && <p className="err">That code isn't recognised. Check for typos — codes aren't case-sensitive.</p>}
+        {isPreviewHost() && <p className="tnote">This is a preview build, so the founder code <strong>PREVIEW</strong> works here. It does not work on the live site.</p>}
         <button className="btn gold" disabled={!code || busy} onClick={check}>{busy ? "Checking…" : "Continue"}</button>
         <a className="paylink" href="STRIPE_PAYMENT_LINK" target="_blank" rel="noreferrer">Don't have a code? Become a founding member →</a>
       </div>
@@ -753,7 +768,7 @@ const QUOTES = [
   "Ambition without self-knowledge is just running.",
   "You can be grateful and still want more.",
   "The work should fit the human, not the other way round.",
-  "Some questions deserve fifty minutes of your life.",
+  "Some questions deserve more than a spare minute.",
   "What you avoid is a map too.",
   "Belonging starts with belonging to yourself.",
   "You are allowed to outgrow what once fit.",
@@ -962,13 +977,13 @@ function Home({ state, go, startAssessment, onTheme }) {
       <div className="home">
         <div className="hrow"><Wordmark /><button className="thememini" onClick={onTheme}>{state.dark ? "Light mode" : "Dark mode"}</button></div>
         <h1 className="display ink hgreet">{name ? `Welcome back, ${name}.` : "Welcome."}</h1>
-        <p className="lede inkdim hsub">{hasReport ? "Your profile is waiting. So is the team." : midway ? "You're partway through. Pick up where you left off — your answers kept your place." : "Everything here begins with one honest hour. Start when you're ready."}</p>
+        <p className="lede inkdim hsub">{hasReport ? "Your profile is waiting. So is the team." : midway ? "You're partway through. Pick up where you left off — your answers kept your place." : "Everything here begins with ten honest minutes. Start when you're ready."}</p>
         <div className="hgrid">
           <HomeTile
             acc="#5C7CA3"
             title={hasReport ? "Your profile" : midway ? "Continue the assessment" : "Take the assessment"}
             badge={hasReport ? (levelFor(strength) || {}).name : null}
-            sub={hasReport ? "Read your report. Save it, share it, retake parts." : "Answer questions about yourself. About 50 minutes."}
+            sub={hasReport ? "Read your report. Save it, share it, retake parts." : "Answer questions about yourself. Your first profile takes 10–15 minutes."}
             onClick={hasReport ? () => { track("view_report"); go("report"); } : () => { track("assessment_start"); startAssessment(); }}
             art={<svg viewBox="0 0 60 40" className="hart"><circle cx="30" cy="20" r="12" fill="none" stroke={gold} strokeWidth="2"/><circle cx="30" cy="20" r="4" fill={gold}/></svg>}
           />
@@ -1961,14 +1976,25 @@ const EXPLAIN = [
   { art: "fork", line: "For the choices that keep you up.", sub: "Hard decisions are usually hard because you don't yet know what you actually want. This is how you find out." },
   { art: "mirror", line: "It starts with a few honest questions.", sub: "What you're for. How you work. What pulls you." },
   { art: "report", line: "You get a report written just for you.", sub: "Yours to keep. No one else can read it." },
-  { art: "voices", line: "Then a companion who has read it — for life's turns.", sub: "One to listen, one to push, one for the long view. They share one memory of you." },
+  { art: "voices", line: "Then a team who have read it — standing behind you.", sub: "One to listen, one to push, one for the long view. They share one memory of you, and they don't forget." },
   { art: "heart", line: "And, when you're ready, a real human to talk to.", sub: "Chosen to fit you — because they understand how you work." },
 ];
 function ExplainArt({ kind }) {
   if (kind === "orb") return <Orb size={104} />;
   if (kind === "mirror") return <svg viewBox="0 0 120 104" className="exart"><ellipse cx="60" cy="50" rx="30" ry="40" fill="none" stroke="#D4A547" strokeWidth="2.4"/><ellipse cx="60" cy="50" rx="20" ry="30" fill="rgba(212,165,71,0.12)"/></svg>;
   if (kind === "report") return <svg viewBox="0 0 120 104" className="exart"><rect x="38" y="24" width="44" height="56" rx="5" fill="none" stroke="#D4A547" strokeWidth="2.4"/><line x1="46" y1="38" x2="74" y2="38" stroke="#D4A547" strokeWidth="2"/><line x1="46" y1="48" x2="70" y2="48" stroke="#F5F1E8" strokeWidth="2" opacity="0.6"/><line x1="46" y1="58" x2="72" y2="58" stroke="#F5F1E8" strokeWidth="2" opacity="0.6"/></svg>;
-  if (kind === "voices") return <svg viewBox="0 0 120 104" className="exart"><circle cx="44" cy="52" r="13" fill="none" stroke="#D4A547" strokeWidth="2.2"/><circle cx="76" cy="52" r="13" fill="none" stroke="rgba(245,241,232,0.4)" strokeWidth="2.2"/><circle cx="44" cy="52" r="4" fill="#D4A547"/></svg>;
+  /* A team standing behind one person — three of them, at their back. */
+  if (kind === "voices") return (
+    <svg viewBox="0 0 120 104" className="exart">
+      <g fill="none" stroke="rgba(245,241,232,0.38)" strokeWidth="2">
+        <circle cx="28" cy="34" r="7" /><path d="M17 52 A11 11 0 0 1 39 52" />
+        <circle cx="60" cy="28" r="7" /><path d="M49 46 A11 11 0 0 1 71 46" />
+        <circle cx="92" cy="34" r="7" /><path d="M81 52 A11 11 0 0 1 103 52" />
+      </g>
+      <circle cx="60" cy="64" r="12" fill="none" stroke="#D4A547" strokeWidth="2.6" />
+      <path d="M40 92 A20 20 0 0 1 80 92" fill="none" stroke="#D4A547" strokeWidth="2.6" />
+    </svg>
+  );
   // A line knocked down, and rising past where it fell.
   if (kind === "storm") return <svg viewBox="0 0 120 104" className="exart"><path d="M22 46 L44 46 L56 72 L70 30 L82 58 L98 58" fill="none" stroke="rgba(245,241,232,0.35)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/><path d="M70 30 L82 58 L98 58" fill="none" stroke="#D4A547" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"/><circle cx="98" cy="58" r="4" fill="#D4A547"/></svg>;
   // Something held around something soft.
@@ -2075,17 +2101,17 @@ function ChooseDepth({ state, onPick, onBack }) {
             <span className="depthsub">Your values and how you work. Enough for a real report and your first badge.</span>
           </button>
           <button className="depthcard" onClick={() => onPick("core")}>
-            <span className="depthtime">~30 min</span>
+            <span className="depthtime">+15 min</span>
             <span className="depthname">A fuller picture</span>
             <span className="depthsub">Adds how you think, how you feel, and what pulls you.</span>
           </button>
           <button className="depthcard" onClick={() => onPick("full")}>
-            <span className="depthtime">~50 min</span>
+            <span className="depthtime">+15–20 min</span>
             <span className="depthname">The whole portrait</span>
-            <span className="depthsub">Every part. The deepest, truest mirror. Best in a quiet hour.</span>
+            <span className="depthsub">Every part. The deepest, truest mirror.</span>
           </button>
         </div>
-        <p className="tnote">Most people start small. The report grows with you.</p>
+        <p className="tnote">Most people start with the first look and come back. Nothing is lost between visits, and each part you add makes the report truer.</p>
       </div>
     </Shell>
   );

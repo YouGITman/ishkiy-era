@@ -23,7 +23,7 @@ The Essence Recovery Assessment. Nine parts, ~105 items, glimmer screens between
 The project URL and anon key are already pasted into `src/app.jsx` (the anon key is public by design — row-level security does the guarding). To stand up a fresh project: Supabase → **SQL Editor → New query** → paste `supabase/schema.sql` → **Run**. Change the admin email inside that file if it isn't `tarang@ishkiy.com`. Until the schema exists, account features show as "coming online" and the app works without them.
 
 ### 4. Test with the founder code
-Open the live site, tap **Begin**, enter code `PREVIEW`. Run the whole assessment yourself, end to end, and generate a real report. This is Gate 2's true review — the item bank read differently on paper than it will on your phone.
+Open a **deploy preview** (any Netlify preview or branch URL, or `npm run preview` locally), tap **Begin**, enter code `PREVIEW`. That code works only where the hostname is not the live site, so it can never be used against production. Run the whole assessment yourself, end to end, and generate a real report. This is Gate 2's true review — the item bank read differently on paper than it will on your phone.
 
 ### 5. Stripe (when price is decided)
 1. Stripe Dashboard → **Payment Links** → new link, one-off price, GBP.
@@ -39,7 +39,7 @@ prints ten codes and their hashes. Paste the hashes into `CODE_HASHES` in `src/a
 
 **Simplest founding flow:** one code per Stripe confirmation message, rotated manually after each sale (you'll have five to ten customers — thirty seconds each). Automation comes when volume justifies a backend, not before.
 
-**Before public launch:** delete the `PREVIEW` hash line from `CODE_HASHES`.
+The `PREVIEW` code is not in `CODE_HASHES` and needs no removing before launch — it is gated on the hostname instead. See the note above `CODE_HASHES` in `src/app.jsx`.
 
 ---
 
@@ -55,12 +55,13 @@ prints ten codes and their hashes. Paste the hashes into `CODE_HASHES` in `src/a
 | `supabase/schema.sql` | Tables and row-level security — paste into the Supabase SQL editor |
 | `admin.html` / `dist/admin.js` | Admin view for the practitioner approval queue |
 | `gen-codes.mjs` | Access-code generator |
+| `npm run preview` | Runs the app locally on `http://127.0.0.1:5199`, unminified and rebuilding as you go. The Companion won't answer — `/api/claude` only exists on Netlify. |
 | `icon.svg` / `favicon.svg` | **Placeholders** — replace with `ii-dark-primary.svg` from the canonical rebrand kit |
 
 ## Housekeeping before launch
 - [ ] Replace placeholder icons with the canonical ii sub-mark from the rebrand kit
 - [ ] Replace `STRIPE_PAYMENT_LINK` with the real link
-- [ ] Generate real codes, remove `PREVIEW`
+- [ ] Generate real codes
 - [ ] Run one full assessment on the Pixel and one on Chrome desktop
 - [ ] Read one full generated report out loud — the voice test
 
