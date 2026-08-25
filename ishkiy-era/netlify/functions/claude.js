@@ -8,7 +8,10 @@ export default async (req) => {
   try { body = await req.json(); } catch { return new Response("Bad request", { status: 400 }); }
 
   const payload = {
-    model: "claude-sonnet-4-6",
+    model: "claude-sonnet-5",
+    // Thinking runs adaptive by default on Sonnet 5 and its tokens come out of
+    // max_tokens. The budgets here are small (220-1400), so keep it off.
+    thinking: { type: "disabled" },
     max_tokens: Math.min(body.max_tokens || 1400, 2000),
     system: typeof body.system === "string" ? body.system.slice(0, 8000) : undefined,
     messages: Array.isArray(body.messages) ? body.messages.slice(0, 4) : [],

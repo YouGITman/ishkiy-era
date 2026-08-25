@@ -367,15 +367,38 @@ function Dots({ n }) {
   return (<div className="dots" aria-hidden="true">{PARTS.map((p, i) => (<span key={p.id} className={"dot" + (i < n ? " done" : i === n ? " now" : "")} />))}</div>);
 }
 
+const MINDSET = [
+  "Put your feet flat. Let your shoulders drop.",
+  "Breathe in with the circle. Out as it settles.",
+  "There are no right answers here. Only true ones.",
+  "Answer as you are today — not as you think you should be.",
+];
+function BreathDiagram() {
+  return (
+    <svg viewBox="0 0 160 160" className="mindart" aria-hidden="true">
+      <circle cx="80" cy="80" r="54" fill="none" stroke="rgba(212,165,71,0.25)" strokeWidth="1.5" />
+      <circle cx="80" cy="80" r="30" fill="rgba(212,165,71,0.10)" stroke="#D4A547" strokeWidth="2" className="mindpulse" />
+      <circle cx="80" cy="80" r="7" fill="#D4A547" />
+    </svg>
+  );
+}
 function PartIntro({ part, n, onGo }) {
+  const [ready, setReady] = useState(false);
+  const [line, setLine] = useState(0);
+  useEffect(() => { const t = setInterval(() => setLine((v) => (v + 1) % MINDSET.length), 4200); return () => clearInterval(t); }, []);
+  const go = () => { setReady(true); setTimeout(onGo, 900); };
   return (
     <Shell>
       <Dots n={n} />
-      <div className="intro">
+      <div className={"intro mindset" + (ready ? " leaving" : "")}>
         <p className="kicker gold">{part.kicker}</p>
         <h1 className="display ink">{part.title}</h1>
         <p className="lede inkdim">{part.intro}</p>
-        <button className="btn ink" onClick={onGo}>Start this part</button>
+        <div className="mindwrap">
+          <BreathDiagram />
+          <p className="mindline" key={line}>{MINDSET[line]}</p>
+        </div>
+        <button className="btn ink" onClick={go}>I'm ready</button>
       </div>
     </Shell>
   );
@@ -387,6 +410,20 @@ function seeded(arr, seed) {
   return a;
 }
 
+function QDots({ i, total }) {
+  const half = Math.floor(total / 2);
+  const push = i + 1 === half ? "Halfway. The rest goes quicker." : i + 1 === total - 1 ? "One more after this." : null;
+  return (
+    <div className="qdotswrap">
+      <div className="qdots" aria-hidden="true">
+        {Array.from({ length: total }).map((_, k) => (
+          <span key={k} className={"qdot" + (k < i ? " done" : k === i ? " now" : "")} />
+        ))}
+      </div>
+      {push && <p className="qpush">{push}</p>}
+    </div>
+  );
+}
 function Runner({ state, update }) {
   const part = PARTS[state.part];
   const order = useMemo(() => {
@@ -433,11 +470,11 @@ function Runner({ state, update }) {
     <Shell footer={
       <div className="foot">
         <button className="ghost" onClick={back}>← Back</button>
-        <span className="count">{state.item + 1} / {total}</span>
+        <span className="count">{state.item + 1 > total / 2 ? (total - state.item - 1 === 0 ? "last one" : `${total - state.item - 1} to go`) : `${state.item + 1} of ${total}`}</span>
       </div>
     }>
       <Dots n={state.part} />
-      <div className="track"><div className="fill" style={{ width: `${(state.item / total) * 100}%` }} /></div>
+      <QDots i={state.item} total={total} />
       <div className="qwrap" key={item.id}>
         {item.svg === "frames" && <FramesSvg />}
         <h2 className="question">{item.text}</h2>
@@ -908,7 +945,9 @@ Ground every answer in THEIR profile — their traits, values, interests, AND an
 
 Hard boundaries: you are not a clinician and the assessment is not clinically validated — never diagnose, never advise on medication or medical or legal matters; suggest a proper professional instead. If they express serious distress or thoughts of harming themselves, respond with warmth and care, don't lecture, and gently encourage them to talk to someone they trust or a professional soon. You may be honest that some questions deserve a human. Whenever you state a boundary or disclaimer — that you are not a clinician, that this is not therapy or medical or legal advice, or that a professional is the right next step — wrap that exact sentence in [! and !] markers so it can be shown clearly.
 
-Always answer their newest message first — earlier turns are background only. If the newest message changes subject, follow the new subject fully; never drag the previous topic back in uninvited. You exist to help them think about decisions, work, and direction using what the assessment revealed. End answers plainly, not with offers of further help.`;
+Always answer their newest message first — earlier turns are background only. If the newest message changes subject, follow the new subject fully; never drag the previous topic back in uninvited. You exist to help them think about decisions, work, and direction using what the assessment revealed.
+
+FORMAT — always. Your first line must be a subject line in this exact form: ~three to five words naming what this exchange is about~ then a blank line, then your reply. The subject names THIS message's subject, not the conversation's history. End answers plainly, not with offers of further help.`;
 
 const MODES = {
   companion: { label: "Guide", colour: "#D4A547", vibe: "Steady and warm. A hand on the tiller while you think.", slogan: "Start here. Helps you think it through.", desc: "Reads you back. Good for decisions and direction.", add: "" },
@@ -957,7 +996,9 @@ function Companion({ scores, answers, reportText, start, onHuman }) {
   useEffect(() => { endRef.current?.scrollIntoView({ block: "nearest" }); }, [stream.length, busy]);
   useEffect(() => { setShowOld(false); }, [mode]);
   const left = Math.max(0, Q_CAP - c.count);
-  const pick = (m) => { setMode(m); const next = { ...c, mode: m }; setC(next); saveC(next); };
+  const cRef = useRef(c); useEffect(() => { cRef.current = c; }, [c]);
+  const commit = (fn) => setC((prev) => { const next = fn(prev); saveC(next); cRef.current = next; return next; });
+const pick = (m) => { setMode(m); commit((prev) => ({ ...prev, mode: m })); };
 
   if (ended) return (
     <section className="companion noprint">
@@ -970,8 +1011,7 @@ function Companion({ scores, answers, reportText, start, onHuman }) {
 
   /* commit: every state change goes through the freshest state, never a stale
      snapshot — this is what stops background writes erasing new messages. */
-  const commit = (fn) => setC((prev) => { const next = fn(prev); saveC(next); return next; });
-
+  
   /* fetchAI: one automatic retry and a hard timeout, so a single slow response
      or mobile blip doesn't surface as a dropped line. */
   const fetchAI = async (body) => {
@@ -996,7 +1036,7 @@ function Companion({ scores, answers, reportText, start, onHuman }) {
   };
 
   const refreshPulse = async (streams) => {
-    const st = (streams || c.streams)[mode] || [];
+    const st = (streams || cRef.current.streams)[mode] || [];
     if (st.length < 2 || busyPulse) return;
     setBusyPulse(true);
     const transcript = st.slice(-12).map((m) => (m.role === "user" ? "You said: " : "Voice: ") + m.content).join("\n");
@@ -1017,15 +1057,21 @@ function Companion({ scores, answers, reportText, start, onHuman }) {
     const lastDiv = st.map((m, i) => (m.divider ? i : -1)).reduce((a, b) => Math.max(a, b), -1);
     const hist = st.slice(lastDiv + 1).filter((m) => !m.divider);
     track("ask", mode);
-    const text = await fetchAI({ system: COMPANION_SYSTEM + MODES[mode].add + "\n\n" + ctx, messages: hist.slice(-8).map(({ role, content }) => ({ role, content })), max_tokens: 500 });
+    const prevSubj = [...hist].reverse().find((m) => m.subj)?.subj || null;
+    const focus = `\n\nTHE MESSAGE YOU MUST ANSWER NOW: "${q}"\nAnswer this and only this. Earlier turns are background. If this changes the subject${prevSubj ? ` from "${prevSubj}"` : ""}, follow it completely and do not return to the earlier subject unless asked.`;
+    const raw = await fetchAI({ system: COMPANION_SYSTEM + MODES[mode].add + "\n\n" + ctx + focus, messages: hist.slice(-4).map(({ role, content }) => ({ role, content })), max_tokens: 500 });
+    let subj = null, text = raw;
+    if (raw) { const m0 = raw.match(/^\s*~([^~\n]{2,60})~\s*/); if (m0) { subj = m0[1].trim(); text = raw.slice(m0[0].length).trim(); } }
     if (text) {
       let after = null;
       commit((prev) => {
-        const st2 = [...(prev.streams[mode] || []), { role: "assistant", m: mode, content: text }].slice(-40);
+        const base = [...(prev.streams[mode] || [])];
+        for (let k = base.length - 1; k >= 0; k--) { if (base[k].role === "user") { base[k] = { ...base[k], subj }; break; } }
+        const st2 = [...base, { role: "assistant", m: mode, subj, content: text }].slice(-40);
         after = st2;
         return { ...prev, day: today(), count: prev.count + 1, mode, streams: { ...prev.streams, [mode]: st2 } };
       });
-      if (after && after.length % 6 === 0) refreshPulse({ ...c.streams, [mode]: after });
+      if (after && after.length % 6 === 0) refreshPulse({ ...cRef.current.streams, [mode]: after });
     } else {
       commit((prev) => ({ ...prev, streams: { ...prev.streams, [mode]: [...(prev.streams[mode] || []), { role: "assistant", m: mode, err: true, content: "The line dropped before that reached me — a connection hiccup, not you. That question didn't use one of your ten. Give it a moment and ask again." }].slice(-40) } }));
     }
@@ -1081,8 +1127,9 @@ function Companion({ scores, answers, reportText, start, onHuman }) {
         {visible.map((m, i) => m.divider
           ? <div key={i + (showOld ? 0 : hidden)} className="topicdiv"><span>new topic</span></div>
           : (<div key={i + (showOld ? 0 : hidden)} className={"msg " + m.role}>
-          {m.role === "assistant" && !m.err && <span className="mlabel" style={{ color: M.colour }}><Avatar kind={m.m || "companion"} size={15} /> {MODES[m.m || "companion"].label}</span>}
+          {m.role === "assistant" && !m.err && <span className="mlabel" style={{ color: M.colour }}><Avatar kind={m.m || "companion"} size={15} /> {MODES[m.m || "companion"].label}{m.subj ? <em className="msubj">· {m.subj}</em> : null}</span>}
           {m.role === "assistant" && m.err && <span className="mlabel dimmed">connection</span>}
+          {m.role === "user" && m.subj && <span className="mlabel usubj">{m.subj}</span>}
           <div className={"bubble" + (m.err ? " errb" : "")} dangerouslySetInnerHTML={{ __html: md(m.content) }} />
         </div>))}
         {busy && <div className="msg assistant"><div className="bubble thinking">Reading you back…</div></div>}
@@ -1752,6 +1799,8 @@ function MiniRunner({ miniId, answers, onDone, onBack }) {
   );
 }
 function MiniResult({ miniId, result, onBack }) {
+  const [revealing, setRevealing] = useState(false);
+  const again = () => { setRevealing(true); setTimeout(() => setRevealing(false), 1600); };
   const m = MINIS[miniId];
   return (
     <div className={"reportpage tint-" + m.tint}>
@@ -1759,6 +1808,7 @@ function MiniResult({ miniId, result, onBack }) {
       <article className="report">
         <p className="kicker gold">{m.kicker}</p>
         <h1 className="display ink">{m.name}</h1>
+        {revealing && <div className="revealveil"><Orb size={84} /><p className="revealline">Looking again…</p></div>}
         {result.kind === "friend" ? (
           <div className="minibody">
             <div className="minirow"><span>What you give</span><span className="tnum">{result.give ?? "—"}</span></div>
@@ -1774,6 +1824,7 @@ function MiniResult({ miniId, result, onBack }) {
           </div>
         )}
         <div className="minihelp"><p><strong>What this means.</strong> {result.kind === "friend" ? "This lens looks at two sides of closeness: what you naturally give the people you love, and what you quietly need back from them. Neither number is good or bad — the interesting part is the gap between them, and whether the people around you know what you need." : "This lens looks at what drives you: whether you move toward the things you want, or away from the things you fear. Most people do both, but one usually leads. Knowing which one leads helps you understand why some choices feel easy and others feel like a fight."}</p></div>
+        <button className="setbtn" onClick={again}>Reveal this insight again</button>
         <p className="integrity">A short lens, {m.from.toLowerCase()}. It adds to your profile — your Companion now knows this about you too. A self-discovery tool, not a clinical measure.</p>
       </article>
     </div>

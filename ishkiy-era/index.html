@@ -333,6 +333,33 @@
   .minihelp{background:rgba(255,255,255,.5); border:1.5px solid var(--ink06); border-radius:14px; padding:16px; margin:8px 0 16px; font-size:15px; line-height:1.65}
   body.dm .minihelp{background:rgba(245,241,232,.05)}
 
+
+  /* mindset routine */
+  .mindset{transition:opacity .85s ease, transform .85s ease}
+  .mindset.leaving{opacity:0; transform:translateY(-10px)}
+  .mindwrap{display:flex; flex-direction:column; align-items:center; text-align:center; margin:18px 0 6px}
+  .mindart{width:150px; height:150px}
+  .mindpulse{transform-origin:center; animation:mindbreathe 8s ease-in-out infinite}
+  @keyframes mindbreathe{0%,100%{transform:scale(.72); opacity:.8} 50%{transform:scale(1.24); opacity:1}}
+  .mindline{font-family:Lora,serif; font-size:17px; line-height:1.5; color:var(--ink60); max-width:340px; margin:8px 0 0; animation:rotfade 1.2s ease both}
+  @media (prefers-reduced-motion: reduce){ .mindpulse{animation:none} .mindline{animation:none} .mindset{transition:none} }
+
+  /* dotted question tracker */
+  .qdotswrap{padding:12px 0 2px}
+  .qdots{display:flex; gap:5px; flex-wrap:wrap; align-items:center}
+  .qdot{width:6px; height:6px; border-radius:50%; background:var(--ink12); transition:background .3s, transform .3s}
+  .qdot.done{background:var(--gold)}
+  .qdot.now{background:var(--gold); transform:scale(1.9)}
+  .qpush{font-size:12.5px; color:var(--gold); margin:9px 0 0; font-style:italic; animation:rotfade .9s ease both}
+
+  /* message subject lines */
+  .msubj{font-style:normal; font-weight:500; opacity:.75; margin-left:2px; text-transform:none; letter-spacing:0}
+  .usubj{align-self:flex-end; text-transform:none; letter-spacing:0; font-weight:500; opacity:.6}
+
+  /* reveal again */
+  .revealveil{display:flex; flex-direction:column; align-items:center; gap:10px; padding:22px 0; animation:rotfade .6s ease both}
+  .revealline{font-family:Lora,serif; font-style:italic; color:var(--ink60); margin:0}
+
   /* explainer */
   .explainer .exwrap{margin-bottom:22px; animation:rotfade 1s ease both}
   .exart{width:120px; height:auto}
