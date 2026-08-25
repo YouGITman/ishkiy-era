@@ -815,11 +815,11 @@ function Breath({ onEnter }) {
    to go looking. Each subject leads with the question a person actually has,
    not the framework underneath it. */
 const SUBJECTS = [
-  { id: "closeness", name: "Closeness", line: "The people you love, and the ones you keep at arm's length.", ask: "Why do I get this right at work and wrong at home?" },
+  { id: "closeness", name: "Relationships", line: "How you attach, how you fight, and what you need that you've never asked for.", ask: "Why do I keep having the same argument?" },
   { id: "drive", name: "Drive", line: "What moves you, what stops you, and what you do when it's hard.", ask: "Why do I stall on the things I say I want most?" },
   { id: "mind", name: "Mind", line: "How you think, and how you keep it in one piece.", ask: "Why does the same week wreck me and not them?" },
   { id: "money", name: "Money", line: "What it means to you, and what it quietly costs.", ask: "Why is this never really about the money?" },
-  { id: "becoming", name: "Becoming", line: "Who you're turning into, and whether you chose it.", ask: "Is this still the life I meant to build?" },
+  { id: "becoming", name: "Purpose", line: "What you're actually for, and whether the life you're building matches it.", ask: "Am I building this life, or just ending up in it?" },
 ];
 const EXPANSIONS = [
   { subject: "closeness", name: MINIS.friend.name, mini: "friend", from: MINIS.friend.from, line: MINIS.friend.blurb, tier: "FREE", status: "Ready" },

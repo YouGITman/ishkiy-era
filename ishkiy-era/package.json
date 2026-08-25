@@ -4,7 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "build": "esbuild src/app.jsx --bundle --minify --outfile=dist/app.js"
+    "build": "esbuild src/app.jsx --bundle --minify --outfile=dist/app.js",
+    "preview": "esbuild src/app.jsx --bundle --outfile=dist/app.js --servedir=. --serve=5199"
   },
   "keywords": [],
   "author": "",
