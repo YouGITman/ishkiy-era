@@ -307,6 +307,8 @@ function App() {
   if (state.phase === "unlock") return <Unlock onUnlock={() => update({ unlocked: true, phase: "warmup" })} />;
   if (state.phase === "warmup") return <Warmup onDone={() => update({ phase: "intro" })} />;
   if (state.phase === "explainer") return <Explainer onDone={() => update({ phase: "home", seenExplainer: true })} />;
+  // Same deck, reachable any time from Home or Settings.
+  if (state.phase === "explainerAgain") return <Explainer done="Done" onDone={() => update({ phase: state.explainerBack || "home" })} />;
   if (state.phase === "chooseDepth") return <ChooseDepth state={state} onPick={(arc) => { const parts = arcParts(arc, state.completedAt); const first = parts[0] ?? 0; update({ arc, part: first, item: 0, phase: state.unlocked ? "warmup" : "unlock" }); }} onBack={() => update({ phase: "home" })} />;
   if (state.phase === "badge") return <BadgeScreen state={state} onDone={() => update({ phase: "report" })} />;
   if (state.phase === "intro") return <PartIntro part={PARTS[state.part]} n={state.part} onGo={() => update({ phase: "run" })} />;
@@ -808,12 +810,30 @@ function Breath({ onEnter }) {
 
 
 /* ---------------- the library of you ---------------- */
+/* Subjects. Lenses arrive one at a time and a flat list of them reads like a
+   catalogue; grouped by the part of life they're about, it reads like somewhere
+   to go looking. Each subject leads with the question a person actually has,
+   not the framework underneath it. */
+const SUBJECTS = [
+  { id: "closeness", name: "Closeness", line: "The people you love, and the ones you keep at arm's length.", ask: "Why do I get this right at work and wrong at home?" },
+  { id: "drive", name: "Drive", line: "What moves you, what stops you, and what you do when it's hard.", ask: "Why do I stall on the things I say I want most?" },
+  { id: "mind", name: "Mind", line: "How you think, and how you keep it in one piece.", ask: "Why does the same week wreck me and not them?" },
+  { id: "money", name: "Money", line: "What it means to you, and what it quietly costs.", ask: "Why is this never really about the money?" },
+  { id: "becoming", name: "Becoming", line: "Who you're turning into, and whether you chose it.", ask: "Is this still the life I meant to build?" },
+];
 const EXPANSIONS = [
-  { name: MINIS.friend.name, mini: "friend", from: MINIS.friend.from, line: MINIS.friend.blurb, tier: "FREE", status: "Ready" },
-  { name: MINIS.approach.name, mini: "approach", from: MINIS.approach.from, line: MINIS.approach.blurb, tier: "FREE", status: "Ready" },
-  { name: "Money and you", from: "Grounded in wealth psychology", line: "What money means to you, what it protects you from, and what that protection costs.", tier: "MEMBERSHIP", status: "In design" },
-  { name: "The builder's pattern", from: "Grounded in entrepreneurial disposition research", line: "Some people can't stop starting things. An honest measure of whether you're one of them.", tier: "MEMBERSHIP", status: "In design" },
-  { name: "The Partner Series", from: "With thinkers you already trust", line: "Their life's philosophy, distilled with them into a mirror you can take. Conversations underway — names when the ink is dry.", tier: "PARTNER", status: "In conversation" },
+  { subject: "closeness", name: MINIS.friend.name, mini: "friend", from: MINIS.friend.from, line: MINIS.friend.blurb, tier: "FREE", status: "Ready" },
+  { subject: "closeness", name: "The room you walk into", from: "Grounded in interpersonal circumplex research", line: "What happens to a room when you enter it, and what that costs you to keep up.", tier: "MEMBERSHIP", status: "In design" },
+  { subject: "closeness", name: "How you fight", from: "Grounded in conflict style research", line: "Everyone has a move when it gets tense. Yours is probably older than the argument.", tier: "MEMBERSHIP", status: "In design" },
+  { subject: "drive", name: MINIS.approach.name, mini: "approach", from: MINIS.approach.from, line: MINIS.approach.blurb, tier: "FREE", status: "Ready" },
+  { subject: "drive", name: "The builder's pattern", from: "Grounded in entrepreneurial disposition research", line: "Some people can't stop starting things. An honest measure of whether you're one of them.", tier: "MEMBERSHIP", status: "In design" },
+  { subject: "drive", name: "What you do when you're stuck", from: "Grounded in coping and self-regulation research", line: "Not what you'd like to do. What you actually do, at eleven at night, when it isn't moving.", tier: "MEMBERSHIP", status: "In design" },
+  { subject: "mind", name: "How you carry pressure", from: "Grounded in stress and recovery research", line: "Where your load actually sits, what it costs you, and the recovery that works for someone built like you.", tier: "MEMBERSHIP", status: "In design" },
+  { subject: "mind", name: "Getting back up", from: "Grounded in resilience research", line: "Setbacks don't test character so much as reveal a pattern. This one finds yours before you need it.", tier: "MEMBERSHIP", status: "In design" },
+  { subject: "money", name: "Money and you", from: "Grounded in wealth psychology", line: "What money means to you, what it protects you from, and what that protection costs.", tier: "MEMBERSHIP", status: "In design" },
+  { subject: "money", name: "Enough", from: "Grounded in research on aspiration and satisfaction", line: "Everyone has a number. Almost nobody has asked themselves where theirs came from.", tier: "MEMBERSHIP", status: "In design" },
+  { subject: "becoming", name: "The life you meant to build", from: "Grounded in life-narrative research", line: "The story you tell about how you got here, and what it's quietly deciding about where you go next.", tier: "MEMBERSHIP", status: "In design" },
+  { subject: "becoming", name: "The Partner Series", from: "With thinkers you already trust", line: "Their life's philosophy, distilled with them into a mirror you can take. Conversations underway — names when the ink is dry.", tier: "PARTNER", status: "In conversation" },
 ];
 function Constellation() {
   const g = "#D4A547", f = "rgba(212,165,71,0.35)", d = "var(--ink12)";
@@ -841,19 +861,48 @@ function LibraryScreen({ onBack, onMini, miniDone }) {
         <h1 className="display ink">One profile. Deepening for life.</h1>
         <Constellation />
         <p className="libnarr">Your report was the first light — the centre of the constellation. The Library is where the rest arrive. Every assessment here is a lens ground from something proven: the frameworks psychologists actually use, the ideas from the books that changed how people work, and — in time — the thinkers you already trust, distilling their philosophy with us into something you can take. Each one you complete adds a star to the same map: your Companion answers with more of you in the room, your report grows new chapters, and what you choose to share with a human across the table arrives richer. Some lenses will be free. Some will come with membership. All of them make the mirror truer.</p>
-        <div className="libgrid">
-          {EXPANSIONS.map((e) => (
-            <div key={e.name} className="libtile">
-              <div className="librow"><span className={"libtier t" + e.tier}>{e.tier}</span><span className="libstatus">{e.mini && miniDone && miniDone[e.mini] ? "Done" : e.status}</span></div>
-              <p className="libname">{e.name}</p>
-              <p className="libfrom">{e.from}</p>
-              <p className="libline">{e.line}</p>
-              {e.mini
-                ? <button className="rtbtn" onClick={() => onMini(e.mini)}>{miniDone && miniDone[e.mini] ? "See it again" : "Take this lens"}</button>
-                : <a className="rtbtn" href={mailto(e.name)}>Build this one first</a>}
-            </div>
-          ))}
+        <div className="subjnav" role="list">
+          {SUBJECTS.map((s) => {
+            const inIt = EXPANSIONS.filter((e) => e.subject === s.id);
+            const ready = inIt.filter((e) => e.mini).length;
+            return (
+              <a key={s.id} role="listitem" className="subjchip" href={"#subj-" + s.id}>
+                {s.name}<span className="subjcount">{ready ? `${ready} ready` : "soon"}</span>
+              </a>
+            );
+          })}
         </div>
+
+        {SUBJECTS.map((s) => {
+          const inIt = EXPANSIONS.filter((e) => e.subject === s.id);
+          if (!inIt.length) return null;
+          const doneHere = inIt.filter((e) => e.mini && miniDone && miniDone[e.mini]).length;
+          return (
+            <section key={s.id} id={"subj-" + s.id} className="subject">
+              <div className="subjhead">
+                <div>
+                  <p className="subjname">{s.name}</p>
+                  <p className="subjline">{s.line}</p>
+                </div>
+                {doneHere > 0 && <span className="subjdone">{doneHere} taken</span>}
+              </div>
+              <p className="subjask">“{s.ask}”</p>
+              <div className="libgrid">
+                {inIt.map((e) => (
+                  <div key={e.name} className={"libtile" + (e.mini ? " libready" : "")}>
+                    <div className="librow"><span className={"libtier t" + e.tier}>{e.tier}</span><span className="libstatus">{e.mini && miniDone && miniDone[e.mini] ? "Done" : e.status}</span></div>
+                    <p className="libname">{e.name}</p>
+                    <p className="libfrom">{e.from}</p>
+                    <p className="libline">{e.line}</p>
+                    {e.mini
+                      ? <button className="rtbtn" onClick={() => onMini(e.mini)}>{miniDone && miniDone[e.mini] ? "See it again" : "Take this lens"}</button>
+                      : <a className="rtbtn ghostbtn" href={mailto(e.name)}>Build this one first</a>}
+                  </div>
+                ))}
+              </div>
+            </section>
+          );
+        })}
         <p className="hquote">The future is not artificial; it's authentically human.</p>
       </article>
     </div>
@@ -971,7 +1020,10 @@ function Home({ state, go, startAssessment, onTheme }) {
             art={<svg viewBox="0 0 60 40" className="hart"><circle cx="30" cy="13" r="6.5" fill="none" stroke={gold} strokeWidth="2"/><path d="M17 34 Q30 24 43 34" fill="none" stroke="currentColor" strokeWidth="2" opacity=".4"/></svg>}
           />
         </div>
-        <button className="settingslink" onClick={() => go("settings")}>Settings & your data</button>
+        <div className="hlinks">
+          <button className="settingslink" onClick={() => { track("view_explainer"); go("explainerAgain"); }}>How iSHKiY works</button>
+          <button className="settingslink" onClick={() => go("settings")}>Settings & your data</button>
+        </div>
         <p className="hquote">The future is not artificial; it's authentically human.</p>
         <p className="privline">Everything here lives on your device. No one — iSHKiY included — sees your answers or conversations without your explicit say-so. We count anonymous taps (like “assessment started”) to improve the app — never your words.</p>
       </div>
@@ -1899,8 +1951,14 @@ function HumansScreen({ scores, state, onBack, onApply }) {
 
 
 /* ---------------- explainer (what iSHKiY is) ---------------- */
+/* The opening deck. Slides two and three say what it's for before the rest
+   says how it works — nobody cares how a thing is built until they know which
+   of their problems it answers. */
 const EXPLAIN = [
   { art: "orb", line: "iSHKiY is a place to understand yourself.", sub: "Not to fix you. You were never broken." },
+  { art: "storm", line: "For getting back up.", sub: "A setback is easier to carry when you know how you're built — what steadies you, what drains you, what you reach for when it's hard." },
+  { art: "shield", line: "For protecting your mind.", sub: "Most of what wears people down at work isn't the work. It's doing it in a shape that doesn't fit them. Knowing your shape is how you stop paying that tax." },
+  { art: "fork", line: "For the choices that keep you up.", sub: "Hard decisions are usually hard because you don't yet know what you actually want. This is how you find out." },
   { art: "mirror", line: "It starts with a few honest questions.", sub: "What you're for. How you work. What pulls you." },
   { art: "report", line: "You get a report written just for you.", sub: "Yours to keep. No one else can read it." },
   { art: "voices", line: "Then a companion who has read it — for life's turns.", sub: "One to listen, one to push, one for the long view. They share one memory of you." },
@@ -1911,20 +1969,89 @@ function ExplainArt({ kind }) {
   if (kind === "mirror") return <svg viewBox="0 0 120 104" className="exart"><ellipse cx="60" cy="50" rx="30" ry="40" fill="none" stroke="#D4A547" strokeWidth="2.4"/><ellipse cx="60" cy="50" rx="20" ry="30" fill="rgba(212,165,71,0.12)"/></svg>;
   if (kind === "report") return <svg viewBox="0 0 120 104" className="exart"><rect x="38" y="24" width="44" height="56" rx="5" fill="none" stroke="#D4A547" strokeWidth="2.4"/><line x1="46" y1="38" x2="74" y2="38" stroke="#D4A547" strokeWidth="2"/><line x1="46" y1="48" x2="70" y2="48" stroke="#F5F1E8" strokeWidth="2" opacity="0.6"/><line x1="46" y1="58" x2="72" y2="58" stroke="#F5F1E8" strokeWidth="2" opacity="0.6"/></svg>;
   if (kind === "voices") return <svg viewBox="0 0 120 104" className="exart"><circle cx="44" cy="52" r="13" fill="none" stroke="#D4A547" strokeWidth="2.2"/><circle cx="76" cy="52" r="13" fill="none" stroke="rgba(245,241,232,0.4)" strokeWidth="2.2"/><circle cx="44" cy="52" r="4" fill="#D4A547"/></svg>;
+  // A line knocked down, and rising past where it fell.
+  if (kind === "storm") return <svg viewBox="0 0 120 104" className="exart"><path d="M22 46 L44 46 L56 72 L70 30 L82 58 L98 58" fill="none" stroke="rgba(245,241,232,0.35)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/><path d="M70 30 L82 58 L98 58" fill="none" stroke="#D4A547" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"/><circle cx="98" cy="58" r="4" fill="#D4A547"/></svg>;
+  // Something held around something soft.
+  if (kind === "shield") return <svg viewBox="0 0 120 104" className="exart"><path d="M60 22 L86 32 V54 C86 70 74 80 60 84 C46 80 34 70 34 54 V32 Z" fill="none" stroke="#D4A547" strokeWidth="2.4" strokeLinejoin="round"/><circle cx="60" cy="53" r="9" fill="rgba(212,165,71,0.16)" stroke="rgba(245,241,232,0.45)" strokeWidth="1.8"/></svg>;
+  // One road becoming two, one of them chosen.
+  if (kind === "fork") return <svg viewBox="0 0 120 104" className="exart"><path d="M60 84 V56" fill="none" stroke="#D4A547" strokeWidth="2.6" strokeLinecap="round"/><path d="M60 56 L36 28" fill="none" stroke="rgba(245,241,232,0.35)" strokeWidth="2.2" strokeLinecap="round"/><path d="M60 56 L84 28" fill="none" stroke="#D4A547" strokeWidth="2.6" strokeLinecap="round"/><circle cx="84" cy="28" r="4.5" fill="#D4A547"/><circle cx="36" cy="28" r="3.5" fill="none" stroke="rgba(245,241,232,0.35)" strokeWidth="1.8"/></svg>;
   return <svg viewBox="0 0 120 104" className="exart"><path d="M60 76 C30 56 34 34 50 34 C58 34 60 42 60 42 C60 42 62 34 70 34 C86 34 90 56 60 76 Z" fill="none" stroke="#D4A547" strokeWidth="2.4" strokeLinejoin="round"/></svg>;
 }
-function Explainer({ onDone }) {
+/* Swipeable, draggable, and driveable from the keyboard — all three, because a
+   carousel that only answers to a thumb locks out anyone not using one.
+   `done` is the label on the last slide: "Begin" on first run, "Done" when
+   somebody has come back to re-read it. */
+function Explainer({ onDone, done = "Begin" }) {
   const [i, setI] = useState(0);
-  const last = i === EXPLAIN.length - 1;
+  const [drag, setDrag] = useState(0);
+  const startX = useRef(null);
+  /* The live drag distance lives in a ref as well as state: state drives the
+     visual nudge, but touchend can land in the same frame as touchmove, and a
+     state read there would still be the previous render's zero. */
+  const dragRef = useRef(0);
+  const region = useRef(null);
+  const n = EXPLAIN.length;
+  const last = i === n - 1;
+  const go = (k) => setI(Math.max(0, Math.min(n - 1, k)));
+
+  const down = (x) => { startX.current = x; dragRef.current = 0; setDrag(0); };
+  const move = (x) => { if (startX.current == null) return; dragRef.current = x - startX.current; setDrag(dragRef.current); };
+  const up = () => {
+    if (startX.current == null) return;
+    const d = dragRef.current;
+    startX.current = null; dragRef.current = 0; setDrag(0);
+    if (Math.abs(d) > 45) go(i + (d < 0 ? 1 : -1));
+  };
+
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key === "ArrowRight") { e.preventDefault(); go(i + 1); }
+      else if (e.key === "ArrowLeft") { e.preventDefault(); go(i - 1); }
+      else if (e.key === "Home") { e.preventDefault(); go(0); }
+      else if (e.key === "End") { e.preventDefault(); go(n - 1); }
+      else if (e.key === "Escape") onDone();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [i, n]);
+
+  const s = EXPLAIN[i];
   return (
     <Shell dark>
-      <div className="glimmer explainer">
-        <div className="exwrap" key={i}><ExplainArt kind={EXPLAIN[i].art} /></div>
-        <p className="gline exline" key={"l" + i}>{EXPLAIN[i].line}</p>
-        <p className="gsub" key={"s" + i}>{EXPLAIN[i].sub}</p>
-        <div className="exdots">{EXPLAIN.map((_, k) => <span key={k} className={"exdot" + (k === i ? " on" : "")} />)}</div>
-        <button className="btn gold" onClick={() => (last ? onDone() : setI(i + 1))}>{last ? "Begin" : "Next"}</button>
+      <div
+        className="glimmer explainer"
+        ref={region}
+        role="region"
+        aria-roledescription="carousel"
+        aria-label="What iSHKiY is"
+        onTouchStart={(e) => down(e.touches[0].clientX)}
+        onTouchMove={(e) => move(e.touches[0].clientX)}
+        onTouchEnd={up}
+        onMouseDown={(e) => down(e.clientX)}
+        onMouseMove={(e) => (startX.current != null ? move(e.clientX) : null)}
+        onMouseUp={up}
+        onMouseLeave={up}
+      >
+        <div className="exslide" style={{ transform: `translateX(${drag * 0.35}px)` }}>
+          <div className="exwrap" key={i}><ExplainArt kind={s.art} /></div>
+          <div aria-live="polite" aria-atomic="true">
+            <p className="exstep">{i + 1} of {n}</p>
+            <p className="gline exline" key={"l" + i}>{s.line}</p>
+            <p className="gsub" key={"s" + i}>{s.sub}</p>
+          </div>
+        </div>
+        <div className="exdots" role="tablist" aria-label="Slides">
+          {EXPLAIN.map((sl, k) => (
+            <button key={k} role="tab" aria-selected={k === i} aria-label={`Slide ${k + 1}: ${sl.line}`}
+              className={"exdot" + (k === i ? " on" : "")} onClick={() => go(k)} />
+          ))}
+        </div>
+        <div className="exnav">
+          <button className="exback" onClick={() => go(i - 1)} disabled={i === 0} aria-label="Previous slide">← Back</button>
+          <button className="btn gold" onClick={() => (last ? onDone() : go(i + 1))}>{last ? done : "Next"}</button>
+        </div>
         {!last && <button className="exskip" onClick={onDone}>Skip</button>}
+        <p className="exhint">Swipe, or use the arrow keys.</p>
       </div>
     </Shell>
   );
