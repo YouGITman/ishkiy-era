@@ -24,17 +24,37 @@ const getSupa = () => {
 const sid = (() => { try { let x = localStorage.getItem("era-sid"); if (!x) { x = Math.random().toString(36).slice(2, 10); localStorage.setItem("era-sid", x); } return x; } catch { return "anon"; } })();
 const track = (e, d) => { try { const sp = getSupa(); if (!sp) return; sp.from("era_events").insert({ e, d: d == null ? null : String(d).slice(0, 40), sid, v: "1.10" }).then(() => {}, () => {}); } catch {} };
 
-/* ---------------- completion levels & badges ----------------
-   Three tiers of self-knowledge. Each unlocks more, quietly. */
+/* ---------------- profile strength, levels & badges ----------------
+   Strength is one number out of 100, and it is deliberately not reachable by
+   the assessment alone: the nine parts carry 70 of it, the Library lenses the
+   other 30. Finishing the assessment is a real summit (Full Portrait) with
+   somewhere further to go, which is the point — the profile is meant to deepen
+   for life, not be finished in an hour.
+   Levels above Full Portrait are gated on all nine parts as well as the score,
+   so a stack of lenses can never buy a name that claims a complete portrait. */
 const STARTER_PARTS = ["values", "big5", "think1"];   // ~12 min: what you're for, how you work, a thinking taste
 const CORE_ADDED = ["riasec", "ei1", "ei2"];          // rounds the picture
 // everything else (arrival, think2, mirror) completes the full ERA
+const PARTS_WEIGHT = 70, LENS_WEIGHT = 30;
 const LEVELS = [
-  { id: "starter", name: "First Light", need: 1, blurb: "You've met yourself. The first honest look — your values and how you work.", accuracy: "a clear sketch" },
-  { id: "core", name: "In Focus", need: 5, blurb: "The picture sharpens. Thinking, feeling, and what pulls you now sit alongside the rest.", accuracy: "a rounded read" },
-  { id: "full", name: "Full Portrait", need: 9, blurb: "Every part complete. The deepest, truest mirror iSHKiY can hold up today.", accuracy: "the fullest picture" },
+  { id: "starter", name: "First Light", need: 6, blurb: "You've met yourself. The first honest look — your values and how you work.", accuracy: "a clear sketch", next: "Keep going. Each part you finish sharpens the picture." },
+  { id: "core", name: "In Focus", need: 38, blurb: "The picture sharpens. Thinking, feeling, and what pulls you now sit alongside the rest.", accuracy: "a rounded read", next: "Finish the remaining parts and the portrait is complete." },
+  { id: "full", name: "Full Portrait", need: 70, allParts: true, blurb: "Every part complete. The deepest, truest mirror the assessment alone can hold up.", accuracy: "the fullest picture", next: "The Library is where it goes further. Each lens adds a colour the assessment can't reach." },
+  { id: "colour", name: "In Colour", need: 85, allParts: true, blurb: "The portrait has depth now. The lenses you've taken shade in what the nine parts could only outline.", accuracy: "a portrait with shading", next: "One or two more lenses and the picture is as full as iSHKiY can draw it today." },
+  { id: "lifesize", name: "Life Size", need: 100, allParts: true, blurb: "Everything iSHKiY can ask, you've answered. Your Companion knows you as well as it is able to, and your report has every chapter open to it.", accuracy: "the whole of you, so far", next: "New lenses arrive in the Library. Your profile grows when they do." },
 ];
 const partsDone = (completedAt) => Object.keys(completedAt || {}).length;
+const LENS_IDS = Object.keys(MINIS);
+/* One place that answers "how complete is this person's profile". */
+const profileStrength = (state) => {
+  const parts = partsDone(state && state.completedAt);
+  const totalParts = PARTS.length;
+  const totalLenses = LENS_IDS.length;
+  const lenses = LENS_IDS.filter((id) => (state && state.miniResults || {})[id]).length;
+  const score = Math.round((parts / totalParts) * PARTS_WEIGHT + (totalLenses ? (lenses / totalLenses) * LENS_WEIGHT : 0));
+  return { score, parts, totalParts, lenses, totalLenses, allParts: parts >= totalParts };
+};
+const meets = (l, st) => st.score >= l.need && (!l.allParts || st.allParts);
 const PART_IX = Object.fromEntries(PARTS.map((p, i) => [p.id, i]));
 // Which part-indices a given arc walks, in order. "starter" walks a short set; anything else walks all.
 const arcParts = (arc, completedAt) => {
@@ -44,8 +64,20 @@ const arcParts = (arc, completedAt) => {
   if (arc === "more") return PARTS.map((_, i) => i).filter((i) => !done[PARTS[i].id]); // remaining, for "go deeper"
   return PARTS.map((_, i) => i); // full
 };
-const levelFor = (n) => LEVELS.slice().reverse().find((l) => n >= l.need) || null;
-const nextLevel = (n) => LEVELS.find((l) => n < l.need) || null;
+const levelFor = (st) => LEVELS.slice().reverse().find((l) => meets(l, st)) || null;
+const nextLevel = (st) => LEVELS.find((l) => !meets(l, st)) || null;
+/* What to actually do next, in plain words, for the level after this one. */
+const nextStep = (st) => {
+  const nx = nextLevel(st);
+  if (!nx) return null;
+  const partsShort = nx.allParts ? st.totalParts - st.parts : Math.max(0, Math.ceil(((nx.need - st.score) / PARTS_WEIGHT) * st.totalParts));
+  if (partsShort > 0) return { level: nx, what: `Finish ${partsShort} more part${partsShort === 1 ? "" : "s"} of the assessment`, kind: "parts" };
+  const per = st.totalLenses ? LENS_WEIGHT / st.totalLenses : 0;
+  const lensShort = per ? Math.max(1, Math.ceil((nx.need - st.score) / per)) : 0;
+  const canTake = st.totalLenses - st.lenses;
+  if (lensShort > 0 && canTake > 0) return { level: nx, what: `Take ${Math.min(lensShort, canTake)} more lens${Math.min(lensShort, canTake) === 1 ? "" : "es"} in the Library`, kind: "lens" };
+  return { level: nx, what: "More lenses are being written. This one opens when they land.", kind: "wait" };
+};
 
 /* ---------------- storage ---------------- */
 const KEY = "era-v1";
@@ -267,6 +299,7 @@ function App() {
   if (state.phase === "account") return <AccountScreen state={state} scores={scores} onBack={() => update({ phase: "home" })} />;
   if (state.phase === "settings") return <SettingsScreen state={state} update={update} onBack={() => update({ phase: "home" })} />;
   if (state.phase === "apply") return <ApplyScreen onBack={() => update({ phase: "humans" })} />;
+  if (state.phase === "strength") return <StrengthScreen state={state} onBack={() => update({ phase: "home" })} onAssessment={() => update({ phase: "chooseDepth" })} onLibrary={() => update({ phase: "library" })} />;
   if (state.phase === "library") return <LibraryScreen onBack={() => update({ phase: "home" })} onMini={(id) => update({ miniId: id, phase: (state.miniResults || {})[id] ? "miniResult" : "miniRun" })} miniDone={state.miniResults} />;
   if (state.phase === "miniRun") return <MiniRunner miniId={state.miniId} answers={(state.miniAnswers || {})[state.miniId]} onBack={() => update({ phase: "library" })} onDone={(a) => { const res = scoreMini(state.miniId, a); track("mini_done", state.miniId); update({ miniAnswers: { ...(state.miniAnswers || {}), [state.miniId]: a }, miniResults: { ...(state.miniResults || {}), [state.miniId]: res }, phase: "miniResult" }); }} />;
   if (state.phase === "miniResult") return <MiniResult miniId={state.miniId} result={(state.miniResults || {})[state.miniId]} onBack={() => update({ phase: "library" })} />;
@@ -287,7 +320,7 @@ function App() {
     update(next == null ? { completedAt, phase: "badge" } : { completedAt, part: next, item: 0, phase: "intro" });
   }} />;
   if (state.phase === "generating") return <Generating answers={answers} scores={scores} onDone={(report) => update({ report, phase: "report", companionStart: state.companionStart || Date.now() })} />;
-  if (state.phase === "report") return <Report report={state.report} name={answers["AR-1"]} answers={answers} scores={scores} companionStart={state.companionStart} completedAt={state.completedAt || {}} onBack={() => update({ phase: "home" })} onLibrary={() => update({ phase: "library" })} onDeeper={() => { const parts = arcParts("more", state.completedAt); if (parts.length) update({ arc: "more", part: parts[0], item: 0, phase: "intro" }); }} onRegenerate={() => update({ phase: "generating" })} onRetake={(idx) => update({ part: idx, item: 0, retaking: true, phase: "intro" })} onRestart={() => { localStorage.removeItem(KEY); location.reload(); }} />;
+  if (state.phase === "report") return <Report report={state.report} name={answers["AR-1"]} answers={answers} scores={scores} companionStart={state.companionStart} completedAt={state.completedAt || {}} strength={profileStrength(state)} onStrength={() => update({ phase: "strength" })} onBack={() => update({ phase: "home" })} onLibrary={() => update({ phase: "library" })} onDeeper={() => { const parts = arcParts("more", state.completedAt); if (parts.length) update({ arc: "more", part: parts[0], item: 0, phase: "intro" }); }} onRegenerate={() => update({ phase: "generating" })} onRetake={(idx) => update({ part: idx, item: 0, retaking: true, phase: "intro" })} onRestart={() => { localStorage.removeItem(KEY); location.reload(); }} />;
   return null;
 }
 
@@ -603,16 +636,32 @@ function MiniBeam({ values }) {
     <line x1="60" y1="50" x2="60" y2="78" stroke={INK18} strokeWidth="2" /><circle cx="28" cy="43" r="7" fill={GOLD} /><circle cx="93" cy="57" r="5" fill="none" stroke={INK18} strokeWidth="1.5" /></svg>);
 }
 
-const band100 = (v) => v == null ? "—" : v >= 75 ? "very high" : v >= 60 ? "high" : v >= 40 ? "moderate" : v >= 25 ? "lower" : "low";
+/* Every dimension is 0–100, but 100 means a different thing in each family:
+   accuracy on puzzles, a self-rating, the strength of a pull, the weight of a
+   value. One shared "high / moderate / low" made them all read like a grade,
+   so each family gets wording that says what the number is actually measuring.
+   Bands run low → very high across the same 25/40/60/75 cuts. */
+const BANDS = {
+  think:  ["few right", "some right", "about half", "most right", "nearly all"],
+  heart:  ["rarely", "sometimes", "often", "usually", "almost always"],
+  pull:   ["no pull", "faint pull", "some pull", "clear pull", "strong pull"],
+  values: ["not a driver", "in the background", "matters", "important to you", "core to you"],
+  work:   ["low", "lower", "balanced", "high", "very high"],
+  lens:   ["low", "lower", "balanced", "high", "very high"],
+};
+const bandIx = (v) => v >= 75 ? 4 : v >= 60 ? 3 : v >= 40 ? 2 : v >= 25 ? 1 : 0;
+const bandOf = (fam, v) => v == null ? "—" : (BANDS[fam] || BANDS.work)[bandIx(v)];
+// "87 · strong" — the number, then what it means in this family's terms.
+const scoreLine = (fam, v) => v == null ? "—" : `${v} · ${bandOf(fam, v)}`;
 function Tiles({ scores }) {
   const [open, setOpen] = useState(null);
   const t = scores.thinking, ei = scores.ei, b5 = scores.big5;
   const tiles = [
-    { id: "think", acc: "#5C7CA3", label: "How you think", stat: t.lean, art: <MiniBars pairs={[[t.lean, 100], ["", 55]].slice(0, 1).concat([["numerical", t.numerical], ["spatial", t.spatial], ["verbal", t.verbal], ["logical", t.logical]].sort((a, b) => b[1] - a[1]).slice(0, 3))} />, detail: [["Numerical", band100(t.numerical)], ["Spatial", band100(t.spatial)], ["Verbal", band100(t.verbal)], ["Logical", band100(t.logical)]], note: "Accuracy by problem type. The lean is your first language for a hard problem — not a ceiling on the others.", about: "Grounded in Cattell–Horn–Carroll (CHC) theory, the most widely used map of human cognitive abilities. Our short, untimed puzzles sample four problem types to read your thinking style. What it can't claim: this is a style indicator, not an IQ measure — a handful of puzzles can suggest how you approach problems, not the size of the engine." },
-    { id: "heart", acc: "#C06B5C", label: "How you carry yourself", stat: "the compass", art: <MiniCompass ei={ei} />, detail: [["Self-awareness", band100(ei.selfAwareness)], ["Social awareness", band100(ei.socialAwareness)], ["Self-management", band100(ei.selfManagement)], ["With others", band100(ei.relationshipManagement)]], note: "Goleman's four domains, 0–100 from your answers. The needle points where you're strongest.", about: "Based on Daniel Goleman's four-domain model of emotional intelligence: knowing yourself, steadying yourself, reading others, and working with others. What it can't claim: this is self-report — it measures how you see yourself, which is itself useful information, but a colleague might score you differently." },
-    { id: "pull", acc: "#D4A547", label: "What pulls you", stat: scores.riasec.top + " · " + scores.riasec.second, art: <MiniPetals riasec={scores.riasec} />, detail: ["R", "I", "A", "S", "E", "C"].map((c) => [{ R: "Making", I: "Understanding", A: "Creating", S: "People", E: "Starting", C: "Ordering" }[c], band100(scores.riasec.scores[c])]), note: "The gold petal is the strongest pull. The faint one is second. Low petals matter too — they're honest about what drains you.", about: "John Holland's RIASEC model — six themes of vocational interest, used in career guidance for over sixty years. People tend to thrive where their environment matches their strongest themes. What it can't claim: interests aren't abilities. Loving a thing and being built for it usually travel together, but not always." },
-    { id: "values", acc: "#6F8F5E", label: "What you're for", stat: scores.values.ranked[0], art: <MiniBeam values={scores.values} />, detail: scores.values.ranked.map((v) => [v, band100(scores.values.scores[v]) + (scores.values.fcWins[v] ? " · you chose it often" : "")]), note: "Ranked by importance, weighted by what you chose when forced to pick. Forced choices tell the truth.", about: "Drawn from Shalom Schwartz's theory of basic human values — a model validated across more than eighty countries. We sample six values most alive in working life, and weight the forced choices heavily because trade-offs reveal what ratings flatter. What it can't claim: values shift with seasons of life. This is your now, not your always." },
-    { id: "work", acc: "#8A6FA0", label: "How you work", stat: Object.entries(b5).sort((a, b) => b[1] - a[1])[0][0].toLowerCase(), art: <MiniBars pairs={Object.entries(b5).sort((a, b) => b[1] - a[1])} />, detail: Object.entries(b5).map(([k, v]) => [k, band100(v)]), note: "The Big Five, 0–100. Steadiness is Neuroticism turned right-side up: high means the weather passes through you quickly.", about: "The Big Five is the most replicated personality model in psychology — five broad traits that describe how people differ in daily working life. We present Neuroticism as Steadiness (same scale, inverted) because it reads truer that way. What it can't claim: five items per trait gives a sketch, not a portrait. The written report adds the shading." },
+    { id: "think", acc: "#5C7CA3", label: "How you think", stat: t.lean, art: <MiniBars pairs={[[t.lean, 100], ["", 55]].slice(0, 1).concat([["numerical", t.numerical], ["spatial", t.spatial], ["verbal", t.verbal], ["logical", t.logical]].sort((a, b) => b[1] - a[1]).slice(0, 3))} />, detail: [["Numerical", scoreLine("think", t.numerical)], ["Spatial", scoreLine("think", t.spatial)], ["Verbal", scoreLine("think", t.verbal)], ["Logical", scoreLine("think", t.logical)]], note: "Accuracy by problem type. The lean is your first language for a hard problem — not a ceiling on the others.", about: "Grounded in Cattell–Horn–Carroll (CHC) theory, the most widely used map of human cognitive abilities. Our short, untimed puzzles sample four problem types to read your thinking style. What it can't claim: this is a style indicator, not an IQ measure — a handful of puzzles can suggest how you approach problems, not the size of the engine." },
+    { id: "heart", acc: "#C06B5C", label: "How you carry yourself", stat: "the compass", art: <MiniCompass ei={ei} />, detail: [["Self-awareness", scoreLine("heart", ei.selfAwareness)], ["Social awareness", scoreLine("heart", ei.socialAwareness)], ["Self-management", scoreLine("heart", ei.selfManagement)], ["With others", scoreLine("heart", ei.relationshipManagement)]], note: "Goleman's four domains, 0–100 from your answers. The needle points where you're strongest.", about: "Based on Daniel Goleman's four-domain model of emotional intelligence: knowing yourself, steadying yourself, reading others, and working with others. What it can't claim: this is self-report — it measures how you see yourself, which is itself useful information, but a colleague might score you differently." },
+    { id: "pull", acc: "#D4A547", label: "What pulls you", stat: scores.riasec.top + " · " + scores.riasec.second, art: <MiniPetals riasec={scores.riasec} />, detail: ["R", "I", "A", "S", "E", "C"].map((c) => [{ R: "Making", I: "Understanding", A: "Creating", S: "People", E: "Starting", C: "Ordering" }[c], scoreLine("pull", scores.riasec.scores[c])]), note: "The gold petal is the strongest pull. The faint one is second. Low petals matter too — they're honest about what drains you.", about: "John Holland's RIASEC model — six themes of vocational interest, used in career guidance for over sixty years. People tend to thrive where their environment matches their strongest themes. What it can't claim: interests aren't abilities. Loving a thing and being built for it usually travel together, but not always." },
+    { id: "values", acc: "#6F8F5E", label: "What you're for", stat: scores.values.ranked[0], art: <MiniBeam values={scores.values} />, detail: scores.values.ranked.map((v) => [v, scoreLine("values", scores.values.scores[v]) + (scores.values.fcWins[v] ? " · you chose it often" : "")]), note: "Ranked by importance, weighted by what you chose when forced to pick. Forced choices tell the truth.", about: "Drawn from Shalom Schwartz's theory of basic human values — a model validated across more than eighty countries. We sample six values most alive in working life, and weight the forced choices heavily because trade-offs reveal what ratings flatter. What it can't claim: values shift with seasons of life. This is your now, not your always." },
+    { id: "work", acc: "#8A6FA0", label: "How you work", stat: Object.entries(b5).sort((a, b) => b[1] - a[1])[0][0].toLowerCase(), art: <MiniBars pairs={Object.entries(b5).sort((a, b) => b[1] - a[1])} />, detail: Object.entries(b5).map(([k, v]) => [k, scoreLine("work", v)]), note: "The Big Five, 0–100. Steadiness is Neuroticism turned right-side up: high means the weather passes through you quickly.", about: "The Big Five is the most replicated personality model in psychology — five broad traits that describe how people differ in daily working life. We present Neuroticism as Steadiness (same scale, inverted) because it reads truer that way. What it can't claim: five items per trait gives a sketch, not a portrait. The written report adds the shading." },
   ];
   const mk = { think: "thinking", heart: "ei", pull: "riasec", values: "values", work: "big5" };
   const shown = (scores.measured ? tiles.filter((t) => scores.measured[mk[t.id]]) : tiles);
@@ -856,6 +905,8 @@ function Home({ state, go, startAssessment, onTheme }) {
   try { const cc = loadCompanion(); compLeft = Math.max(0, Q_CAP - (cc.count || 0)); } catch {}
   const hasReport = !!state.report;
   const midway = !hasReport && Object.keys(state.answers).length > 0;
+  const strength = profileStrength(state);
+  const strengthStep = nextStep(strength);
   const gold = "#D4A547", faint = "rgba(15,30,61,0.18)";
   return (
     <Shell>
@@ -867,10 +918,18 @@ function Home({ state, go, startAssessment, onTheme }) {
           <HomeTile
             acc="#5C7CA3"
             title={hasReport ? "Your profile" : midway ? "Continue the assessment" : "Take the assessment"}
-            badge={hasReport ? (levelFor(partsDone(state.completedAt)) || {}).name : null}
+            badge={hasReport ? (levelFor(strength) || {}).name : null}
             sub={hasReport ? "Read your report. Save it, share it, retake parts." : "Answer questions about yourself. About 50 minutes."}
             onClick={hasReport ? () => { track("view_report"); go("report"); } : () => { track("assessment_start"); startAssessment(); }}
             art={<svg viewBox="0 0 60 40" className="hart"><circle cx="30" cy="20" r="12" fill="none" stroke={gold} strokeWidth="2"/><circle cx="30" cy="20" r="4" fill={gold}/></svg>}
+          />
+          <HomeTile
+            acc="#D4A547"
+            title="Profile strength"
+            badge={`${strength.score} / 100`}
+            sub={strengthStep ? `${strengthStep.what} to reach ${strengthStep.level.name}.` : "Everything iSHKiY can ask, you've answered."}
+            onClick={() => { track("view_strength"); go("strength"); }}
+            art={<svg viewBox="0 0 60 40" className="hart"><circle cx="30" cy="20" r="13" fill="none" stroke="currentColor" strokeWidth="3" opacity=".22"/><circle cx="30" cy="20" r="13" fill="none" stroke={gold} strokeWidth="3" strokeLinecap="round" strokeDasharray={`${(strength.score / 100) * 81.7} 81.7`} transform="rotate(-90 30 20)"/></svg>}
           />
           <HomeTile
             acc="#D4A547"
@@ -1617,10 +1676,11 @@ function SectionHead({ kicker, title, line }) {
 
 /* ---------------- settings ---------------- */
 function SettingsScreen({ state, update, onBack }) {
-  const done = partsDone(state.completedAt);
-  const level = levelFor(done);
+  const st = profileStrength(state);
+  const done = st.parts;
+  const level = levelFor(st);
   const exportAll = () => {
-    const dump = { exportedAt: new Date().toISOString(), version: "1.12", answers: state.answers, completedAt: state.completedAt, report: state.report, miniResults: state.miniResults, level: level ? level.name : null };
+    const dump = { exportedAt: new Date().toISOString(), version: "1.14", answers: state.answers, completedAt: state.completedAt, report: state.report, miniResults: state.miniResults, level: level ? level.name : null, strength: st.score };
     const b = new Blob([JSON.stringify(dump, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(b); const a = document.createElement("a");
     a.href = url; a.download = "my-ishkiy-data.json"; a.click(); URL.revokeObjectURL(url);
@@ -1904,19 +1964,96 @@ function ChooseDepth({ state, onPick, onBack }) {
   );
 }
 
+/* ---------------- profile strength ----------------
+   The one screen that answers "how much of me is in here, and what would
+   adding more actually get me". Every rung says what it changes, not just
+   what it's called — a level nobody can cash in is just a sticker. */
+function StrengthMeter({ score }) {
+  const r = 54, c = 2 * Math.PI * r;
+  return (
+    <svg viewBox="0 0 130 130" className="smeter" role="img" aria-label={`Profile strength ${score} out of 100`}>
+      <circle cx="65" cy="65" r={r} fill="none" stroke="var(--ink12)" strokeWidth="9" />
+      <circle cx="65" cy="65" r={r} fill="none" stroke="#D4A547" strokeWidth="9" strokeLinecap="round"
+        strokeDasharray={`${(score / 100) * c} ${c}`} transform="rotate(-90 65 65)" />
+      <text x="65" y="62" textAnchor="middle" className="smetern">{score}</text>
+      <text x="65" y="82" textAnchor="middle" className="smeterl">of 100</text>
+    </svg>
+  );
+}
+function StrengthScreen({ state, onBack, onAssessment, onLibrary }) {
+  const st = profileStrength(state);
+  const level = levelFor(st);
+  const step = nextStep(st);
+  const partPct = Math.round((st.parts / st.totalParts) * 100);
+  const lensPct = st.totalLenses ? Math.round((st.lenses / st.totalLenses) * 100) : 0;
+  return (
+    <div className="reportpage tint-heather">
+      <div className="rhead noprint"><button className="ghost inkghost" onClick={onBack}>← Home</button><Wordmark /><span /></div>
+      <article className="report">
+        <p className="kicker gold">Profile strength</p>
+        <h1 className="display ink">{level ? level.name : "Not started yet"}</h1>
+        <StrengthMeter score={st.score} />
+        <p className="lede inkdim">{level ? level.blurb : "Answer your first part and the picture begins."}</p>
+
+        {step && (
+          <div className="nextrung">
+            <p className="nextrungk">Next</p>
+            <p className="nextrungn">{step.level.name} — {step.level.accuracy}</p>
+            <p className="nextrungw">{step.what}.</p>
+            {step.kind === "parts" && <button className="rtbtn" onClick={onAssessment}>Continue the assessment</button>}
+            {step.kind === "lens" && <button className="rtbtn" onClick={onLibrary}>Open the Library</button>}
+          </div>
+        )}
+
+        <div className="sbreak">
+          <div className="sbrow">
+            <div className="sbhead"><span>The assessment</span><span className="tnum">{st.parts} of {st.totalParts} parts</span></div>
+            <div className="track"><div className="fill" style={{ width: `${partPct}%` }} /></div>
+            <p className="sbnote">Worth {PARTS_WEIGHT} of your 100. This is the spine of the profile — every part adds a dimension your report and your Companion can actually use.</p>
+          </div>
+          <div className="sbrow">
+            <div className="sbhead"><span>The Library</span><span className="tnum">{st.lenses} of {st.totalLenses} lenses</span></div>
+            <div className="track"><div className="fill" style={{ width: `${lensPct}%` }} /></div>
+            <p className="sbnote">Worth {LENS_WEIGHT} of your 100. Lenses reach where the assessment can't — closeness, money, drive. More are being written, and your strength grows when they land.</p>
+          </div>
+        </div>
+
+        <div className="rungs">
+          {LEVELS.map((L) => {
+            const got = meets(L, st);
+            const here = level && level.id === L.id;
+            return (
+              <div key={L.id} className={"rung" + (got ? " got" : "") + (here ? " here" : "")}>
+                <i className="rungdot" />
+                <div>
+                  <p className="rungn">{L.name}{here ? <em className="rungyou"> — you are here</em> : null}</p>
+                  <p className="rungb">{got ? L.next : L.blurb}</p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        <p className="integrity">Strength measures how much of yourself you've put in — not how well you scored. There are no good or bad profiles here, only fuller and thinner ones.</p>
+      </article>
+    </div>
+  );
+}
+
 /* ---------------- badge earned ---------------- */
 function BadgeScreen({ state, onDone }) {
-  const n = partsDone(state.completedAt);
-  const level = levelFor(n);
-  const next = nextLevel(n);
+  const st = profileStrength(state);
+  const level = levelFor(st);
+  const step = nextStep(st);
+  const lit = level ? LEVELS.findIndex((l) => l.id === level.id) + 1 : 0;
   return (
     <Shell dark>
       <div className="glimmer">
-        <div className="badgeorb"><Orb size={92} /><span className="badgestars" aria-hidden="true">{[0,1,2,3,4].map((k) => <i key={k} className={"bstar" + (k < (level ? level.need : 0) / 2 ? " lit" : "")} />)}</span></div>
+        <div className="badgeorb"><Orb size={92} /><span className="badgestars" aria-hidden="true">{LEVELS.map((_, k) => <i key={k} className={"bstar" + (k < lit ? " lit" : "")} />)}</span></div>
         <p className="kicker gold">Badge earned</p>
         <p className="gline">{level ? level.name : "First steps"}</p>
         <p className="gsub">{level ? level.blurb : "You've begun."}</p>
-        {next && <p className="badgenext">Finish {next.need - n} more part{next.need - n === 1 ? "" : "s"} to earn <strong>{next.name}</strong> — {next.accuracy}.</p>}
+        <p className="badgestrength">Profile strength <strong>{st.score}</strong> / 100</p>
+        {step && <p className="badgenext">{step.what} to earn <strong>{step.level.name}</strong> — {step.level.accuracy}.</p>}
         <button className="btn gold" onClick={onDone}>See my report</button>
       </div>
     </Shell>
@@ -1964,15 +2101,15 @@ function MiniResult({ miniId, result, onBack }) {
         {revealing && <div className="revealveil"><Orb size={84} /><p className="revealline">Looking again…</p></div>}
         {result.kind === "friend" ? (
           <div className="minibody">
-            <div className="minirow"><span>What you give</span><span className="tnum">{result.give ?? "—"}</span></div>
-            <div className="minirow"><span>What you need</span><span className="tnum">{result.need ?? "—"}</span></div>
+            <div className="minirow"><span>What you give</span><span className="tnum">{scoreLine("lens", result.give)}</span></div>
+            <div className="minirow"><span>What you need</span><span className="tnum">{scoreLine("lens", result.need)}</span></div>
             <p className="rbody"><em>{result.give != null && result.need != null && result.give - result.need > 15 ? "You give more than you ask for. A quiet strength — and worth watching, so the well doesn't run dry." : result.need != null && result.give != null && result.need - result.give > 15 ? "You feel the need for closeness keenly. That's not weakness; it's how you're wired to bond." : "You give and need in fair balance. Rarer than it sounds."}</em></p>
             {result.needMost && <p className="rbody">When it comes to it, the friend you need most is one who offers <strong>{result.needMost === "reliability" ? "reliability — someone who simply shows up" : "depth — someone who really gets you"}</strong>.</p>}
           </div>
         ) : (
           <div className="minibody">
-            <div className="minirow"><span>Moving toward what you want</span><span className="tnum">{result.approach ?? "—"}</span></div>
-            <div className="minirow"><span>Moving away from what you fear</span><span className="tnum">{result.avoid ?? "—"}</span></div>
+            <div className="minirow"><span>Moving toward what you want</span><span className="tnum">{scoreLine("lens", result.approach)}</span></div>
+            <div className="minirow"><span>Moving away from what you fear</span><span className="tnum">{scoreLine("lens", result.avoid)}</span></div>
             <p className="rbody"><em>{result.orientation === "toward" ? "You lead with the upside. You move toward what you want more than away from what you fear — which makes you brave, and occasionally blind to the cliff edge." : "You lead with care. You move to protect what matters before you reach for more — which makes you steady, and sometimes slower to the thing you'd love."}</em></p>
           </div>
         )}
@@ -1984,7 +2121,7 @@ function MiniResult({ miniId, result, onBack }) {
   );
 }
 
-function Report({ report, name, answers, scores, companionStart, completedAt, onBack, onLibrary, onDeeper, onRegenerate, onRetake, onRestart }) {
+function Report({ report, name, answers, scores, companionStart, completedAt, strength, onBack, onLibrary, onDeeper, onRegenerate, onRetake, onRestart, onStrength }) {
   if (!report) return null;
   return (
     <div className="reportpage">
@@ -1998,12 +2135,13 @@ function Report({ report, name, answers, scores, companionStart, completedAt, on
       </div>
       <article className="report">
         <div className="printonly phead"><Wordmark /><p className="kicker gold">Essence Recovery Assessment &amp; Companion</p></div>
-        {(() => { const n = partsDone(completedAt); const lvl = levelFor(n); const nx = nextLevel(n); return (
+        {(() => { const lvl = levelFor(strength); const step = nextStep(strength); return (
           <div className="badgestrip noprint">
             <div className="badgechips">
-              {LEVELS.map((L) => (<span key={L.id} className={"bchip" + (n >= L.need ? " earned" : "")}><i className="bchipdot" />{L.name}</span>))}
+              {LEVELS.map((L) => (<span key={L.id} className={"bchip" + (meets(L, strength) ? " earned" : "")}><i className="bchipdot" />{L.name}</span>))}
             </div>
-            <p className="badgeexplain">{lvl ? `You've earned ${lvl.name} — ${lvl.accuracy}.` : "Answer a few parts to earn your first badge."}{nx ? ` ${nx.need - n} more part${nx.need - n === 1 ? "" : "s"} unlocks ${nx.name}.` : ""}</p>
+            <p className="badgeexplain">{lvl ? `You've earned ${lvl.name} — ${lvl.accuracy}.` : "Answer a few parts to earn your first badge."}{step ? ` ${step.what} to unlock ${step.level.name}.` : ""}</p>
+            <button className="strengthlink" onClick={onStrength}>Profile strength {strength.score} / 100 — see what's next</button>
           </div>
         ); })()}
         <p className="kicker gold noprint">Essence Recovery Assessment</p>
