@@ -570,7 +570,9 @@
 
   /* the orb */
   .orbwrap{margin-bottom:22px}
-  .orb .orbhalo{transform-origin:center; animation:breathe 4.6s ease-in-out infinite}
+  .orb{overflow:visible}
+  .orb .orbhalo{transform-origin:48px 48px; transform-box:view-box; animation:orbhalo 4.6s ease-in-out infinite}
+  @keyframes orbhalo{0%,100%{transform:scale(.8); opacity:.75} 50%{transform:scale(1); opacity:1}}
   @media (prefers-reduced-motion: reduce){ .orb .orbhalo{animation:none} }
   .breath.orbwrap span{display:none}
 

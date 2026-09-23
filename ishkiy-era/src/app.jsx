@@ -813,14 +813,30 @@ const qNext = () => {
   } catch { return QUOTES[Math.floor(Math.random() * QUOTES.length)]; }
 };
 
+/* The halo breathes on its own keyframes, sized to stay inside the drawing —
+   it used to borrow the warm-up dot's 2.6x scale and got cut off square. The
+   smile is separate: it grows from a flat line over four seconds each time the
+   face appears, on no clock but its own. */
+const reduceMotion = () => { try { return window.matchMedia("(prefers-reduced-motion: reduce)").matches; } catch { return false; } };
+const SMILE_FROM = "M43 56.5 q5 0 10 0", SMILE_TO = "M41 55.5 q7 5.5 14 0";
 function Orb({ size = 96 }) {
+  const still = useMemo(reduceMotion, []);
+  const gid = useMemo(() => "orbg" + Math.random().toString(36).slice(2, 8), []);
   return (
     <svg viewBox="0 0 96 96" width={size} height={size} className="orb" aria-hidden="true">
-      <circle cx="48" cy="48" r="40" fill="rgba(212,165,71,0.14)" className="orbhalo" />
+      <defs>
+        <radialGradient id={gid}>
+          <stop offset="50%" stopColor="#D4A547" stopOpacity="0.32" />
+          <stop offset="100%" stopColor="#D4A547" stopOpacity="0" />
+        </radialGradient>
+      </defs>
+      <circle cx="48" cy="48" r="46" fill={`url(#${gid})`} className="orbhalo" />
       <circle cx="48" cy="48" r="27" fill="#D4A547" />
       <path d="M38 46 q4 -4 8 0" fill="none" stroke="#0F1E3D" strokeWidth="2.6" strokeLinecap="round" />
       <path d="M52 46 q4 -4 8 0" fill="none" stroke="#0F1E3D" strokeWidth="2.6" strokeLinecap="round" />
-      <path d="M42 56 q6 4 12 0" fill="none" stroke="#0F1E3D" strokeWidth="2.6" strokeLinecap="round" />
+      <path d={still ? SMILE_TO : SMILE_FROM} fill="none" stroke="#0F1E3D" strokeWidth="2.6" strokeLinecap="round">
+        {!still && <animate attributeName="d" from={SMILE_FROM} to={SMILE_TO} dur="4s" begin="0.3s" fill="freeze" calcMode="spline" keyTimes="0;1" keySplines="0.45 0 0.2 1" />}
+      </path>
     </svg>
   );
 }
