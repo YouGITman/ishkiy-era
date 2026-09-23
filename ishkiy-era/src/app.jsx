@@ -1072,9 +1072,9 @@ function LibraryScreen({ state, onBack, onMini, onRetake, onAssessment }) {
 }
 
 /* ---------------- the cockpit ---------------- */
-function HomeTile({ title, sub, locked, lockNote, onClick, art, badge, acc }) {
+function HomeTile({ title, sub, locked, lockNote, onClick, art, badge, acc, pulse }) {
   return (
-    <button className={"htile" + (locked ? " locked" : "")} style={acc ? { borderTopColor: acc, borderTopWidth: "4px", background: `linear-gradient(180deg, ${acc}14, transparent 55%)` } : undefined} onClick={locked ? undefined : onClick} aria-disabled={locked}>
+    <button className={"htile" + (locked ? " locked" : "") + (pulse ? " pulse" : "")} style={acc ? { borderTopColor: acc, borderTopWidth: "4px", background: `linear-gradient(180deg, ${acc}14, transparent 55%)` } : undefined} onClick={locked ? undefined : onClick} aria-disabled={locked}>
       {badge != null && <span className="htbadge">{badge}</span>}
       {art}
       <span className="httitle">{title}</span>
@@ -1134,6 +1134,7 @@ function Home({ state, go, startAssessment, onTheme }) {
             acc="#5C7CA3"
             title={hasReport ? "Your profile" : reportDue ? "Write my report" : midway ? "Continue the assessment" : "Take the assessment"}
             badge={hasReport ? (levelFor(strength) || {}).name : reportDue ? "Ready" : null}
+            pulse={reportDue}
             sub={hasReport ? "Read your report. Save it, share it, retake parts." : reportDue ? "Your answers are in. Tap and it's written for you in about a minute. You can go deeper afterwards." : "Answer questions about yourself. Your first profile takes 10–15 minutes."}
             onClick={hasReport || reportDue ? () => { track(reportDue ? "report_recover" : "view_report"); go("report"); } : () => { track("assessment_start"); startAssessment(); }}
             art={<svg viewBox="0 0 60 40" className="hart"><circle cx="30" cy="20" r="12" fill="none" stroke={gold} strokeWidth="2"/><circle cx="30" cy="20" r="4" fill={gold}/></svg>}

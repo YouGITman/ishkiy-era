@@ -493,6 +493,10 @@
 
 
 
+  /* a tile that wants tapping: a report waiting to be written */
+  .htile.pulse{animation:tilepulse 2.4s ease-in-out infinite}
+  @keyframes tilepulse{0%,100%{box-shadow:0 0 0 0 rgba(212,165,71,0)} 50%{box-shadow:0 0 0 7px rgba(212,165,71,.28); transform:scale(1.015)}}
+  @media (prefers-reduced-motion: reduce){ .htile.pulse{animation:none; box-shadow:0 0 0 3px rgba(212,165,71,.45)} }
   /* library: subject symbols, tallies, the lock */
   .subjicon{flex:none; display:block}
   .subjchip .subjicon{margin-left:-3px}
