@@ -367,6 +367,12 @@
   .mindwrap{display:flex; flex-direction:column; align-items:center; text-align:center; margin:18px 0 6px}
   .mindart{width:150px; height:150px}
   .mindpulse{transform-origin:center; animation:mindbreathe 8s ease-in-out infinite}
+  .breathcue{margin:4px 0 6px; font-family:Lora,serif; font-size:18px; color:var(--ink60); display:flex; gap:10px; justify-content:center; align-items:baseline}
+  .breathcue span{transition:color 1.2s ease, opacity 1.2s ease; opacity:.55}
+  .breathcue span.on{color:#8a6d1f; opacity:1}
+  body.dm .breathcue span.on{color:var(--gold)}
+  .breathcue .breathsep{opacity:.4}
+  @media (prefers-reduced-motion: reduce){ .breathcue span{opacity:1; transition:none} }
   @keyframes mindbreathe{0%,100%{transform:scale(.72); opacity:.8} 50%{transform:scale(1.24); opacity:1}}
   .mindline{font-family:Lora,serif; font-size:17px; line-height:1.5; color:var(--ink60); max-width:340px; margin:8px 0 0; animation:rotfade 1.2s ease both}
   @media (prefers-reduced-motion: reduce){ .mindpulse{animation:none} .mindline{animation:none} .mindset{transition:none} }

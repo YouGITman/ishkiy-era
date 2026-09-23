@@ -324,7 +324,10 @@ function App() {
   // Same deck, reachable any time from Home or Settings.
   if (state.phase === "explainerAgain") return <Explainer done="Done" onDone={() => update({ phase: state.explainerBack || "home" })} />;
   if (state.phase === "chooseDepth") return <ChooseDepth state={state} onPick={(arc) => { const parts = arcParts(arc, state.completedAt); const first = parts[0] ?? 0; update({ arc, part: first, item: 0, phase: state.unlocked ? "warmup" : "unlock" }); }} onBack={() => update({ phase: "home" })} />;
-  if (state.phase === "badge") return <BadgeScreen state={state} onDone={() => update({ phase: "report" })} />;
+  /* The badge comes straight after the last part, before any report exists for
+     the answers just given, so "See my report" has to write it first. Going
+     straight to "report" landed on an empty page. */
+  if (state.phase === "badge") return <BadgeScreen state={state} onDone={() => update({ phase: "generating" })} />;
   if (state.phase === "intro") return <PartIntro part={PARTS[state.part]} n={state.part} onGo={() => update({ phase: "run" })} />;
   if (state.phase === "run") return <Runner state={state} update={update} />;
   if (state.phase === "glimmer") return <Glimmer part={PARTS[state.part]} answers={answers} scores={scores} onNext={() => {
@@ -335,7 +338,12 @@ function App() {
     const next = arc[pos + 1];
     update(next == null ? { completedAt, phase: "badge" } : { completedAt, part: next, item: 0, phase: "intro" });
   }} />;
-  if (state.phase === "generating") return <Generating answers={answers} scores={scores} onDone={(report) => update({ report, phase: "report", companionStart: state.companionStart || Date.now() })} />;
+  /* If the rewrite fails, keep a real report someone already has rather than
+     swapping it for the sample. */
+  const reportDone = (report) => update({ report: report.preview && state.report && !state.report.preview ? state.report : report, phase: "report", companionStart: state.companionStart || Date.now() });
+  if (state.phase === "generating") return <Generating answers={answers} scores={scores} onDone={reportDone} />;
+  // Never a blank page: no report yet means write one.
+  if (state.phase === "report" && !state.report) return <Generating answers={answers} scores={scores || computeScores(answers)} onDone={reportDone} />;
   if (state.phase === "report") return <Report report={state.report} name={answers["AR-1"]} answers={answers} scores={scores} companionStart={state.companionStart} completedAt={state.completedAt || {}} strength={profileStrength(state)} onStrength={() => update({ phase: "strength" })} onBack={() => update({ phase: "home" })} onLibrary={() => update({ phase: "library" })} onDeeper={() => { const parts = arcParts("more", state.completedAt); if (parts.length) update({ arc: "more", part: parts[0], item: 0, phase: "intro" }); }} onRegenerate={() => update({ phase: "generating" })} onRetake={(idx) => update({ part: idx, item: 0, retaking: true, phase: "intro" })} onRestart={() => { localStorage.removeItem(KEY); location.reload(); }} />;
   return null;
 }
@@ -417,12 +425,19 @@ function Dots({ n }) {
   return (<div className="dots" aria-hidden="true">{PARTS.map((p, i) => (<span key={p.id} className={"dot" + (i < n ? " done" : i === n ? " now" : "")} />))}</div>);
 }
 
+/* The breath cue stays put under the circle; only the advice below it turns,
+   and slowly, so it can be read while breathing rather than chased. */
 const MINDSET = [
   "Put your feet flat. Let your shoulders drop.",
-  "Breathe in with the circle. Out as it settles.",
   "There are no right answers here. Only true ones.",
   "Answer as you are today — not as you think you should be.",
 ];
+const BREATH_HALF = 4000; // half of .mindpulse's 8s cycle: in as it grows, out as it settles
+function BreathCue() {
+  const [inhale, setInhale] = useState(true);
+  useEffect(() => { const t = setInterval(() => setInhale((v) => !v), BREATH_HALF); return () => clearInterval(t); }, []);
+  return <p className="breathcue" aria-hidden="true"><span className={inhale ? "on" : ""}>Breathe in</span><span className="breathsep">·</span><span className={inhale ? "" : "on"}>and out</span></p>;
+}
 function BreathDiagram() {
   return (
     <svg viewBox="0 0 160 160" className="mindart" aria-hidden="true">
@@ -435,7 +450,7 @@ function BreathDiagram() {
 function PartIntro({ part, n, onGo }) {
   const [ready, setReady] = useState(false);
   const [line, setLine] = useState(0);
-  useEffect(() => { const t = setInterval(() => setLine((v) => (v + 1) % MINDSET.length), 4200); return () => clearInterval(t); }, []);
+  useEffect(() => { const t = setInterval(() => setLine((v) => (v + 1) % MINDSET.length), 9000); return () => clearInterval(t); }, []);
   const go = () => { setReady(true); setTimeout(onGo, 900); };
   return (
     <Shell>
@@ -446,6 +461,7 @@ function PartIntro({ part, n, onGo }) {
         <p className="lede inkdim">{part.intro}</p>
         <div className="mindwrap">
           <BreathDiagram />
+          <BreathCue />
           <p className="mindline" key={line}>{MINDSET[line]}</p>
         </div>
         <button className="btn ink" onClick={go}>I'm ready</button>
