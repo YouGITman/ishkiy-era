@@ -236,7 +236,8 @@ function reportCalls(answers, scores) {
     theirWords: { role: answers["AR-2"], hardestPart: answers["AR-3"], goodDay: answers["AR-4"], broughtHere: answers["AR-5"] != null ? PARTS[0].items[4].options[answers["AR-5"]] : null, energy: answers["AR-6"] != null ? PARTS[0].items[5].options[answers["AR-6"]] : null, neverTold: answers["MI-1"], fiveYears: answers["MI-2"] != null ? PARTS[8].items[1].options[answers["MI-2"]] : null, atMyBest: answers["MI-3"], extra: answers["MI-4"] },
     scores,
   });
-  const name = (answers["AR-1"] || "").trim();
+  const rawName = (answers["AR-1"] || "").trim();
+  const name = /^i?shkiy$/i.test(rawName) ? "" : rawName;
   const m = scores.measured || { thinking: true, ei: true, riasec: true, values: true, big5: true };
   const full = m.thinking && m.ei && m.riasec && m.values && m.big5;
   /* Tell the writer what hasn't been taken yet, so a first look reads as a
@@ -245,7 +246,8 @@ function reportCalls(answers, scores) {
   const notYet = PARTS.filter((p) => !taken.includes(p)).map((p) => p.title);
   const scope = `\n\nSCOPE: They have taken ${taken.length} of ${PARTS.length} parts: ${taken.map((p) => p.title).join("; ")}.${notYet.length ? ` Not taken yet: ${notYet.join("; ")}. Null or missing values mean NOT TAKEN YET, never a score of zero and never something they withheld. Never tell them what they didn't give or didn't say; don't list what's missing. Where it helps, mention a part still to come once, briefly, as an invitation.` : ""} ${name ? `Their name is ${name}.` : "They haven't given a name. Do not use or invent one, and never address them as iSHKiY or \"friend\"; just say \"you\"."}`;
   const calls = [];
-  calls.push({ title: "Opening", prompt: `Data: ${ctx}${scope}\n\nWrite the OPENING section (~210 words). Start with the "### " headline line. ${answers["AR-3"] || answers["AR-4"] || answers["MI-1"] ? "Reflect their own words back — woven with one thing the data already confirms. Quote vivid phrases." : "Open with the clearest thing their answers already show, said plainly and warmly, so the first lines land as recognition. Do not remark on their own words being absent."} Only discuss dimensions actually present in the scores. End on a sentence that earns trust.` });
+  // Partial profiles open with ViewIntro, written in the app, not by the model.
+  if (notYet.length === 0) calls.push({ title: "Opening", prompt: `Data: ${ctx}${scope}\n\nWrite the OPENING section (~210 words). Start with the "### " headline line. ${answers["AR-3"] || answers["AR-4"] || answers["MI-1"] ? "Reflect their own words back — woven with one thing the data already confirms. Quote vivid phrases." : "Open with the clearest thing their answers already show, said plainly and warmly, so the first lines land as recognition. Do not remark on their own words being absent."} Only discuss dimensions actually present in the scores. End on a sentence that earns trust.` });
   if (m.values || m.big5) calls.push({ title: "Values & work", prompt: `Data: ${ctx}${scope}\n\nWrite ${m.values && m.big5 ? "two sections" : "one section"}. ${m.values ? '"## What you\'re for" — their ranked values and especially the forced-choice pattern; name the trade they keep making.' : ""} ${m.big5 ? '"## How you work" — the Big Five in plain language (Steadiness = inverted Neuroticism, explain plainly if relevant).' : ""} Each starts with its "### " headline after the ## title. Discuss ONLY these.` });
   if (m.thinking || m.ei) calls.push({ title: "Think & feel", prompt: `Data: ${ctx}${scope}\n\nWrite ${m.thinking && m.ei ? "two sections" : "one section"}. ${m.thinking ? '"## How you think" — thinking-style profile, never IQ framing. Talk only about the problem types they have actually done; if the words-and-logic puzzles are still to come, say so in one light line.' : ""} ${m.ei ? '"## How you carry yourself" — the four EI domains and what the scenario choices reveal.' : ""} Each starts with its "### " headline. Discuss ONLY these.` });
   if (m.riasec) calls.push({ title: "What pulls you", prompt: `Data: ${ctx}${scope}\n\nWrite "## What pulls you" (~180 words), "### " headline first — top two RIASEC inclinations in plain words, and what the lowest one quietly says.` });
@@ -356,7 +358,7 @@ function App() {
   if (state.phase === "generating") return <Generating answers={answers} scores={scores} onDone={reportDone} />;
   // Never a blank page: no report yet means write one.
   if (state.phase === "report" && !state.report) return <Generating answers={answers} scores={scores || computeScores(answers)} onDone={reportDone} />;
-  if (state.phase === "report") return <Report report={state.report} name={answers["AR-1"]} answers={answers} scores={scores} companionStart={state.companionStart} completedAt={state.completedAt || {}} strength={profileStrength(state)} onStrength={() => update({ phase: "strength" })} onBack={() => update({ phase: "home" })} onLibrary={() => update({ phase: "library" })} onDeeper={() => { const parts = arcParts("more", state.completedAt); if (parts.length) update({ arc: "more", part: parts[0], item: 0, phase: "intro" }); }} onRegenerate={() => update({ phase: "generating" })} onRetake={(idx) => update({ part: idx, item: 0, retaking: true, phase: "intro" })} onRestart={() => { localStorage.removeItem(KEY); location.reload(); }} />;
+  if (state.phase === "report") return <Report report={state.report} name={/^i?shkiy$/i.test((answers["AR-1"] || "").trim()) ? "" : answers["AR-1"]} answers={answers} scores={scores} companionStart={state.companionStart} completedAt={state.completedAt || {}} strength={profileStrength(state)} onStrength={() => update({ phase: "strength" })} onBack={() => update({ phase: "home" })} onLibrary={() => update({ phase: "library" })} onDeeper={() => { const parts = arcParts("more", state.completedAt); if (parts.length) update({ arc: "more", part: parts[0], item: 0, phase: "intro" }); }} onRegenerate={() => update({ phase: "generating" })} onRetake={(idx) => update({ part: idx, item: 0, retaking: true, phase: "intro" })} onRestart={() => { localStorage.removeItem(KEY); location.reload(); }} />;
   return null;
 }
 
@@ -2478,8 +2480,40 @@ function MiniResult({ miniId, result, onBack, onRetake }) {
   );
 }
 
+/* What each part adds, in the words the intro uses to invite people further. */
+const PART_GIVES = {
+  arrival: "your own story", think1: "how you work through patterns and numbers",
+  think2: "how you work with words and logic", ei1: "how you read a room", ei2: "how you handle the heat",
+  riasec: "what pulls you", values: "what you're for", big5: "how you work", mirror: "where you're headed",
+};
+const listJoin = (xs) => xs.length < 2 ? xs.join("") : xs.slice(0, -1).join(", ") + " and " + xs[xs.length - 1];
+/* Until the portrait is full, the report opens with this rather than an
+   AI-written opener: plain words on how much of the picture there is, and
+   what finishing adds. Written here, not by the model, so it can never
+   misname someone or list what they "didn't give". */
+function ViewIntro({ strength, completedAt, onDeeper }) {
+  const lvl = levelFor(strength);
+  const done = PARTS.filter((p) => completedAt[p.id]);
+  const todo = PARTS.filter((p) => !completedAt[p.id]);
+  return (
+    <section className="viewintro">
+      <p className="kicker gold">Your view so far</p>
+      <p className="viewhead">{lvl ? `${lvl.name}: ${lvl.accuracy}.` : "A first glimpse."}</p>
+      <div className="track"><div className="fill" style={{ width: `${Math.round((done.length / PARTS.length) * 100)}%` }} /></div>
+      <p className="viewmeta">{done.length} of {PARTS.length} parts</p>
+      <p>This report reads from {listJoin(done.map((p) => PART_GIVES[p.id] || p.title.toLowerCase()))}. That's enough for an honest look, and everything below comes straight from your answers.</p>
+      <p>Each part you add brings more of you into focus: {listJoin(todo.slice(0, 3).map((p) => PART_GIVES[p.id] || p.title.toLowerCase()))}{todo.length > 3 ? ", and more" : ""}. Finish all nine and you reach <strong>Full Portrait</strong>: the fullest picture iSHKiY can draw, your own words woven through the report, and the Library of You unlocked.</p>
+      {onDeeper && <button className="btn gold noprint" onClick={onDeeper}>Carry on where the picture stops →</button>}
+      <p className="viewthen">For now, here's what your answers already show.</p>
+    </section>
+  );
+}
+/* A report's opener is everything before its first "## " section. */
+const dropOpener = (text) => { const k = String(text || "").search(/(^|\n)## /); return k > 0 ? text.slice(k).replace(/^\n+/, "") : text; };
+
 function Report({ report, name, answers, scores, companionStart, completedAt, strength, onBack, onLibrary, onDeeper, onRegenerate, onRetake, onRestart, onStrength }) {
   if (!report) return null;
+  const partial = !strength.allParts && !report.preview;
   return (
     <div className="reportpage">
       <div className="rhead noprint">
@@ -2505,10 +2539,11 @@ function Report({ report, name, answers, scores, companionStart, completedAt, st
         <h1 className="display ink">{name ? `${name}, this is you.` : "This is you."}</h1>
         <p className="lede inkdim noprint">Your report, your dimension tiles, your share card — the centre everything else here orbits.</p>
         {report.preview && <div className="previewnote"><p>Your real report didn't finish writing — usually just a connection blip. Your answers are safe on this phone. One tap tries again.</p><button className="btn gold" onClick={onRegenerate}>Write my real report</button></div>}
+        {partial && <ViewIntro strength={strength} completedAt={completedAt} onDeeper={onDeeper} />}
         {scores && <Tiles scores={scores} />}
-        <div className="rbody" dangerouslySetInnerHTML={{ __html: md(report.text) }} />
+        <div className="rbody" dangerouslySetInnerHTML={{ __html: md(partial ? dropOpener(report.text) : report.text) }} />
         <p className="integrity">Grounded in established psychological frameworks — CHC, Big Five, Goleman EI, RIASEC and Schwartz Values. A structured self-discovery tool, not a clinical or validated psychometric instrument. Your answers never left your device, and no one — iSHKiY included — can see them or your conversations without your explicit permission. This report was written for you alone, and it belongs to you.</p>
-        {onDeeper && scores && scores.measured && !(scores.measured.thinking && scores.measured.ei && scores.measured.riasec && scores.measured.values && scores.measured.big5) && (
+        {!partial && onDeeper && scores && scores.measured && !(scores.measured.thinking && scores.measured.ei && scores.measured.riasec && scores.measured.values && scores.measured.big5) && (
           <button className="deeperband noprint" onClick={onDeeper}>
             <span className="libctak">Your report is real — and it can go deeper</span>
             <span className="libctat">Answer more parts to sharpen it. Each one earns a badge. →</span>
