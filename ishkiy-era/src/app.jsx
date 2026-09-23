@@ -2520,6 +2520,7 @@ function Report({ report, name, answers, scores, companionStart, completedAt, st
         </button>
         <p className="printonly printfoot">ishkiy-era.netlify.app · #NotBuiltForABox · <em>The box was never you.</em></p>
         <Retakes completedAt={completedAt} onRetake={onRetake} />
+        {!report.preview && <button className="ghost inkghost noprint rewrite" onClick={() => { if (confirm("Rewrite your report from your current answers? This version is replaced.")) { track("report_rewrite"); onRegenerate(); } }}>Rewrite my report</button>}
         <button className="ghost inkghost noprint" onClick={() => { if (confirm("Start over? This clears your answers and report from this device.")) onRestart(); }}>Start over</button>
       </article>
     </div>
