@@ -497,6 +497,16 @@
   .htile.pulse{animation:tilepulse 2.4s ease-in-out infinite}
   @keyframes tilepulse{0%,100%{box-shadow:0 0 0 0 rgba(212,165,71,0)} 50%{box-shadow:0 0 0 7px rgba(212,165,71,.28); transform:scale(1.015)}}
   @media (prefers-reduced-motion: reduce){ .htile.pulse{animation:none; box-shadow:0 0 0 3px rgba(212,165,71,.45)} }
+  /* save & pick up later */
+  .exitrow{width:100%; max-width:560px; display:flex; justify-content:flex-end; margin:0 auto 6px}
+  .saveexit{font-size:13px; font-weight:600; color:var(--ink60); border:1.5px solid var(--ink12); border-radius:999px; padding:7px 14px}
+  .saveexit.light{color:rgba(245,241,232,.75); border-color:rgba(245,241,232,.25)}
+  .welcome .saveexit{align-self:flex-start; margin-bottom:18px}
+  .resumecard{display:flex; flex-direction:column; align-items:flex-start; gap:3px; width:100%; text-align:left; margin:4px 0 18px; padding:16px 18px; border-radius:16px; border:1.5px solid rgba(212,165,71,.55); background:rgba(212,165,71,.12)}
+  .resumek{font-size:11px; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:#8a6d1f}
+  body.dm .resumek{color:var(--gold)}
+  .resumet{font-family:Lora,serif; font-weight:700; font-size:20px; color:var(--ink)}
+  .resumes{font-size:14px; color:var(--ink60)}
   /* library: subject symbols, tallies, the lock */
   .subjicon{flex:none; display:block}
   .subjchip .subjicon{margin-left:-3px}

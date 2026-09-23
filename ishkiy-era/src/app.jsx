@@ -306,7 +306,7 @@ function App() {
   useEffect(() => { document.body.classList.toggle("dm", !!state.dark); }, [state.dark]);
 
   if (state.phase === "breath") return <Breath onEnter={() => update({ phase: state.seenExplainer ? "home" : "explainer" })} />;
-  if (state.phase === "home") return <Home state={state} onTheme={() => update({ dark: !state.dark })} go={(p) => update({ phase: p })} startAssessment={() => update({ phase: Object.keys(answers).length ? "chooseDepth" : "chooseDepth" })} />;
+  if (state.phase === "home") return <Home state={state} onResume={() => { const p = state.paused; update({ part: p.part, item: p.item, arc: p.arc, paused: null, phase: p.at === "run" ? "run" : "intro" }); }} onTheme={() => update({ dark: !state.dark })} go={(p) => update({ phase: p })} startAssessment={() => update({ phase: Object.keys(answers).length ? "chooseDepth" : "chooseDepth" })} />;
   if (state.phase === "companion") return <CompanionScreen state={state} scores={scores} onBack={() => update({ phase: "home" })} onRegenerate={() => update({ phase: "generating" })} onHuman={() => update({ phase: "humans" })} />;
   if (state.phase === "constellation") return <ConstellationScreen state={state} update={update} onBack={() => update({ phase: "home" })} />;
   if (state.phase === "humans") return <HumansScreen scores={scores} state={state} onBack={() => update({ phase: "home" })} onApply={() => update({ phase: "apply" })} />;
@@ -318,18 +318,21 @@ function App() {
   if (state.phase === "miniRun") return <MiniRunner miniId={state.miniId} answers={(state.miniAnswers || {})[state.miniId]} onBack={() => update({ phase: "library" })} onDone={(a) => { const res = scoreMini(state.miniId, a); track("mini_done", state.miniId); update({ miniAnswers: { ...(state.miniAnswers || {}), [state.miniId]: a }, miniResults: { ...(state.miniResults || {}), [state.miniId]: res }, phase: "miniResult" }); }} />;
   if (state.phase === "miniResult") return <MiniResult miniId={state.miniId} result={(state.miniResults || {})[state.miniId]} onBack={() => update({ phase: "library" })} onRetake={() => update({ phase: "miniRun" })} />;
   if (state.phase === "welcome") return <Welcome onStart={() => update({ phase: state.unlocked ? (Object.keys(answers).length ? "intro" : "warmup") : "unlock" })} resumable={state.part > 0 || state.item > 0} />;
-  if (state.phase === "unlock") return <Unlock onUnlock={() => update({ unlocked: true, phase: "warmup" })} />;
-  if (state.phase === "warmup") return <Warmup onDone={() => update({ phase: "intro" })} />;
+  /* Answers save on every tap already; "Save & pick up later" also remembers
+     exactly where someone was, so Home can drop them straight back in. */
+  const saveExit = (at) => { track("save_exit", PARTS[state.part] && PARTS[state.part].id); update({ phase: "home", paused: { at, part: state.part, item: at === "run" ? state.item : 0, arc: state.arc } }); };
+  if (state.phase === "unlock") return <Unlock onUnlock={() => update({ unlocked: true, phase: "warmup" })} onHome={() => update({ phase: "home" })} />;
+  if (state.phase === "warmup") return <Warmup onDone={() => update({ phase: "intro" })} onExit={() => saveExit("intro")} />;
   if (state.phase === "explainer") return <Explainer onDone={() => update({ phase: "home", seenExplainer: true })} />;
   // Same deck, reachable any time from Home or Settings.
   if (state.phase === "explainerAgain") return <Explainer done="Done" onDone={() => update({ phase: state.explainerBack || "home" })} />;
-  if (state.phase === "chooseDepth") return <ChooseDepth state={state} onPick={(arc) => { const parts = arcParts(arc, state.completedAt); const first = parts[0] ?? 0; update({ arc, part: first, item: 0, phase: state.unlocked ? "warmup" : "unlock" }); }} onBack={() => update({ phase: "home" })} />;
+  if (state.phase === "chooseDepth") return <ChooseDepth state={state} onPick={(arc) => { const parts = arcParts(arc, state.completedAt); const first = parts[0] ?? 0; update({ arc, part: first, item: 0, paused: null, phase: state.unlocked ? "warmup" : "unlock" }); }} onBack={() => update({ phase: "home" })} />;
   /* The badge comes straight after the last part, before any report exists for
      the answers just given, so "See my report" has to write it first. Going
      straight to "report" landed on an empty page. */
   if (state.phase === "badge") return <BadgeScreen state={state} onDone={() => update({ phase: "generating" })} />;
-  if (state.phase === "intro") return <PartIntro part={PARTS[state.part]} n={state.part} onGo={() => update({ phase: "run" })} />;
-  if (state.phase === "run") return <Runner state={state} update={update} />;
+  if (state.phase === "intro") return <PartIntro part={PARTS[state.part]} n={state.part} onGo={() => update({ phase: "run" })} onExit={() => saveExit("intro")} />;
+  if (state.phase === "run") return <Runner state={state} update={update} onExit={() => saveExit("run")} />;
   if (state.phase === "glimmer") return <Glimmer part={PARTS[state.part]} answers={answers} scores={scores} onNext={() => {
     const completedAt = { ...(state.completedAt || {}), [PARTS[state.part].id]: Date.now() };
     if (state.retaking) return update({ completedAt, retaking: false, phase: "generating", report: null });
@@ -358,11 +361,15 @@ const WARMUP = [
   { line: "Ten to fifteen minutes to begin. Slow is fine.", sub: "You can stop after that with a real report in hand, or keep going. Your answers stay on this device." },
 ];
 
-function Warmup({ onDone }) {
+function SaveExit({ onExit, light }) {
+  return <button className={"saveexit" + (light ? " light" : "")} onClick={onExit}>Save &amp; pick up later</button>;
+}
+function Warmup({ onDone, onExit }) {
   const [i, setI] = useState(0);
   const last = i === WARMUP.length - 1;
   return (
     <Shell dark>
+      <div className="exitrow"><SaveExit onExit={onExit} light /></div>
       <div className="glimmer">
         <div className="breath" aria-hidden="true"><span /></div>
         <p className="gline" key={i}>{WARMUP[i].line}</p>
@@ -399,7 +406,7 @@ function Welcome({ onStart, resumable }) {
   );
 }
 
-function Unlock({ onUnlock }) {
+function Unlock({ onUnlock, onHome }) {
   const [code, setCode] = useState(""); const [err, setErr] = useState(false); const [busy, setBusy] = useState(false);
   const check = async () => {
     setBusy(true); const h = await sha256(code); setBusy(false);
@@ -408,6 +415,7 @@ function Unlock({ onUnlock }) {
   return (
     <Shell dark>
       <div className="welcome">
+        <button className="saveexit light" onClick={onHome}>← Home</button>
         <p className="kicker">Founding access</p>
         <h1 className="display sm">Enter your access code</h1>
         <p className="lede dim">Your code came with your payment confirmation. £29 gets you: the full assessment, your written report (yours to keep), a share card, and 7 days with your AI Companion — a coach, a mentor and a sounding voice that have actually read you.</p>
@@ -447,13 +455,14 @@ function BreathDiagram() {
     </svg>
   );
 }
-function PartIntro({ part, n, onGo }) {
+function PartIntro({ part, n, onGo, onExit }) {
   const [ready, setReady] = useState(false);
   const [line, setLine] = useState(0);
   useEffect(() => { const t = setInterval(() => setLine((v) => (v + 1) % MINDSET.length), 9000); return () => clearInterval(t); }, []);
   const go = () => { setReady(true); setTimeout(onGo, 900); };
   return (
     <Shell>
+      <div className="exitrow"><SaveExit onExit={onExit} /></div>
       <Dots n={n} />
       <div className={"intro mindset" + (ready ? " leaving" : "")}>
         <p className="kicker gold">{part.kicker}</p>
@@ -490,7 +499,7 @@ function QDots({ i, total }) {
     </div>
   );
 }
-function Runner({ state, update }) {
+function Runner({ state, update, onExit }) {
   const part = PARTS[state.part];
   const order = useMemo(() => {
     if (!part.shuffle) return part.items;
@@ -539,6 +548,7 @@ function Runner({ state, update }) {
         <span className="count">{state.item + 1 > total / 2 ? (total - state.item - 1 === 0 ? "last one" : `${total - state.item - 1} to go`) : `${state.item + 1} of ${total}`}</span>
       </div>
     }>
+      <div className="exitrow"><SaveExit onExit={onExit} /></div>
       <Dots n={state.part} />
       <QDots i={state.item} total={total} />
       <div className="qwrap" key={item.id}>
@@ -1126,7 +1136,7 @@ const GLYPHS = [
 ];
 function RotatingFaces() { return <Rotator items={FACES} every={3600} />; }
 function RotatingGlyphs() { return <Rotator items={GLYPHS} every={4200} />; }
-function Home({ state, go, startAssessment, onTheme }) {
+function Home({ state, go, startAssessment, onTheme, onResume }) {
   const name = (state.answers["AR-1"] || "").trim();
   let compLeft = null;
   try { const cc = loadCompanion(); compLeft = Math.max(0, Q_CAP - (cc.count || 0)); } catch {}
@@ -1145,6 +1155,13 @@ function Home({ state, go, startAssessment, onTheme }) {
         <div className="hrow"><Wordmark /><button className="thememini" onClick={onTheme}>{state.dark ? "Light mode" : "Dark mode"}</button></div>
         <h1 className="display ink hgreet">{name ? `Welcome back, ${name}.` : "Welcome."}</h1>
         <p className="lede inkdim hsub">{hasReport ? "Your profile is waiting. So is the team." : reportDue ? "You've done the first look. Your report is ready to be written — the Companion and the rest open once it is." : midway ? "You're partway through. Pick up where you left off — your answers kept your place." : "Everything here begins with ten honest minutes. Start when you're ready."}</p>
+        {state.paused && PARTS[state.paused.part] && (
+          <button className="resumecard" onClick={() => { track("resume"); onResume(); }}>
+            <span className="resumek">Saved for later</span>
+            <span className="resumet">Pick up where you left off</span>
+            <span className="resumes">{PARTS[state.paused.part].title}{state.paused.at === "run" ? ` · question ${state.paused.item + 1}` : ""} →</span>
+          </button>
+        )}
         <div className="hgrid">
           <HomeTile
             acc="#5C7CA3"
@@ -1152,7 +1169,7 @@ function Home({ state, go, startAssessment, onTheme }) {
             badge={hasReport ? (levelFor(strength) || {}).name : reportDue ? "Ready" : null}
             pulse={reportDue}
             sub={hasReport ? "Read your report. Save it, share it, retake parts." : reportDue ? "Your answers are in. Tap and it's written for you in about a minute. You can go deeper afterwards." : "Answer questions about yourself. Your first profile takes 10–15 minutes."}
-            onClick={hasReport || reportDue ? () => { track(reportDue ? "report_recover" : "view_report"); go("report"); } : () => { track("assessment_start"); startAssessment(); }}
+            onClick={hasReport || reportDue ? () => { track(reportDue ? "report_recover" : "view_report"); go("report"); } : state.paused ? () => { track("resume"); onResume(); } : () => { track("assessment_start"); startAssessment(); }}
             art={<svg viewBox="0 0 60 40" className="hart"><circle cx="30" cy="20" r="12" fill="none" stroke={gold} strokeWidth="2"/><circle cx="30" cy="20" r="4" fill={gold}/></svg>}
           />
           <HomeTile
@@ -1544,7 +1561,6 @@ NEW is yes if the question opens a subject unrelated to that voice's current top
           </button>
         ))}
       </div>
-      <p className="hquote">The future is not artificial; it's authentically human.</p>
     </section>
   );
 
