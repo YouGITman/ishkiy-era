@@ -2,7 +2,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { PARTS, L5, E5, RIASEC_PHRASES } from "./items.js";
-import { MINIS, scoreMini } from "./mini.js";
+import { MINIS, scoreMini, readMini } from "./mini.js";
 import { createClient } from "@supabase/supabase-js";
 
 /* ---------------- backend (Supabase, connect-only v1) ----------------
@@ -314,9 +314,9 @@ function App() {
   if (state.phase === "settings") return <SettingsScreen state={state} update={update} onBack={() => update({ phase: "home" })} />;
   if (state.phase === "apply") return <ApplyScreen onBack={() => update({ phase: "humans" })} />;
   if (state.phase === "strength") return <StrengthScreen state={state} onBack={() => update({ phase: "home" })} onAssessment={() => update({ phase: "chooseDepth" })} onLibrary={() => update({ phase: "library" })} />;
-  if (state.phase === "library") return <LibraryScreen onBack={() => update({ phase: "home" })} onMini={(id) => update({ miniId: id, phase: (state.miniResults || {})[id] ? "miniResult" : "miniRun" })} miniDone={state.miniResults} />;
+  if (state.phase === "library") return <LibraryScreen state={state} onBack={() => update({ phase: "home" })} onAssessment={() => update({ phase: "chooseDepth" })} onMini={(id) => update({ miniId: id, phase: (state.miniResults || {})[id] ? "miniResult" : "miniRun" })} onRetake={(id) => update({ miniId: id, phase: "miniRun" })} />;
   if (state.phase === "miniRun") return <MiniRunner miniId={state.miniId} answers={(state.miniAnswers || {})[state.miniId]} onBack={() => update({ phase: "library" })} onDone={(a) => { const res = scoreMini(state.miniId, a); track("mini_done", state.miniId); update({ miniAnswers: { ...(state.miniAnswers || {}), [state.miniId]: a }, miniResults: { ...(state.miniResults || {}), [state.miniId]: res }, phase: "miniResult" }); }} />;
-  if (state.phase === "miniResult") return <MiniResult miniId={state.miniId} result={(state.miniResults || {})[state.miniId]} onBack={() => update({ phase: "library" })} />;
+  if (state.phase === "miniResult") return <MiniResult miniId={state.miniId} result={(state.miniResults || {})[state.miniId]} onBack={() => update({ phase: "library" })} onRetake={() => update({ phase: "miniRun" })} />;
   if (state.phase === "welcome") return <Welcome onStart={() => update({ phase: state.unlocked ? (Object.keys(answers).length ? "intro" : "warmup") : "unlock" })} resumable={state.part > 0 || state.item > 0} />;
   if (state.phase === "unlock") return <Unlock onUnlock={() => update({ unlocked: true, phase: "warmup" })} />;
   if (state.phase === "warmup") return <Warmup onDone={() => update({ phase: "intro" })} />;
@@ -836,20 +836,32 @@ const SUBJECTS = [
   { id: "money", name: "Money", line: "What it means to you, and what it quietly costs.", ask: "Why is this never really about the money?" },
   { id: "becoming", name: "Purpose", line: "What you're actually for, and whether the life you're building matches it.", ask: "Am I building this life, or just ending up in it?" },
 ];
+/* Every lens, in the order it sits in its subject. Built lenses take their
+   words from MINIS; anything still being made carries its own. Membership
+   lenses are open to everyone during the founding period — the tier badge says
+   where each will sit once membership exists. */
+const LENS_TIER = { attachment: "FREE", friend: "FREE", approach: "FREE" };
+const LENS_ORDER = ["attachment", "friend", "room", "fight", "approach", "builder", "stuck", "pressure", "resilience", "money", "enough", "narrative"];
 const EXPANSIONS = [
-  { subject: "closeness", name: MINIS.friend.name, mini: "friend", from: MINIS.friend.from, line: MINIS.friend.blurb, tier: "FREE", status: "Ready" },
-  { subject: "closeness", name: "The room you walk into", from: "Grounded in interpersonal circumplex research", line: "What happens to a room when you enter it, and what that costs you to keep up.", tier: "MEMBERSHIP", status: "In design" },
-  { subject: "closeness", name: "How you fight", from: "Grounded in conflict style research", line: "Everyone has a move when it gets tense. Yours is probably older than the argument.", tier: "MEMBERSHIP", status: "In design" },
-  { subject: "drive", name: MINIS.approach.name, mini: "approach", from: MINIS.approach.from, line: MINIS.approach.blurb, tier: "FREE", status: "Ready" },
-  { subject: "drive", name: "The builder's pattern", from: "Grounded in entrepreneurial disposition research", line: "Some people can't stop starting things. An honest measure of whether you're one of them.", tier: "MEMBERSHIP", status: "In design" },
-  { subject: "drive", name: "What you do when you're stuck", from: "Grounded in coping and self-regulation research", line: "Not what you'd like to do. What you actually do, at eleven at night, when it isn't moving.", tier: "MEMBERSHIP", status: "In design" },
-  { subject: "mind", name: "How you carry pressure", from: "Grounded in stress and recovery research", line: "Where your load actually sits, what it costs you, and the recovery that works for someone built like you.", tier: "MEMBERSHIP", status: "In design" },
-  { subject: "mind", name: "Getting back up", from: "Grounded in resilience research", line: "Setbacks don't test character so much as reveal a pattern. This one finds yours before you need it.", tier: "MEMBERSHIP", status: "In design" },
-  { subject: "money", name: "Money and you", from: "Grounded in wealth psychology", line: "What money means to you, what it protects you from, and what that protection costs.", tier: "MEMBERSHIP", status: "In design" },
-  { subject: "money", name: "Enough", from: "Grounded in research on aspiration and satisfaction", line: "Everyone has a number. Almost nobody has asked themselves where theirs came from.", tier: "MEMBERSHIP", status: "In design" },
-  { subject: "becoming", name: "The life you meant to build", from: "Grounded in life-narrative research", line: "The story you tell about how you got here, and what it's quietly deciding about where you go next.", tier: "MEMBERSHIP", status: "In design" },
-  { subject: "becoming", name: "The Partner Series", from: "With thinkers you already trust", line: "Their life's philosophy, distilled with them into a mirror you can take. Conversations underway — names when the ink is dry.", tier: "PARTNER", status: "In conversation" },
+  ...LENS_ORDER.map((id) => ({ subject: MINIS[id].subject, name: MINIS[id].name, mini: id, from: MINIS[id].from, research: MINIS[id].research, line: MINIS[id].blurb, tier: LENS_TIER[id] || "MEMBERSHIP" })),
+  { subject: "becoming", name: "The Partner Series", from: "With thinkers you already trust", research: { what: "Each Partner lens is built with a writer, researcher or practitioner whose ideas have changed how people live and work. We distil their philosophy with them, test the questions together, and they sign off every word of the read you get back.", limits: "Partner lenses are grounded in one person's thinking, not a body of research, and we'll always say which is which. Names are announced once agreements are signed." }, line: "Their life's philosophy, distilled with them into a mirror you can take. Conversations underway — names when the ink is dry.", tier: "PARTNER", status: "In conversation" },
 ];
+const SUBJ_ACC = { closeness: "#C06B5C", drive: "#5C7CA3", mind: "#6F8F5E", money: "#D4A547", becoming: "#8A6FA0", sos: "#C0504D" };
+/* One symbol per subject, drawn on a 24-unit grid so the same paths serve the
+   Library headings, its chips, and the intro deck. */
+function SubjectGlyph({ id }) {
+  const p = { fill: "none", strokeWidth: 1.8, strokeLinecap: "round", strokeLinejoin: "round" };
+  if (id === "closeness") return <g {...p}><circle cx="9" cy="12" r="5.5" /><circle cx="15" cy="12" r="5.5" /></g>;
+  if (id === "drive") return <g {...p}><path d="M4 18 L10 12 L13.5 15 L20 8" /><path d="M15 8 H20 V13" /></g>;
+  if (id === "mind") return <g {...p}><circle cx="12" cy="12" r="8" /><path d="M7.5 12.5 Q9.75 9.5 12 12.5 T16.5 12.5" /></g>;
+  if (id === "money") return <g {...p}><ellipse cx="12" cy="7" rx="7" ry="2.8" /><path d="M5 7 V12 C5 13.6 8.1 14.8 12 14.8 S19 13.6 19 12 V7" /><path d="M5 12 V17 C5 18.6 8.1 19.8 12 19.8 S19 18.6 19 17 V12" /></g>;
+  if (id === "becoming") return <g {...p}><path d="M12 3 L13.8 10.2 L21 12 L13.8 13.8 L12 21 L10.2 13.8 L3 12 L10.2 10.2 Z" /></g>;
+  if (id === "sos") return <g {...p}><circle cx="12" cy="12" r="8.5" /><circle cx="12" cy="12" r="3.6" /><path d="M6 6 L9.4 9.4 M18 6 L14.6 9.4 M6 18 L9.4 14.6 M18 18 L14.6 14.6" /></g>;
+  return null;
+}
+function SubjectIcon({ id, size = 22 }) {
+  return <svg viewBox="0 0 24 24" width={size} height={size} aria-hidden="true" stroke={SUBJ_ACC[id]} className="subjicon"><SubjectGlyph id={id} /></svg>;
+}
 function Constellation() {
   const g = "#D4A547", f = "rgba(212,165,71,0.35)", d = "var(--ink12)";
   return (<svg viewBox="0 0 300 130" className="constel" aria-hidden="true">
@@ -862,62 +874,181 @@ function Constellation() {
     <circle cx="272" cy="70" r="3" fill="none" stroke={d} strokeWidth="1.2"/><circle cx="34" cy="62" r="3" fill="none" stroke={d} strokeWidth="1.2"/>
   </svg>);
 }
-function LibraryScreen({ onBack, onMini, miniDone }) {
-  const mailto = (n) => "mailto:ops@ishkiy.com?subject=" + encodeURIComponent("Library vote — " + n) + "&body=" + encodeURIComponent("Build \u201C" + n + "\u201D first. I'd take it.");
+/* ---------------- SOS ----------------
+   UK services, checked September 2026. On a phone every number is a tap to
+   call or text; on a computer the numbers show as plain text, because a tel:
+   link that opens nothing is worse than no link at all. */
+const SOS_LINES = [
+  { name: "Emergency services", what: "If you or someone else is in immediate danger, or you've hurt yourself and need medical help.", call: "999", hours: "24/7" },
+  { name: "NHS 111", what: "Urgent mental health help in England. Call and choose the mental health option, or use NHS 111 online.", call: "111", hours: "24/7", web: "https://111.nhs.uk", site: "111.nhs.uk" },
+  { name: "Samaritans", what: "Whatever you're going through, someone to talk to. Free from any phone, and it won't show on your bill.", call: "116 123", hours: "24/7", web: "https://www.samaritans.org", site: "samaritans.org" },
+  { name: "Shout", what: "If you'd rather text than talk. A trained volunteer texts back.", text: { to: "85258", body: "SHOUT", label: "Text SHOUT to 85258" }, hours: "24/7", web: "https://giveusashout.org", site: "giveusashout.org" },
+  { name: "YoungMinds", what: "For young people struggling with their mental health, and for parents worried about a child.", text: { to: "85258", body: "YM", label: "Text YM to 85258" }, call: "0808 802 5544", callLabel: "Parents Helpline", hours: "Text 24/7 · Parents Helpline weekdays", web: "https://www.youngminds.org.uk", site: "youngminds.org.uk" },
+  { name: "Childline", what: "For anyone under 19, about anything at all.", call: "0800 1111", hours: "24/7", web: "https://www.childline.org.uk", site: "childline.org.uk" },
+  { name: "Papyrus HOPELINE247", what: "For anyone under 35 having thoughts of suicide, and anyone worried about a young person.", call: "0800 068 4141", text: { to: "88247", label: "Text 88247" }, hours: "24/7", web: "https://www.papyrus-uk.org", site: "papyrus-uk.org" },
+  { name: "CALM", what: "Campaign Against Living Miserably. For anyone who's struggling or in crisis.", call: "0800 58 58 58", hours: "5pm to midnight, every day", web: "https://www.thecalmzone.net", site: "thecalmzone.net" },
+  { name: "Mind", what: "Information on mental health and where to find support near you. Not a crisis line.", call: "0300 123 3393", callLabel: "Infoline", hours: "Weekdays", web: "https://www.mind.org.uk", site: "mind.org.uk" },
+];
+const SOS_REGIONS = [["Scotland", "Breathing Space", "0800 83 85 87"], ["Wales", "C.A.L.L.", "0800 132 737"], ["Northern Ireland", "Lifeline", "0808 808 8000"]];
+const onPhone = () => { try { return window.matchMedia("(pointer: coarse)").matches || /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent); } catch { return false; } };
+function SOSNumber({ num, label, phone }) {
+  const text = (label ? label + " " : "") + num;
+  return phone ? <a className="sosbtn" href={"tel:" + num.replace(/\s/g, "")}>Call {text}</a> : <span className="sosnum">{label ? label + ": " : "Call "}<b>{num}</b></span>;
+}
+function SOSText({ t, phone }) {
+  return phone ? <a className="sosbtn" href={"sms:" + t.to + (t.body ? "?&body=" + encodeURIComponent(t.body) : "")}>{t.label}</a> : <span className="sosnum"><b>{t.label}</b></span>;
+}
+function SOSSection() {
+  const phone = onPhone();
+  return (
+    <section id="sos" className="subject sos">
+      <div className="subjhead">
+        <div className="subjtitle"><span className="subjbadge" style={{ background: SUBJ_ACC.sos + "1f" }}><SubjectIcon id="sos" /></span>
+          <div><p className="subjname">SOS</p><p className="subjline">If things feel like too much right now, you don't have to hold it on your own.</p></div>
+        </div>
+      </div>
+      <p className="sosnote">iSHKiY is a mirror, not a crisis service. These people are trained for exactly this, they're free, and none of them will judge you for calling. If you're in immediate danger, call <b>999</b> or go to A&amp;E.</p>
+      <div className="sosgrid">
+        {SOS_LINES.map((o) => (
+          <div key={o.name} className="sostile">
+            <p className="sosname">{o.name}</p>
+            <p className="soswhat">{o.what}</p>
+            <p className="soshours">{o.hours}</p>
+            <div className="sosacts">
+              {o.call && <SOSNumber num={o.call} label={o.callLabel} phone={phone} />}
+              {o.text && <SOSText t={o.text} phone={phone} />}
+              {o.web && <a className="soslink" href={o.web} target="_blank" rel="noopener noreferrer">{o.site} ↗</a>}
+            </div>
+          </div>
+        ))}
+      </div>
+      <p className="sosregion">Elsewhere in the UK: {SOS_REGIONS.map(([place, name, num], k) => (
+        <span key={place}>{k ? " · " : ""}{place}, {name} {phone ? <a href={"tel:" + num.replace(/\s/g, "")}>{num}</a> : <b>{num}</b>}</span>
+      ))}</p>
+    </section>
+  );
+}
+
+/* The "Grounded in…" line, which opens to say what that grounding actually is. */
+function ResearchNote({ from, research }) {
+  const [open, setOpen] = useState(false);
+  if (!research) return <p className="libfrom">{from}</p>;
+  return (
+    <div className="research">
+      <button className="libfrom resbtn" aria-expanded={open} onClick={() => setOpen(!open)}>{from}<span className="resi" aria-hidden="true">{open ? "−" : "i"}</span></button>
+      {open && <div className="resbody"><p>{research.what}</p><p><strong>What it can't claim.</strong> {research.limits}</p></div>}
+    </div>
+  );
+}
+
+/* A lens's read: the words, the bars, one thing to try. Used inline in the
+   Library and on the lens's own page. */
+function LensInsights({ id, result }) {
+  const r = readMini(id, result);
+  if (!r) return <p className="libline">This result was saved in an older format. Take the lens again to see your insights.</p>;
+  return (
+    <div className="insights">
+      {r.tag && <p className="instag">{r.tag}</p>}
+      <p className="inshead">{r.headline}</p>
+      <div className="minibody">{r.bars.filter(([, v]) => v != null).map(([label, v]) => (
+        <div key={label} className="insbar"><div className="insbarrow"><span>{label}</span><span className="tnum">{scoreLine("lens", v)}</span></div><div className="track"><div className="fill" style={{ width: `${v}%` }} /></div></div>
+      ))}</div>
+      {r.paras.map((t, k) => <p key={k} className="insp">{t}</p>)}
+      {r.tryThis && <p className="instry"><strong>Try this.</strong> {r.tryThis}</p>}
+      {r.care && <a className="rtbtn soscta" href="#sos">Talk to someone now →</a>}
+    </div>
+  );
+}
+
+function LensTile({ e, done, open, onMini, onRetake, mailto }) {
+  const [showIns, setShowIns] = useState(false);
+  const status = done ? "Taken" : !e.mini ? e.status : !open ? "Opens at Full Portrait" : e.tier === "MEMBERSHIP" ? "Open to founders" : "Ready";
+  return (
+    <div className={"libtile" + (e.mini ? " libready" : "") + (done ? " libdone" : "") + (e.mini && !open && !done ? " liblocked" : "")}>
+      <div className="librow"><span className={"libtier t" + e.tier}>{e.tier}</span><span className={"libstatus" + (done ? " done" : "")}>{done ? "✓ " : ""}{status}</span></div>
+      <p className="libname">{e.name}</p>
+      <ResearchNote from={e.from} research={e.research} />
+      <p className="libline">{e.line}</p>
+      {done ? (
+        <>
+          <button className="insbtn" aria-expanded={showIns} onClick={() => { if (!showIns) track("view_insights", e.mini); setShowIns(!showIns); }}>Your insights <span aria-hidden="true">{showIns ? "▴" : "▾"}</span></button>
+          {showIns && <div className="insfold"><LensInsights id={e.mini} result={done} /><div className="insacts"><button className="rtbtn" onClick={() => onMini(e.mini)}>Open the full read</button><button className="rtbtn ghostbtn" onClick={() => onRetake(e.mini)}>Take it again</button></div></div>}
+        </>
+      ) : e.mini ? (
+        open ? <button className="rtbtn" onClick={() => onMini(e.mini)}>Take this lens</button>
+          : <button className="rtbtn ghostbtn" disabled aria-disabled="true">🔒 Opens at Full Portrait</button>
+      ) : <a className="rtbtn ghostbtn" href={mailto(e.name)}>Build this one first</a>}
+    </div>
+  );
+}
+
+function LibraryScreen({ state, onBack, onMini, onRetake, onAssessment }) {
+  const mailto = (n) => "mailto:ops@ishkiy.com?subject=" + encodeURIComponent("Library vote — " + n) + "&body=" + encodeURIComponent("Build “" + n + "” first. I'd take it.");
+  const miniDone = state.miniResults || {};
+  const st = profileStrength(state);
+  /* Deploy previews can open the Library early, so it can be checked without
+     sitting all nine parts. Never on the live site — same rule as PREVIEW. */
+  const [peek, setPeek] = useState(false);
+  const open = st.allParts || peek;
+  const built = EXPANSIONS.filter((e) => e.mini);
+  const taken = built.filter((e) => miniDone[e.mini]).length;
   return (
     <div className="reportpage tint-heather">
       <div className="rhead noprint">
         <button className="ghost inkghost" onClick={onBack}>← Home</button>
         <Wordmark />
-        <span />
+        <a className="sosjump" href="#sos" aria-label="SOS: urgent support">SOS</a>
       </div>
       <article className="report">
         <p className="kicker gold">The Library of You</p>
         <h1 className="display ink">One profile. Deepening for life.</h1>
         <Constellation />
-        <p className="libnarr">Your report was the first light — the centre of the constellation. The Library is where the rest arrive. Every assessment here is a lens ground from something proven: the frameworks psychologists actually use, the ideas from the books that changed how people work, and — in time — the thinkers you already trust, distilling their philosophy with us into something you can take. Each one you complete adds a star to the same map: your Companion answers with more of you in the room, your report grows new chapters, and what you choose to share with a human across the table arrives richer. Some lenses will be free. Some will come with membership. All of them make the mirror truer.</p>
+        <p className="libnarr">Your report was the first light, the centre of the constellation. The Library is where the rest arrive: {built.length} lenses across five parts of life — how you attach and how you fight, what drives you and what stops you, how you carry pressure, what money means to you, and whether the life you're building is the one you meant. Each is ground from research psychologists actually use. Each one you complete adds a star to the same map: your Companion answers with more of you in the room, and what you choose to share with a human arrives richer.</p>
+        {!st.allParts && (
+          <div className="liblock">
+            <p className="liblockk">🔒 Opens at Full Portrait</p>
+            <p className="liblockt">You've finished {st.parts} of {st.totalParts} parts of the assessment. Finish the rest and every lens here opens — including how you attach, how you fight, and where your idea of 'enough' came from.</p>
+            <div className="track"><div className="fill" style={{ width: `${Math.round((st.parts / st.totalParts) * 100)}%` }} /></div>
+            <button className="btn gold" onClick={onAssessment}>{st.parts ? "Continue the assessment" : "Start the assessment"}</button>
+            {isPreviewHost() && <button className="exskip libpeek" onClick={() => setPeek(!peek)}>{peek ? "Preview: lock it again" : "Preview build: open the Library anyway"}</button>}
+          </div>
+        )}
+        <p className="libtally"><span className="tnum">{taken}</span> of <span className="tnum">{built.length}</span> lenses taken</p>
         <div className="subjnav" role="list">
           {SUBJECTS.map((s) => {
-            const inIt = EXPANSIONS.filter((e) => e.subject === s.id);
-            const ready = inIt.filter((e) => e.mini).length;
+            const here = built.filter((e) => e.subject === s.id);
+            const doneHere = here.filter((e) => miniDone[e.mini]).length;
             return (
               <a key={s.id} role="listitem" className="subjchip" href={"#subj-" + s.id}>
-                {s.name}<span className="subjcount">{ready ? `${ready} ready` : "soon"}</span>
+                <SubjectIcon id={s.id} size={16} />{s.name}<span className="subjcount">{doneHere}/{here.length}</span>
               </a>
             );
           })}
+          <a role="listitem" className="subjchip sosclip" href="#sos"><SubjectIcon id="sos" size={16} />SOS</a>
         </div>
 
         {SUBJECTS.map((s) => {
           const inIt = EXPANSIONS.filter((e) => e.subject === s.id);
           if (!inIt.length) return null;
-          const doneHere = inIt.filter((e) => e.mini && miniDone && miniDone[e.mini]).length;
+          const here = inIt.filter((e) => e.mini);
+          const doneHere = here.filter((e) => miniDone[e.mini]).length;
           return (
             <section key={s.id} id={"subj-" + s.id} className="subject">
               <div className="subjhead">
-                <div>
-                  <p className="subjname">{s.name}</p>
-                  <p className="subjline">{s.line}</p>
+                <div className="subjtitle">
+                  <span className="subjbadge" style={{ background: SUBJ_ACC[s.id] + "1f" }}><SubjectIcon id={s.id} /></span>
+                  <div><p className="subjname">{s.name}</p><p className="subjline">{s.line}</p></div>
                 </div>
-                {doneHere > 0 && <span className="subjdone">{doneHere} taken</span>}
+                <span className={"subjdone" + (doneHere ? " some" : "")}>{doneHere} of {here.length} taken</span>
               </div>
               <p className="subjask">“{s.ask}”</p>
               <div className="libgrid">
-                {inIt.map((e) => (
-                  <div key={e.name} className={"libtile" + (e.mini ? " libready" : "")}>
-                    <div className="librow"><span className={"libtier t" + e.tier}>{e.tier}</span><span className="libstatus">{e.mini && miniDone && miniDone[e.mini] ? "Done" : e.status}</span></div>
-                    <p className="libname">{e.name}</p>
-                    <p className="libfrom">{e.from}</p>
-                    <p className="libline">{e.line}</p>
-                    {e.mini
-                      ? <button className="rtbtn" onClick={() => onMini(e.mini)}>{miniDone && miniDone[e.mini] ? "See it again" : "Take this lens"}</button>
-                      : <a className="rtbtn ghostbtn" href={mailto(e.name)}>Build this one first</a>}
-                  </div>
-                ))}
+                {inIt.map((e) => <LensTile key={e.name} e={e} done={e.mini ? miniDone[e.mini] : null} open={open} onMini={onMini} onRetake={onRetake} mailto={mailto} />)}
               </div>
             </section>
           );
         })}
+        <SOSSection />
         <p className="hquote">The future is not artificial; it's authentically human.</p>
       </article>
     </div>
@@ -1015,7 +1146,8 @@ function Home({ state, go, startAssessment, onTheme }) {
           <HomeTile
             acc="#8A6FA0"
             title="The Library of You"
-            sub="More assessments to add to your profile. Some free, some with membership."
+            sub={strength.allParts ? `Twelve lenses on relationships, drive, mind, money and purpose. ${strength.lenses} of ${strength.totalLenses} taken.` : "Twelve lenses on relationships, drive, mind, money and purpose. Browse now; they open at Full Portrait."}
+            badge={strength.allParts ? `${strength.lenses}/${strength.totalLenses} taken` : "Opens at Full Portrait"}
             onClick={() => { track("view_library"); go("library"); }}
             art={<RotatingGlyphs />}
           />
@@ -1070,7 +1202,7 @@ const saveC = (c) => { try { localStorage.setItem(CKEY, JSON.stringify(c)); } ca
 
 const COMPANION_SYSTEM = `You are the Report Companion inside iSHKiY's Essence Recovery Assessment. You have read this person's full profile and you speak as someone who knows them properly — plain, warm, honest. UK English. Short sentences. Under 170 words per reply. Same banned words and constructions as the report voice: no leverage/optimise/journey/unlock/delve/navigate, no "it's worth noting", no "not just X but Y", no bullet lists, no exclamation marks.
 
-Ground every answer in THEIR profile — their traits, values, interests, AND any mini-assessments they have taken (friend/attachment, approach-avoidance), plus their own words. If they have completed a lens like the friend assessment, weave what it revealed into your answer when relevant. Describe what their profile shows in plain human language; never quote raw numbers or scores at them — they have no context for a number. Say "you lean toward the long view", not "your openness is 72". If a question can't be answered from the profile plus ordinary life-and-work wisdom, say so plainly rather than inventing.
+Ground every answer in THEIR profile — their traits, values, interests, AND any Library lenses they have taken (attachment, closeness, conflict, drive, coping, pressure, resilience, money, aspiration, life story), plus their own words. If they have completed a lens, weave what it revealed into your answer when relevant. Describe what their profile shows in plain human language; never quote raw numbers or scores at them — they have no context for a number. Say "you lean toward the long view", not "your openness is 72". If a question can't be answered from the profile plus ordinary life-and-work wisdom, say so plainly rather than inventing.
 
 Hard boundaries: you are not a clinician and the assessment is not clinically validated — never diagnose, never advise on medication or medical or legal matters; suggest a proper professional instead. If they express serious distress or thoughts of harming themselves, respond with warmth and care, don't lecture, and gently encourage them to talk to someone they trust or a professional soon. You may be honest that some questions deserve a human. Whenever you state a boundary or disclaimer — that you are not a clinician, that this is not therapy or medical or legal advice, or that a professional is the right next step — wrap that exact sentence in [! and !] markers so it can be shown clearly.
 
@@ -1544,7 +1676,10 @@ function Retakes({ completedAt, onRetake }) {
 
 
 function CompanionScreen({ state, scores, onBack, onRegenerate, onHuman }) {
-  try { window.__eraMinis = state.miniResults || null; } catch {}
+  try {
+    const mr = state.miniResults || {};
+    window.__eraMinis = Object.keys(mr).length ? Object.fromEntries(Object.keys(mr).filter((id) => MINIS[id]).map((id) => { const r = readMini(id, mr[id]); return [id, { lens: MINIS[id].name, pattern: r && r.tag, read: r && r.headline, detail: r && r.bars.filter(([, v]) => v != null).map(([l, v]) => `${l}: ${bandOf("lens", v)}`).join("; ") }]; })) : null;
+  } catch {}
   if (!state.report || !scores) return null;
   return (
     <div className="reportpage">
@@ -1976,6 +2111,7 @@ const EXPLAIN = [
   { art: "fork", line: "For the choices that keep you up.", sub: "Hard decisions are usually hard because you don't yet know what you actually want. This is how you find out." },
   { art: "mirror", line: "It starts with a few honest questions.", sub: "What you're for. How you work. What pulls you." },
   { art: "report", line: "You get a report written just for you.", sub: "Yours to keep. No one else can read it." },
+  { art: "library", line: "Finish it, and the Library opens.", sub: "Twelve more lenses across Relationships, Drive, Mind, Money and Purpose. How you attach. How you fight. Where your idea of ‘enough’ came from. They unlock when your portrait is full." },
   { art: "voices", line: "Then a team who have read it — standing behind you.", sub: "One to listen, one to push, one for the long view. They share one memory of you, and they don't forget." },
   { art: "heart", line: "And, when you're ready, a real human to talk to.", sub: "Chosen to fit you — because they understand how you work." },
 ];
@@ -1995,6 +2131,20 @@ function ExplainArt({ kind }) {
       <path d="M40 92 A20 20 0 0 1 80 92" fill="none" stroke="#D4A547" strokeWidth="2.6" />
     </svg>
   );
+  /* The five Library subjects in a ring around a keyhole: what finishing opens. */
+  if (kind === "library") {
+    const ring = ["closeness", "drive", "mind", "money", "becoming"];
+    return (
+      <svg viewBox="0 0 120 104" className="exart">
+        {ring.map((id, k) => {
+          const a = -Math.PI / 2 + (k * 2 * Math.PI) / ring.length, x = 60 + 38 * Math.cos(a), y = 52 + 38 * Math.sin(a);
+          return <g key={id} transform={`translate(${x - 12} ${y - 12})`} stroke={SUBJ_ACC[id]}><SubjectGlyph id={id} /></g>;
+        })}
+        <circle cx="60" cy="52" r="15" fill="rgba(212,165,71,0.14)" stroke="#D4A547" strokeWidth="2" />
+        <circle cx="60" cy="48.5" r="3.6" fill="#D4A547" /><path d="M58 51 L56.8 59 H63.2 L62 51 Z" fill="#D4A547" />
+      </svg>
+    );
+  }
   // A line knocked down, and rising past where it fell.
   if (kind === "storm") return <svg viewBox="0 0 120 104" className="exart"><path d="M22 46 L44 46 L56 72 L70 30 L82 58 L98 58" fill="none" stroke="rgba(245,241,232,0.35)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/><path d="M70 30 L82 58 L98 58" fill="none" stroke="#D4A547" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"/><circle cx="98" cy="58" r="4" fill="#D4A547"/></svg>;
   // Something held around something soft.
@@ -2167,7 +2317,7 @@ function StrengthScreen({ state, onBack, onAssessment, onLibrary }) {
           <div className="sbrow">
             <div className="sbhead"><span>The Library</span><span className="tnum">{st.lenses} of {st.totalLenses} lenses</span></div>
             <div className="track"><div className="fill" style={{ width: `${lensPct}%` }} /></div>
-            <p className="sbnote">Worth {LENS_WEIGHT} of your 100. Lenses reach where the assessment can't — closeness, money, drive. More are being written, and your strength grows when they land.</p>
+            <p className="sbnote">Worth {LENS_WEIGHT} of your 100. Lenses reach where the assessment can't — relationships, drive, mind, money and purpose. They open at Full Portrait.</p>
           </div>
         </div>
 
@@ -2235,16 +2385,18 @@ function MiniRunner({ miniId, answers, onDone, onBack }) {
           <p className="kicker gold">{m.kicker}</p>
           <h2 className="question">{item.text}</h2>
           {item.format === "L5" && <div className="opts">{L5.map((o, k) => (<button key={o} className={"opt" + (chosen === k ? " sel" : "")} onClick={() => set(k, true)}><span className="odot" />{o}</button>))}</div>}
+          {item.format === "PK" && <div className="opts">{item.options.map((o) => (<button key={o.key} className={"opt" + (chosen === o.key ? " sel" : "")} onClick={() => set(o.key, true)}><span className="odot" />{o.text}</button>))}</div>}
           {item.format === "FC" && <div className="fc">{["a", "b"].map((kk) => (<button key={kk} className={"fccard" + (chosen === kk ? " sel" : "")} onClick={() => set(kk, true)}>{item[kk].text}</button>))}</div>}
         </div>
       </div>
     </Shell>
   );
 }
-function MiniResult({ miniId, result, onBack }) {
+function MiniResult({ miniId, result, onBack, onRetake }) {
   const [revealing, setRevealing] = useState(false);
   const again = () => { setRevealing(true); setTimeout(() => setRevealing(false), 1600); };
   const m = MINIS[miniId];
+  if (!m || !result) return null;
   return (
     <div className={"reportpage tint-" + m.tint}>
       <div className="rhead noprint"><button className="ghost inkghost" onClick={onBack}>← Library</button><Wordmark /><span /></div>
@@ -2252,22 +2404,12 @@ function MiniResult({ miniId, result, onBack }) {
         <p className="kicker gold">{m.kicker}</p>
         <h1 className="display ink">{m.name}</h1>
         {revealing && <div className="revealveil"><Orb size={84} /><p className="revealline">Looking again…</p></div>}
-        {result.kind === "friend" ? (
-          <div className="minibody">
-            <div className="minirow"><span>What you give</span><span className="tnum">{scoreLine("lens", result.give)}</span></div>
-            <div className="minirow"><span>What you need</span><span className="tnum">{scoreLine("lens", result.need)}</span></div>
-            <p className="rbody"><em>{result.give != null && result.need != null && result.give - result.need > 15 ? "You give more than you ask for. A quiet strength — and worth watching, so the well doesn't run dry." : result.need != null && result.give != null && result.need - result.give > 15 ? "You feel the need for closeness keenly. That's not weakness; it's how you're wired to bond." : "You give and need in fair balance. Rarer than it sounds."}</em></p>
-            {result.needMost && <p className="rbody">When it comes to it, the friend you need most is one who offers <strong>{result.needMost === "reliability" ? "reliability — someone who simply shows up" : "depth — someone who really gets you"}</strong>.</p>}
-          </div>
-        ) : (
-          <div className="minibody">
-            <div className="minirow"><span>Moving toward what you want</span><span className="tnum">{scoreLine("lens", result.approach)}</span></div>
-            <div className="minirow"><span>Moving away from what you fear</span><span className="tnum">{scoreLine("lens", result.avoid)}</span></div>
-            <p className="rbody"><em>{result.orientation === "toward" ? "You lead with the upside. You move toward what you want more than away from what you fear — which makes you brave, and occasionally blind to the cliff edge." : "You lead with care. You move to protect what matters before you reach for more — which makes you steady, and sometimes slower to the thing you'd love."}</em></p>
-          </div>
-        )}
-        <div className="minihelp"><p><strong>What this means.</strong> {result.kind === "friend" ? "This lens looks at two sides of closeness: what you naturally give the people you love, and what you quietly need back from them. Neither number is good or bad — the interesting part is the gap between them, and whether the people around you know what you need." : "This lens looks at what drives you: whether you move toward the things you want, or away from the things you fear. Most people do both, but one usually leads. Knowing which one leads helps you understand why some choices feel easy and others feel like a fight."}</p></div>
+        <p className="kicker">Your insights</p>
+        <LensInsights id={miniId} result={result} />
+        <div className="minihelp"><ResearchNote from={m.from} research={m.research} /></div>
         <button className="setbtn" onClick={again}>Reveal this insight again</button>
+        <button className="setbtn" onClick={onRetake}>Take this lens again</button>
+        {readMini(miniId, result)?.care && <div className="noprint"><SOSSection /></div>}
         <p className="integrity">A short lens, {m.from.toLowerCase()}. It adds to your profile — your Companion now knows this about you too. A self-discovery tool, not a clinical measure.</p>
       </article>
     </div>

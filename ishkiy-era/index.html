@@ -487,6 +487,67 @@
 
 
 
+  /* library: subject symbols, tallies, the lock */
+  .subjicon{flex:none; display:block}
+  .subjchip .subjicon{margin-left:-3px}
+  .subjtitle{display:flex; gap:12px; align-items:flex-start}
+  .subjbadge{flex:none; width:40px; height:40px; border-radius:12px; display:flex; align-items:center; justify-content:center; margin-top:2px}
+  .subjdone{color:var(--ink60)}
+  .subjdone.some{color:#8a6d1f}
+  body.dm .subjdone.some{color:var(--gold)}
+  .libtally{font-size:13px; font-weight:600; letter-spacing:.06em; text-transform:uppercase; color:var(--ink60); margin:18px 0 0}
+  .liblock{border:1.5px solid rgba(212,165,71,.45); background:rgba(212,165,71,.08); border-radius:16px; padding:18px; margin:0 0 8px}
+  .liblock .track{margin:12px 0 4px}
+  .liblock .btn{margin-top:12px}
+  .liblockk{font-size:11px; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:#8a6d1f; margin:0}
+  body.dm .liblockk{color:var(--gold)}
+  .liblockt{font-family:Lora,serif; font-size:17px; line-height:1.45; color:var(--ink); margin:6px 0 0}
+  .libpeek{display:block; margin-top:10px; color:var(--ink60)}
+  .libtile.liblocked{opacity:.82}
+  .libtile.libdone{border-color:rgba(111,143,94,.5)}
+  .libstatus.done{color:#5d7a4e; font-style:normal; font-weight:600}
+  body.dm .libstatus.done{color:#9CC08A}
+  .rtbtn[disabled]{cursor:not-allowed; opacity:.75}
+  /* the research line, opened */
+  .research{width:100%}
+  .resbtn{display:inline-flex; align-items:center; gap:7px; text-align:left; padding:0; cursor:pointer; text-decoration:underline dotted; text-underline-offset:3px}
+  .resi{flex:none; display:inline-flex; align-items:center; justify-content:center; width:17px; height:17px; border-radius:50%; border:1.3px solid currentColor; font-size:10.5px; font-style:italic; font-family:Lora,serif; text-transform:none; letter-spacing:0; text-decoration:none}
+  .resbody{margin:8px 0 4px; padding:12px 14px; border-left:2px solid var(--gold); background:rgba(212,165,71,.07); border-radius:0 10px 10px 0; font-size:14px; line-height:1.6}
+  .resbody p{margin:0 0 8px}
+  .resbody p:last-child{margin:0}
+  /* your insights */
+  .insbtn{font-weight:600; font-size:14px; color:var(--ink); border:1.5px solid rgba(111,143,94,.55); background:rgba(111,143,94,.12); border-radius:9px; padding:7px 14px}
+  .insfold{width:100%; margin-top:6px; padding-top:12px; border-top:1px solid var(--ink06)}
+  .insacts{display:flex; flex-wrap:wrap; gap:8px; margin-top:12px}
+  .instag{font-size:11px; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:#8a6d1f; margin:0}
+  body.dm .instag{color:var(--gold)}
+  .inshead{font-family:Lora,serif; font-weight:600; font-style:italic; font-size:19px; line-height:1.35; color:var(--ink); margin:4px 0 6px}
+  .insights .minibody{margin:8px 0 12px}
+  .insbar{padding:7px 0}
+  .insbarrow{display:flex; justify-content:space-between; gap:10px; font-size:14px; margin-bottom:5px}
+  .insbar .track{height:5px; margin:0}
+  .insp{font-size:15px; line-height:1.65; margin:0 0 10px}
+  .instry{font-size:14.5px; line-height:1.6; margin:4px 0 0; padding:12px 14px; border-radius:12px; background:rgba(111,143,94,.10); border:1.5px solid rgba(111,143,94,.3)}
+  .soscta{margin-top:12px}
+  /* SOS */
+  .sosjump{justify-self:end; font-size:12px; font-weight:700; letter-spacing:.12em; color:#fff; background:#B8453F; border-radius:999px; padding:6px 12px; text-decoration:none}
+  .subjchip.sosclip{border-color:rgba(192,80,77,.45)}
+  .subject.sos{margin-top:40px; padding:18px; border-radius:18px; border:1.5px solid rgba(192,80,77,.4); background:rgba(192,80,77,.06)}
+  body.dm .subject.sos{background:rgba(192,80,77,.10)}
+  .sosnote{font-size:15px; line-height:1.6; margin:12px 0 14px}
+  .sosgrid{display:grid; grid-template-columns:1fr; gap:10px}
+  @media (min-width:560px){ .sosgrid{grid-template-columns:1fr 1fr} }
+  .sostile{border:1.5px solid var(--ink06); border-radius:14px; padding:14px; background:rgba(255,255,255,.55)}
+  body.dm .sostile{background:rgba(245,241,232,.05)}
+  .sosname{font-family:Lora,serif; font-weight:700; font-size:17px; margin:0}
+  .soswhat{font-size:14px; line-height:1.5; margin:4px 0 2px}
+  .soshours{font-size:12px; color:var(--ink60); margin:0 0 10px}
+  .sosacts{display:flex; flex-wrap:wrap; gap:8px; align-items:center}
+  .sosbtn{font-size:14px; font-weight:600; color:#fff; background:#B8453F; border-radius:9px; padding:8px 13px; text-decoration:none}
+  .sosnum{font-size:14px}
+  .soslink{font-size:13.5px; font-weight:600; color:var(--ink); text-underline-offset:3px}
+  .sosregion{font-size:13px; line-height:1.7; color:var(--ink60); margin:14px 0 0}
+  .sosregion a{color:var(--ink); font-weight:600}
   /* warm section tints (wayfinding colour) */
   .tint-gold{background:linear-gradient(180deg, rgba(212,165,71,.12), var(--bone) 260px)}
   .tint-clay{background:linear-gradient(180deg, rgba(192,107,92,.12), var(--bone) 260px)}
