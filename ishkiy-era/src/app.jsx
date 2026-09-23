@@ -2,7 +2,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { PARTS, L5, E5, RIASEC_PHRASES } from "./items.js";
-import { MINIS, scoreMini } from "./mini.js";
+import { MINIS, scoreMini, readMini } from "./mini.js";
 import { createClient } from "@supabase/supabase-js";
 
 /* ---------------- backend (Supabase, connect-only v1) ----------------
@@ -130,16 +130,20 @@ export function computeScores(answers) {
 
   // Thinking
   const think = { num: [0, 0], spa: [0, 0], verb: [0, 0], log: [0, 0] };
-  flat.filter((i) => i.key).forEach((i) => {
+  /* Only puzzles someone has actually answered count. The first look carries
+     the numbers-and-patterns part but not words-and-logic, and counting the
+     untaken puzzles as wrong turned "not yet" into a score of zero. */
+  flat.filter((i) => i.key && get(i.id) != null).forEach((i) => {
     think[i.dim][1] += 1;
     if (get(i.id) === i.key) think[i.dim][0] += 1;
   });
-  const pct = ([c, t]) => (t ? c / t : 0);
-  const leans = [["numerical", pct(think.num)], ["spatial", pct(think.spa)], ["verbal", pct(think.verb)], ["logical", pct(think.log)]].sort((a, b) => b[1] - a[1]);
+  const pct = ([c, t]) => (t ? c / t : null);
+  const to = (x) => (x == null ? null : Math.round(x * 100));
+  const leans = [["numerical", pct(think.num)], ["spatial", pct(think.spa)], ["verbal", pct(think.verb)], ["logical", pct(think.log)]].filter(([, v]) => v != null).sort((a, b) => b[1] - a[1]);
   const thinking = {
-    numerical: Math.round(pct(think.num) * 100), spatial: Math.round(pct(think.spa) * 100),
-    verbal: Math.round(pct(think.verb) * 100), logical: Math.round(pct(think.log) * 100),
-    lean: (leans[0][1] === 0 || leans[0][1] - leans[1][1] < 0.15) ? "balanced" : leans[0][0],
+    numerical: to(pct(think.num)), spatial: to(pct(think.spa)),
+    verbal: to(pct(think.verb)), logical: to(pct(think.log)),
+    lean: (!leans.length || leans[0][1] === 0 || (leans[1] && leans[0][1] - leans[1][1] < 0.15)) ? "balanced" : leans[0][0],
     approach: { persistence: get("TH-15"), intuition: get("TH-16") },
   };
 
@@ -232,16 +236,23 @@ function reportCalls(answers, scores) {
     theirWords: { role: answers["AR-2"], hardestPart: answers["AR-3"], goodDay: answers["AR-4"], broughtHere: answers["AR-5"] != null ? PARTS[0].items[4].options[answers["AR-5"]] : null, energy: answers["AR-6"] != null ? PARTS[0].items[5].options[answers["AR-6"]] : null, neverTold: answers["MI-1"], fiveYears: answers["MI-2"] != null ? PARTS[8].items[1].options[answers["MI-2"]] : null, atMyBest: answers["MI-3"], extra: answers["MI-4"] },
     scores,
   });
-  const name = (answers["AR-1"] || "").trim() || "friend";
+  const rawName = (answers["AR-1"] || "").trim();
+  const name = /^i?shkiy$/i.test(rawName) ? "" : rawName;
   const m = scores.measured || { thinking: true, ei: true, riasec: true, values: true, big5: true };
   const full = m.thinking && m.ei && m.riasec && m.values && m.big5;
+  /* Tell the writer what hasn't been taken yet, so a first look reads as a
+     first look — not as a list of things the person failed to hand over. */
+  const taken = PARTS.filter((p) => p.items.some((i) => answers[i.id] != null));
+  const notYet = PARTS.filter((p) => !taken.includes(p)).map((p) => p.title);
+  const scope = `\n\nSCOPE: They have taken ${taken.length} of ${PARTS.length} parts: ${taken.map((p) => p.title).join("; ")}.${notYet.length ? ` Not taken yet: ${notYet.join("; ")}. Null or missing values mean NOT TAKEN YET, never a score of zero and never something they withheld. Never tell them what they didn't give or didn't say; don't list what's missing. Where it helps, mention a part still to come once, briefly, as an invitation.` : ""} ${name ? `Their name is ${name}.` : "They haven't given a name. Do not use or invent one, and never address them as iSHKiY or \"friend\"; just say \"you\"."}`;
   const calls = [];
-  calls.push({ title: "Opening", prompt: `Data: ${ctx}\n\nWrite the OPENING section (~210 words) for ${name}. Start with the "### " headline line. Reflect their own words back where you have them — woven with one thing the data already confirms. Quote vivid phrases. Only discuss dimensions actually present in the scores. End on a sentence that earns trust.` });
-  if (m.values || m.big5) calls.push({ title: "Values & work", prompt: `Data: ${ctx}\n\nWrite ${m.values && m.big5 ? "two sections" : "one section"}. ${m.values ? '"## What you\'re for" — their ranked values and especially the forced-choice pattern; name the trade they keep making.' : ""} ${m.big5 ? '"## How you work" — the Big Five in plain language (Steadiness = inverted Neuroticism, explain plainly if relevant).' : ""} Each starts with its "### " headline after the ## title. Discuss ONLY these.` });
-  if (m.thinking || m.ei) calls.push({ title: "Think & feel", prompt: `Data: ${ctx}\n\nWrite ${m.thinking && m.ei ? "two sections" : "one section"}. ${m.thinking ? '"## How you think" — thinking-style profile, never IQ framing.' : ""} ${m.ei ? '"## How you carry yourself" — the four EI domains and what the scenario choices reveal.' : ""} Each starts with its "### " headline. Discuss ONLY these.` });
-  if (m.riasec) calls.push({ title: "What pulls you", prompt: `Data: ${ctx}\n\nWrite "## What pulls you" (~180 words), "### " headline first — top two RIASEC inclinations in plain words, and what the lowest one quietly says.` });
-  if (full) calls.push({ title: "The tensions", prompt: `Data: ${ctx}\n\nWrite "## The tensions" (~220 words), "### " headline first — the two or three places their dimensions pull against each other, and what living inside each tension feels like on a Tuesday. Be brave.` });
-  calls.push({ title: "What this suggests", prompt: `Data: ${ctx}\n\nWrite the final section "## What this suggests" (~${full ? 260 : 180} words), "### " headline first. Read honestly against ${full ? "the whole profile" : "what's been measured so far, and gently note that going deeper would sharpen it"}. Offer ${full ? "two or three" : "one or two"} shapes of work that fit, each with one concrete first step. ${full ? "" : "Encourage them warmly to complete more parts when ready — more answers, truer mirror."} Close the whole report with this exact line on its own: The box was never you.` });
+  // Partial profiles open with ViewIntro, written in the app, not by the model.
+  if (notYet.length === 0) calls.push({ title: "Opening", prompt: `Data: ${ctx}${scope}\n\nWrite the OPENING section (~210 words). Start with the "### " headline line. ${answers["AR-3"] || answers["AR-4"] || answers["MI-1"] ? "Reflect their own words back — woven with one thing the data already confirms. Quote vivid phrases." : "Open with the clearest thing their answers already show, said plainly and warmly, so the first lines land as recognition. Do not remark on their own words being absent."} Only discuss dimensions actually present in the scores. End on a sentence that earns trust.` });
+  if (m.values || m.big5) calls.push({ title: "Values & work", prompt: `Data: ${ctx}${scope}\n\nWrite ${m.values && m.big5 ? "two sections" : "one section"}. ${m.values ? '"## What you\'re for" — their ranked values and especially the forced-choice pattern; name the trade they keep making.' : ""} ${m.big5 ? '"## How you work" — the Big Five in plain language (Steadiness = inverted Neuroticism, explain plainly if relevant).' : ""} Each starts with its "### " headline after the ## title. Discuss ONLY these.` });
+  if (m.thinking || m.ei) calls.push({ title: "Think & feel", prompt: `Data: ${ctx}${scope}\n\nWrite ${m.thinking && m.ei ? "two sections" : "one section"}. ${m.thinking ? '"## How you think" — thinking-style profile, never IQ framing. Talk only about the problem types they have actually done; if the words-and-logic puzzles are still to come, say so in one light line.' : ""} ${m.ei ? '"## How you carry yourself" — the four EI domains and what the scenario choices reveal.' : ""} Each starts with its "### " headline. Discuss ONLY these.` });
+  if (m.riasec) calls.push({ title: "What pulls you", prompt: `Data: ${ctx}${scope}\n\nWrite "## What pulls you" (~180 words), "### " headline first — top two RIASEC inclinations in plain words, and what the lowest one quietly says.` });
+  if (full) calls.push({ title: "The tensions", prompt: `Data: ${ctx}${scope}\n\nWrite "## The tensions" (~220 words), "### " headline first — the two or three places their dimensions pull against each other, and what living inside each tension feels like on a Tuesday. Be brave.` });
+  calls.push({ title: "What this suggests", prompt: `Data: ${ctx}${scope}\n\nWrite the final section "## What this suggests" (~${full ? 260 : 180} words), "### " headline first. Read honestly against ${full ? "the whole profile" : "what's been measured so far, and gently note that going deeper would sharpen it"}. Offer ${full ? "two or three" : "one or two"} shapes of work that fit, each with one concrete first step. ${full ? "" : "Encourage them warmly to complete more parts when ready — more answers, truer mirror."} Close the whole report with this exact line on its own: The box was never you.` });
   return calls;
 }
 
@@ -306,7 +317,7 @@ function App() {
   useEffect(() => { document.body.classList.toggle("dm", !!state.dark); }, [state.dark]);
 
   if (state.phase === "breath") return <Breath onEnter={() => update({ phase: state.seenExplainer ? "home" : "explainer" })} />;
-  if (state.phase === "home") return <Home state={state} onTheme={() => update({ dark: !state.dark })} go={(p) => update({ phase: p })} startAssessment={() => update({ phase: Object.keys(answers).length ? "chooseDepth" : "chooseDepth" })} />;
+  if (state.phase === "home") return <Home state={state} onResume={() => { const p = state.paused; update({ part: p.part, item: p.item, arc: p.arc, paused: null, phase: p.at === "run" ? "run" : "intro" }); }} onTheme={() => update({ dark: !state.dark })} go={(p) => update({ phase: p })} startAssessment={() => update({ phase: Object.keys(answers).length ? "chooseDepth" : "chooseDepth" })} />;
   if (state.phase === "companion") return <CompanionScreen state={state} scores={scores} onBack={() => update({ phase: "home" })} onRegenerate={() => update({ phase: "generating" })} onHuman={() => update({ phase: "humans" })} />;
   if (state.phase === "constellation") return <ConstellationScreen state={state} update={update} onBack={() => update({ phase: "home" })} />;
   if (state.phase === "humans") return <HumansScreen scores={scores} state={state} onBack={() => update({ phase: "home" })} onApply={() => update({ phase: "apply" })} />;
@@ -314,19 +325,25 @@ function App() {
   if (state.phase === "settings") return <SettingsScreen state={state} update={update} onBack={() => update({ phase: "home" })} />;
   if (state.phase === "apply") return <ApplyScreen onBack={() => update({ phase: "humans" })} />;
   if (state.phase === "strength") return <StrengthScreen state={state} onBack={() => update({ phase: "home" })} onAssessment={() => update({ phase: "chooseDepth" })} onLibrary={() => update({ phase: "library" })} />;
-  if (state.phase === "library") return <LibraryScreen onBack={() => update({ phase: "home" })} onMini={(id) => update({ miniId: id, phase: (state.miniResults || {})[id] ? "miniResult" : "miniRun" })} miniDone={state.miniResults} />;
+  if (state.phase === "library") return <LibraryScreen state={state} onBack={() => update({ phase: "home" })} onAssessment={() => update({ phase: "chooseDepth" })} onMini={(id) => update({ miniId: id, phase: (state.miniResults || {})[id] ? "miniResult" : "miniRun" })} onRetake={(id) => update({ miniId: id, phase: "miniRun" })} />;
   if (state.phase === "miniRun") return <MiniRunner miniId={state.miniId} answers={(state.miniAnswers || {})[state.miniId]} onBack={() => update({ phase: "library" })} onDone={(a) => { const res = scoreMini(state.miniId, a); track("mini_done", state.miniId); update({ miniAnswers: { ...(state.miniAnswers || {}), [state.miniId]: a }, miniResults: { ...(state.miniResults || {}), [state.miniId]: res }, phase: "miniResult" }); }} />;
-  if (state.phase === "miniResult") return <MiniResult miniId={state.miniId} result={(state.miniResults || {})[state.miniId]} onBack={() => update({ phase: "library" })} />;
+  if (state.phase === "miniResult") return <MiniResult miniId={state.miniId} result={(state.miniResults || {})[state.miniId]} onBack={() => update({ phase: "library" })} onRetake={() => update({ phase: "miniRun" })} />;
   if (state.phase === "welcome") return <Welcome onStart={() => update({ phase: state.unlocked ? (Object.keys(answers).length ? "intro" : "warmup") : "unlock" })} resumable={state.part > 0 || state.item > 0} />;
-  if (state.phase === "unlock") return <Unlock onUnlock={() => update({ unlocked: true, phase: "warmup" })} />;
-  if (state.phase === "warmup") return <Warmup onDone={() => update({ phase: "intro" })} />;
+  /* Answers save on every tap already; "Save & pick up later" also remembers
+     exactly where someone was, so Home can drop them straight back in. */
+  const saveExit = (at) => { track("save_exit", PARTS[state.part] && PARTS[state.part].id); update({ phase: "home", paused: { at, part: state.part, item: at === "run" ? state.item : 0, arc: state.arc } }); };
+  if (state.phase === "unlock") return <Unlock onUnlock={() => update({ unlocked: true, phase: "warmup" })} onHome={() => update({ phase: "home" })} />;
+  if (state.phase === "warmup") return <Warmup onDone={() => update({ phase: "intro" })} onExit={() => saveExit("intro")} />;
   if (state.phase === "explainer") return <Explainer onDone={() => update({ phase: "home", seenExplainer: true })} />;
   // Same deck, reachable any time from Home or Settings.
   if (state.phase === "explainerAgain") return <Explainer done="Done" onDone={() => update({ phase: state.explainerBack || "home" })} />;
-  if (state.phase === "chooseDepth") return <ChooseDepth state={state} onPick={(arc) => { const parts = arcParts(arc, state.completedAt); const first = parts[0] ?? 0; update({ arc, part: first, item: 0, phase: state.unlocked ? "warmup" : "unlock" }); }} onBack={() => update({ phase: "home" })} />;
-  if (state.phase === "badge") return <BadgeScreen state={state} onDone={() => update({ phase: "report" })} />;
-  if (state.phase === "intro") return <PartIntro part={PARTS[state.part]} n={state.part} onGo={() => update({ phase: "run" })} />;
-  if (state.phase === "run") return <Runner state={state} update={update} />;
+  if (state.phase === "chooseDepth") return <ChooseDepth state={state} onPick={(arc) => { const parts = arcParts(arc, state.completedAt); const first = parts[0] ?? 0; update({ arc, part: first, item: 0, paused: null, phase: state.unlocked ? "warmup" : "unlock" }); }} onBack={() => update({ phase: "home" })} />;
+  /* The badge comes straight after the last part, before any report exists for
+     the answers just given, so "See my report" has to write it first. Going
+     straight to "report" landed on an empty page. */
+  if (state.phase === "badge") return <BadgeScreen state={state} onDone={() => update({ phase: "generating" })} />;
+  if (state.phase === "intro") return <PartIntro part={PARTS[state.part]} n={state.part} onGo={() => update({ phase: "run" })} onExit={() => saveExit("intro")} />;
+  if (state.phase === "run") return <Runner state={state} update={update} onExit={() => saveExit("run")} />;
   if (state.phase === "glimmer") return <Glimmer part={PARTS[state.part]} answers={answers} scores={scores} onNext={() => {
     const completedAt = { ...(state.completedAt || {}), [PARTS[state.part].id]: Date.now() };
     if (state.retaking) return update({ completedAt, retaking: false, phase: "generating", report: null });
@@ -335,8 +352,13 @@ function App() {
     const next = arc[pos + 1];
     update(next == null ? { completedAt, phase: "badge" } : { completedAt, part: next, item: 0, phase: "intro" });
   }} />;
-  if (state.phase === "generating") return <Generating answers={answers} scores={scores} onDone={(report) => update({ report, phase: "report", companionStart: state.companionStart || Date.now() })} />;
-  if (state.phase === "report") return <Report report={state.report} name={answers["AR-1"]} answers={answers} scores={scores} companionStart={state.companionStart} completedAt={state.completedAt || {}} strength={profileStrength(state)} onStrength={() => update({ phase: "strength" })} onBack={() => update({ phase: "home" })} onLibrary={() => update({ phase: "library" })} onDeeper={() => { const parts = arcParts("more", state.completedAt); if (parts.length) update({ arc: "more", part: parts[0], item: 0, phase: "intro" }); }} onRegenerate={() => update({ phase: "generating" })} onRetake={(idx) => update({ part: idx, item: 0, retaking: true, phase: "intro" })} onRestart={() => { localStorage.removeItem(KEY); location.reload(); }} />;
+  /* If the rewrite fails, keep a real report someone already has rather than
+     swapping it for the sample. */
+  const reportDone = (report) => update({ report: report.preview && state.report && !state.report.preview ? state.report : report, phase: "report", companionStart: state.companionStart || Date.now() });
+  if (state.phase === "generating") return <Generating answers={answers} scores={scores} onDone={reportDone} />;
+  // Never a blank page: no report yet means write one.
+  if (state.phase === "report" && !state.report) return <Generating answers={answers} scores={scores || computeScores(answers)} onDone={reportDone} />;
+  if (state.phase === "report") return <Report report={state.report} name={/^i?shkiy$/i.test((answers["AR-1"] || "").trim()) ? "" : answers["AR-1"]} answers={answers} scores={scores} companionStart={state.companionStart} completedAt={state.completedAt || {}} strength={profileStrength(state)} onStrength={() => update({ phase: "strength" })} onBack={() => update({ phase: "home" })} onLibrary={() => update({ phase: "library" })} onDeeper={() => { const parts = arcParts("more", state.completedAt); if (parts.length) update({ arc: "more", part: parts[0], item: 0, phase: "intro" }); }} onRegenerate={() => update({ phase: "generating" })} onRetake={(idx) => update({ part: idx, item: 0, retaking: true, phase: "intro" })} onRestart={() => { localStorage.removeItem(KEY); location.reload(); }} />;
   return null;
 }
 
@@ -350,11 +372,15 @@ const WARMUP = [
   { line: "Ten to fifteen minutes to begin. Slow is fine.", sub: "You can stop after that with a real report in hand, or keep going. Your answers stay on this device." },
 ];
 
-function Warmup({ onDone }) {
+function SaveExit({ onExit, light }) {
+  return <button className={"saveexit" + (light ? " light" : "")} onClick={onExit}>Save &amp; pick up later</button>;
+}
+function Warmup({ onDone, onExit }) {
   const [i, setI] = useState(0);
   const last = i === WARMUP.length - 1;
   return (
     <Shell dark>
+      <div className="exitrow"><SaveExit onExit={onExit} light /></div>
       <div className="glimmer">
         <div className="breath" aria-hidden="true"><span /></div>
         <p className="gline" key={i}>{WARMUP[i].line}</p>
@@ -391,7 +417,7 @@ function Welcome({ onStart, resumable }) {
   );
 }
 
-function Unlock({ onUnlock }) {
+function Unlock({ onUnlock, onHome }) {
   const [code, setCode] = useState(""); const [err, setErr] = useState(false); const [busy, setBusy] = useState(false);
   const check = async () => {
     setBusy(true); const h = await sha256(code); setBusy(false);
@@ -400,6 +426,7 @@ function Unlock({ onUnlock }) {
   return (
     <Shell dark>
       <div className="welcome">
+        <button className="saveexit light" onClick={onHome}>← Home</button>
         <p className="kicker">Founding access</p>
         <h1 className="display sm">Enter your access code</h1>
         <p className="lede dim">Your code came with your payment confirmation. £29 gets you: the full assessment, your written report (yours to keep), a share card, and 7 days with your AI Companion — a coach, a mentor and a sounding voice that have actually read you.</p>
@@ -417,12 +444,19 @@ function Dots({ n }) {
   return (<div className="dots" aria-hidden="true">{PARTS.map((p, i) => (<span key={p.id} className={"dot" + (i < n ? " done" : i === n ? " now" : "")} />))}</div>);
 }
 
+/* The breath cue stays put under the circle; only the advice below it turns,
+   and slowly, so it can be read while breathing rather than chased. */
 const MINDSET = [
   "Put your feet flat. Let your shoulders drop.",
-  "Breathe in with the circle. Out as it settles.",
   "There are no right answers here. Only true ones.",
   "Answer as you are today — not as you think you should be.",
 ];
+const BREATH_HALF = 4000; // half of .mindpulse's 8s cycle: in as it grows, out as it settles
+function BreathCue() {
+  const [inhale, setInhale] = useState(true);
+  useEffect(() => { const t = setInterval(() => setInhale((v) => !v), BREATH_HALF); return () => clearInterval(t); }, []);
+  return <p className="breathcue" aria-hidden="true"><span className={inhale ? "on" : ""}>Breathe in</span><span className="breathsep">·</span><span className={inhale ? "" : "on"}>and out</span></p>;
+}
 function BreathDiagram() {
   return (
     <svg viewBox="0 0 160 160" className="mindart" aria-hidden="true">
@@ -432,13 +466,14 @@ function BreathDiagram() {
     </svg>
   );
 }
-function PartIntro({ part, n, onGo }) {
+function PartIntro({ part, n, onGo, onExit }) {
   const [ready, setReady] = useState(false);
   const [line, setLine] = useState(0);
-  useEffect(() => { const t = setInterval(() => setLine((v) => (v + 1) % MINDSET.length), 4200); return () => clearInterval(t); }, []);
+  useEffect(() => { const t = setInterval(() => setLine((v) => (v + 1) % MINDSET.length), 9000); return () => clearInterval(t); }, []);
   const go = () => { setReady(true); setTimeout(onGo, 900); };
   return (
     <Shell>
+      <div className="exitrow"><SaveExit onExit={onExit} /></div>
       <Dots n={n} />
       <div className={"intro mindset" + (ready ? " leaving" : "")}>
         <p className="kicker gold">{part.kicker}</p>
@@ -446,6 +481,7 @@ function PartIntro({ part, n, onGo }) {
         <p className="lede inkdim">{part.intro}</p>
         <div className="mindwrap">
           <BreathDiagram />
+          <BreathCue />
           <p className="mindline" key={line}>{MINDSET[line]}</p>
         </div>
         <button className="btn ink" onClick={go}>I'm ready</button>
@@ -474,7 +510,7 @@ function QDots({ i, total }) {
     </div>
   );
 }
-function Runner({ state, update }) {
+function Runner({ state, update, onExit }) {
   const part = PARTS[state.part];
   const order = useMemo(() => {
     if (!part.shuffle) return part.items;
@@ -523,6 +559,7 @@ function Runner({ state, update }) {
         <span className="count">{state.item + 1 > total / 2 ? (total - state.item - 1 === 0 ? "last one" : `${total - state.item - 1} to go`) : `${state.item + 1} of ${total}`}</span>
       </div>
     }>
+      <div className="exitrow"><SaveExit onExit={onExit} /></div>
       <Dots n={state.part} />
       <QDots i={state.item} total={total} />
       <div className="qwrap" key={item.id}>
@@ -674,7 +711,7 @@ function Tiles({ scores }) {
   const [open, setOpen] = useState(null);
   const t = scores.thinking, ei = scores.ei, b5 = scores.big5;
   const tiles = [
-    { id: "think", acc: "#5C7CA3", label: "How you think", stat: t.lean, art: <MiniBars pairs={[[t.lean, 100], ["", 55]].slice(0, 1).concat([["numerical", t.numerical], ["spatial", t.spatial], ["verbal", t.verbal], ["logical", t.logical]].sort((a, b) => b[1] - a[1]).slice(0, 3))} />, detail: [["Numerical", scoreLine("think", t.numerical)], ["Spatial", scoreLine("think", t.spatial)], ["Verbal", scoreLine("think", t.verbal)], ["Logical", scoreLine("think", t.logical)]], note: "Accuracy by problem type. The lean is your first language for a hard problem — not a ceiling on the others.", about: "Grounded in Cattell–Horn–Carroll (CHC) theory, the most widely used map of human cognitive abilities. Our short, untimed puzzles sample four problem types to read your thinking style. What it can't claim: this is a style indicator, not an IQ measure — a handful of puzzles can suggest how you approach problems, not the size of the engine." },
+    { id: "think", acc: "#5C7CA3", label: "How you think", stat: t.lean, art: <MiniBars pairs={[[t.lean, 100], ["", 55]].slice(0, 1).concat([["numerical", t.numerical], ["spatial", t.spatial], ["verbal", t.verbal], ["logical", t.logical]].filter(([, v]) => v != null).sort((a, b) => b[1] - a[1]).slice(0, 3))} />, detail: [["Numerical", t.numerical], ["Spatial", t.spatial], ["Verbal", t.verbal], ["Logical", t.logical]].map(([k, v]) => [k, v == null ? "not taken yet" : scoreLine("think", v)]), note: "Accuracy by problem type. The lean is your first language for a hard problem — not a ceiling on the others.", about: "Grounded in Cattell–Horn–Carroll (CHC) theory, the most widely used map of human cognitive abilities. Our short, untimed puzzles sample four problem types to read your thinking style. What it can't claim: this is a style indicator, not an IQ measure — a handful of puzzles can suggest how you approach problems, not the size of the engine." },
     { id: "heart", acc: "#C06B5C", label: "How you carry yourself", stat: "the compass", art: <MiniCompass ei={ei} />, detail: [["Self-awareness", scoreLine("heart", ei.selfAwareness)], ["Social awareness", scoreLine("heart", ei.socialAwareness)], ["Self-management", scoreLine("heart", ei.selfManagement)], ["With others", scoreLine("heart", ei.relationshipManagement)]], note: "Goleman's four domains, 0–100 from your answers. The needle points where you're strongest.", about: "Based on Daniel Goleman's four-domain model of emotional intelligence: knowing yourself, steadying yourself, reading others, and working with others. What it can't claim: this is self-report — it measures how you see yourself, which is itself useful information, but a colleague might score you differently." },
     { id: "pull", acc: "#D4A547", label: "What pulls you", stat: scores.riasec.top + " · " + scores.riasec.second, art: <MiniPetals riasec={scores.riasec} />, detail: ["R", "I", "A", "S", "E", "C"].map((c) => [{ R: "Making", I: "Understanding", A: "Creating", S: "People", E: "Starting", C: "Ordering" }[c], scoreLine("pull", scores.riasec.scores[c])]), note: "The gold petal is the strongest pull. The faint one is second. Low petals matter too — they're honest about what drains you.", about: "John Holland's RIASEC model — six themes of vocational interest, used in career guidance for over sixty years. People tend to thrive where their environment matches their strongest themes. What it can't claim: interests aren't abilities. Loving a thing and being built for it usually travel together, but not always." },
     { id: "values", acc: "#6F8F5E", label: "What you're for", stat: scores.values.ranked[0], art: <MiniBeam values={scores.values} />, detail: scores.values.ranked.map((v) => [v, scoreLine("values", scores.values.scores[v]) + (scores.values.fcWins[v] ? " · you chose it often" : "")]), note: "Ranked by importance, weighted by what you chose when forced to pick. Forced choices tell the truth.", about: "Drawn from Shalom Schwartz's theory of basic human values — a model validated across more than eighty countries. We sample six values most alive in working life, and weight the forced choices heavily because trade-offs reveal what ratings flatter. What it can't claim: values shift with seasons of life. This is your now, not your always." },
@@ -797,14 +834,30 @@ const qNext = () => {
   } catch { return QUOTES[Math.floor(Math.random() * QUOTES.length)]; }
 };
 
+/* The halo breathes on its own keyframes, sized to stay inside the drawing —
+   it used to borrow the warm-up dot's 2.6x scale and got cut off square. The
+   smile is separate: it grows from a flat line over four seconds each time the
+   face appears, on no clock but its own. */
+const reduceMotion = () => { try { return window.matchMedia("(prefers-reduced-motion: reduce)").matches; } catch { return false; } };
+const SMILE_FROM = "M43 56.5 q5 0 10 0", SMILE_TO = "M41 55.5 q7 5.5 14 0";
 function Orb({ size = 96 }) {
+  const still = useMemo(reduceMotion, []);
+  const gid = useMemo(() => "orbg" + Math.random().toString(36).slice(2, 8), []);
   return (
     <svg viewBox="0 0 96 96" width={size} height={size} className="orb" aria-hidden="true">
-      <circle cx="48" cy="48" r="40" fill="rgba(212,165,71,0.14)" className="orbhalo" />
+      <defs>
+        <radialGradient id={gid}>
+          <stop offset="50%" stopColor="#D4A547" stopOpacity="0.32" />
+          <stop offset="100%" stopColor="#D4A547" stopOpacity="0" />
+        </radialGradient>
+      </defs>
+      <circle cx="48" cy="48" r="46" fill={`url(#${gid})`} className="orbhalo" />
       <circle cx="48" cy="48" r="27" fill="#D4A547" />
       <path d="M38 46 q4 -4 8 0" fill="none" stroke="#0F1E3D" strokeWidth="2.6" strokeLinecap="round" />
       <path d="M52 46 q4 -4 8 0" fill="none" stroke="#0F1E3D" strokeWidth="2.6" strokeLinecap="round" />
-      <path d="M42 56 q6 4 12 0" fill="none" stroke="#0F1E3D" strokeWidth="2.6" strokeLinecap="round" />
+      <path d={still ? SMILE_TO : SMILE_FROM} fill="none" stroke="#0F1E3D" strokeWidth="2.6" strokeLinecap="round">
+        {!still && <animate attributeName="d" from={SMILE_FROM} to={SMILE_TO} dur="4s" begin="0.3s" fill="freeze" calcMode="spline" keyTimes="0;1" keySplines="0.45 0 0.2 1" />}
+      </path>
     </svg>
   );
 }
@@ -836,20 +889,32 @@ const SUBJECTS = [
   { id: "money", name: "Money", line: "What it means to you, and what it quietly costs.", ask: "Why is this never really about the money?" },
   { id: "becoming", name: "Purpose", line: "What you're actually for, and whether the life you're building matches it.", ask: "Am I building this life, or just ending up in it?" },
 ];
+/* Every lens, in the order it sits in its subject. Built lenses take their
+   words from MINIS; anything still being made carries its own. Membership
+   lenses are open to everyone during the founding period — the tier badge says
+   where each will sit once membership exists. */
+const LENS_TIER = { attachment: "FREE", friend: "FREE", approach: "FREE" };
+const LENS_ORDER = ["attachment", "friend", "room", "fight", "approach", "builder", "stuck", "pressure", "resilience", "money", "enough", "narrative"];
 const EXPANSIONS = [
-  { subject: "closeness", name: MINIS.friend.name, mini: "friend", from: MINIS.friend.from, line: MINIS.friend.blurb, tier: "FREE", status: "Ready" },
-  { subject: "closeness", name: "The room you walk into", from: "Grounded in interpersonal circumplex research", line: "What happens to a room when you enter it, and what that costs you to keep up.", tier: "MEMBERSHIP", status: "In design" },
-  { subject: "closeness", name: "How you fight", from: "Grounded in conflict style research", line: "Everyone has a move when it gets tense. Yours is probably older than the argument.", tier: "MEMBERSHIP", status: "In design" },
-  { subject: "drive", name: MINIS.approach.name, mini: "approach", from: MINIS.approach.from, line: MINIS.approach.blurb, tier: "FREE", status: "Ready" },
-  { subject: "drive", name: "The builder's pattern", from: "Grounded in entrepreneurial disposition research", line: "Some people can't stop starting things. An honest measure of whether you're one of them.", tier: "MEMBERSHIP", status: "In design" },
-  { subject: "drive", name: "What you do when you're stuck", from: "Grounded in coping and self-regulation research", line: "Not what you'd like to do. What you actually do, at eleven at night, when it isn't moving.", tier: "MEMBERSHIP", status: "In design" },
-  { subject: "mind", name: "How you carry pressure", from: "Grounded in stress and recovery research", line: "Where your load actually sits, what it costs you, and the recovery that works for someone built like you.", tier: "MEMBERSHIP", status: "In design" },
-  { subject: "mind", name: "Getting back up", from: "Grounded in resilience research", line: "Setbacks don't test character so much as reveal a pattern. This one finds yours before you need it.", tier: "MEMBERSHIP", status: "In design" },
-  { subject: "money", name: "Money and you", from: "Grounded in wealth psychology", line: "What money means to you, what it protects you from, and what that protection costs.", tier: "MEMBERSHIP", status: "In design" },
-  { subject: "money", name: "Enough", from: "Grounded in research on aspiration and satisfaction", line: "Everyone has a number. Almost nobody has asked themselves where theirs came from.", tier: "MEMBERSHIP", status: "In design" },
-  { subject: "becoming", name: "The life you meant to build", from: "Grounded in life-narrative research", line: "The story you tell about how you got here, and what it's quietly deciding about where you go next.", tier: "MEMBERSHIP", status: "In design" },
-  { subject: "becoming", name: "The Partner Series", from: "With thinkers you already trust", line: "Their life's philosophy, distilled with them into a mirror you can take. Conversations underway — names when the ink is dry.", tier: "PARTNER", status: "In conversation" },
+  ...LENS_ORDER.map((id) => ({ subject: MINIS[id].subject, name: MINIS[id].name, mini: id, from: MINIS[id].from, research: MINIS[id].research, line: MINIS[id].blurb, tier: LENS_TIER[id] || "MEMBERSHIP" })),
+  { subject: "becoming", name: "The Partner Series", from: "With thinkers you already trust", research: { what: "Each Partner lens is built with a writer, researcher or practitioner whose ideas have changed how people live and work. We distil their philosophy with them, test the questions together, and they sign off every word of the read you get back.", limits: "Partner lenses are grounded in one person's thinking, not a body of research, and we'll always say which is which. Names are announced once agreements are signed." }, line: "Their life's philosophy, distilled with them into a mirror you can take. Conversations underway — names when the ink is dry.", tier: "PARTNER", status: "In conversation" },
 ];
+const SUBJ_ACC = { closeness: "#C06B5C", drive: "#5C7CA3", mind: "#6F8F5E", money: "#D4A547", becoming: "#8A6FA0", sos: "#C0504D" };
+/* One symbol per subject, drawn on a 24-unit grid so the same paths serve the
+   Library headings, its chips, and the intro deck. */
+function SubjectGlyph({ id }) {
+  const p = { fill: "none", strokeWidth: 1.8, strokeLinecap: "round", strokeLinejoin: "round" };
+  if (id === "closeness") return <g {...p}><circle cx="9" cy="12" r="5.5" /><circle cx="15" cy="12" r="5.5" /></g>;
+  if (id === "drive") return <g {...p}><path d="M4 18 L10 12 L13.5 15 L20 8" /><path d="M15 8 H20 V13" /></g>;
+  if (id === "mind") return <g {...p}><circle cx="12" cy="12" r="8" /><path d="M7.5 12.5 Q9.75 9.5 12 12.5 T16.5 12.5" /></g>;
+  if (id === "money") return <g {...p}><ellipse cx="12" cy="7" rx="7" ry="2.8" /><path d="M5 7 V12 C5 13.6 8.1 14.8 12 14.8 S19 13.6 19 12 V7" /><path d="M5 12 V17 C5 18.6 8.1 19.8 12 19.8 S19 18.6 19 17 V12" /></g>;
+  if (id === "becoming") return <g {...p}><path d="M12 3 L13.8 10.2 L21 12 L13.8 13.8 L12 21 L10.2 13.8 L3 12 L10.2 10.2 Z" /></g>;
+  if (id === "sos") return <g {...p}><circle cx="12" cy="12" r="8.5" /><circle cx="12" cy="12" r="3.6" /><path d="M6 6 L9.4 9.4 M18 6 L14.6 9.4 M6 18 L9.4 14.6 M18 18 L14.6 14.6" /></g>;
+  return null;
+}
+function SubjectIcon({ id, size = 22 }) {
+  return <svg viewBox="0 0 24 24" width={size} height={size} aria-hidden="true" stroke={SUBJ_ACC[id]} className="subjicon"><SubjectGlyph id={id} /></svg>;
+}
 function Constellation() {
   const g = "#D4A547", f = "rgba(212,165,71,0.35)", d = "var(--ink12)";
   return (<svg viewBox="0 0 300 130" className="constel" aria-hidden="true">
@@ -862,62 +927,181 @@ function Constellation() {
     <circle cx="272" cy="70" r="3" fill="none" stroke={d} strokeWidth="1.2"/><circle cx="34" cy="62" r="3" fill="none" stroke={d} strokeWidth="1.2"/>
   </svg>);
 }
-function LibraryScreen({ onBack, onMini, miniDone }) {
-  const mailto = (n) => "mailto:ops@ishkiy.com?subject=" + encodeURIComponent("Library vote — " + n) + "&body=" + encodeURIComponent("Build \u201C" + n + "\u201D first. I'd take it.");
+/* ---------------- SOS ----------------
+   UK services, checked September 2026. On a phone every number is a tap to
+   call or text; on a computer the numbers show as plain text, because a tel:
+   link that opens nothing is worse than no link at all. */
+const SOS_LINES = [
+  { name: "Emergency services", what: "If you or someone else is in immediate danger, or you've hurt yourself and need medical help.", call: "999", hours: "24/7" },
+  { name: "NHS 111", what: "Urgent mental health help in England. Call and choose the mental health option, or use NHS 111 online.", call: "111", hours: "24/7", web: "https://111.nhs.uk", site: "111.nhs.uk" },
+  { name: "Samaritans", what: "Whatever you're going through, someone to talk to. Free from any phone, and it won't show on your bill.", call: "116 123", hours: "24/7", web: "https://www.samaritans.org", site: "samaritans.org" },
+  { name: "Shout", what: "If you'd rather text than talk. A trained volunteer texts back.", text: { to: "85258", body: "SHOUT", label: "Text SHOUT to 85258" }, hours: "24/7", web: "https://giveusashout.org", site: "giveusashout.org" },
+  { name: "YoungMinds", what: "For young people struggling with their mental health, and for parents worried about a child.", text: { to: "85258", body: "YM", label: "Text YM to 85258" }, call: "0808 802 5544", callLabel: "Parents Helpline", hours: "Text 24/7 · Parents Helpline weekdays", web: "https://www.youngminds.org.uk", site: "youngminds.org.uk" },
+  { name: "Childline", what: "For anyone under 19, about anything at all.", call: "0800 1111", hours: "24/7", web: "https://www.childline.org.uk", site: "childline.org.uk" },
+  { name: "Papyrus HOPELINE247", what: "For anyone under 35 having thoughts of suicide, and anyone worried about a young person.", call: "0800 068 4141", text: { to: "88247", label: "Text 88247" }, hours: "24/7", web: "https://www.papyrus-uk.org", site: "papyrus-uk.org" },
+  { name: "CALM", what: "Campaign Against Living Miserably. For anyone who's struggling or in crisis.", call: "0800 58 58 58", hours: "5pm to midnight, every day", web: "https://www.thecalmzone.net", site: "thecalmzone.net" },
+  { name: "Mind", what: "Information on mental health and where to find support near you. Not a crisis line.", call: "0300 123 3393", callLabel: "Infoline", hours: "Weekdays", web: "https://www.mind.org.uk", site: "mind.org.uk" },
+];
+const SOS_REGIONS = [["Scotland", "Breathing Space", "0800 83 85 87"], ["Wales", "C.A.L.L.", "0800 132 737"], ["Northern Ireland", "Lifeline", "0808 808 8000"]];
+const onPhone = () => { try { return window.matchMedia("(pointer: coarse)").matches || /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent); } catch { return false; } };
+function SOSNumber({ num, label, phone }) {
+  const text = (label ? label + " " : "") + num;
+  return phone ? <a className="sosbtn" href={"tel:" + num.replace(/\s/g, "")}>Call {text}</a> : <span className="sosnum">{label ? label + ": " : "Call "}<b>{num}</b></span>;
+}
+function SOSText({ t, phone }) {
+  return phone ? <a className="sosbtn" href={"sms:" + t.to + (t.body ? "?&body=" + encodeURIComponent(t.body) : "")}>{t.label}</a> : <span className="sosnum"><b>{t.label}</b></span>;
+}
+function SOSSection() {
+  const phone = onPhone();
+  return (
+    <section id="sos" className="subject sos">
+      <div className="subjhead">
+        <div className="subjtitle"><span className="subjbadge" style={{ background: SUBJ_ACC.sos + "1f" }}><SubjectIcon id="sos" /></span>
+          <div><p className="subjname">SOS</p><p className="subjline">If things feel like too much right now, you don't have to hold it on your own.</p></div>
+        </div>
+      </div>
+      <p className="sosnote">iSHKiY is a mirror, not a crisis service. These people are trained for exactly this, they're free, and none of them will judge you for calling. If you're in immediate danger, call <b>999</b> or go to A&amp;E.</p>
+      <div className="sosgrid">
+        {SOS_LINES.map((o) => (
+          <div key={o.name} className="sostile">
+            <p className="sosname">{o.name}</p>
+            <p className="soswhat">{o.what}</p>
+            <p className="soshours">{o.hours}</p>
+            <div className="sosacts">
+              {o.call && <SOSNumber num={o.call} label={o.callLabel} phone={phone} />}
+              {o.text && <SOSText t={o.text} phone={phone} />}
+              {o.web && <a className="soslink" href={o.web} target="_blank" rel="noopener noreferrer">{o.site} ↗</a>}
+            </div>
+          </div>
+        ))}
+      </div>
+      <p className="sosregion">Elsewhere in the UK: {SOS_REGIONS.map(([place, name, num], k) => (
+        <span key={place}>{k ? " · " : ""}{place}, {name} {phone ? <a href={"tel:" + num.replace(/\s/g, "")}>{num}</a> : <b>{num}</b>}</span>
+      ))}</p>
+    </section>
+  );
+}
+
+/* The "Grounded in…" line, which opens to say what that grounding actually is. */
+function ResearchNote({ from, research }) {
+  const [open, setOpen] = useState(false);
+  if (!research) return <p className="libfrom">{from}</p>;
+  return (
+    <div className="research">
+      <button className="libfrom resbtn" aria-expanded={open} onClick={() => setOpen(!open)}>{from}<span className="resi" aria-hidden="true">{open ? "−" : "i"}</span></button>
+      {open && <div className="resbody"><p>{research.what}</p><p><strong>What it can't claim.</strong> {research.limits}</p></div>}
+    </div>
+  );
+}
+
+/* A lens's read: the words, the bars, one thing to try. Used inline in the
+   Library and on the lens's own page. */
+function LensInsights({ id, result }) {
+  const r = readMini(id, result);
+  if (!r) return <p className="libline">This result was saved in an older format. Take the lens again to see your insights.</p>;
+  return (
+    <div className="insights">
+      {r.tag && <p className="instag">{r.tag}</p>}
+      <p className="inshead">{r.headline}</p>
+      <div className="minibody">{r.bars.filter(([, v]) => v != null).map(([label, v]) => (
+        <div key={label} className="insbar"><div className="insbarrow"><span>{label}</span><span className="tnum">{scoreLine("lens", v)}</span></div><div className="track"><div className="fill" style={{ width: `${v}%` }} /></div></div>
+      ))}</div>
+      {r.paras.map((t, k) => <p key={k} className="insp">{t}</p>)}
+      {r.tryThis && <p className="instry"><strong>Try this.</strong> {r.tryThis}</p>}
+      {r.care && <a className="rtbtn soscta" href="#sos">Talk to someone now →</a>}
+    </div>
+  );
+}
+
+function LensTile({ e, done, open, onMini, onRetake, mailto }) {
+  const [showIns, setShowIns] = useState(false);
+  const status = done ? "Taken" : !e.mini ? e.status : !open ? "Opens at Full Portrait" : e.tier === "MEMBERSHIP" ? "Open to founders" : "Ready";
+  return (
+    <div className={"libtile" + (e.mini ? " libready" : "") + (done ? " libdone" : "") + (e.mini && !open && !done ? " liblocked" : "")}>
+      <div className="librow"><span className={"libtier t" + e.tier}>{e.tier}</span><span className={"libstatus" + (done ? " done" : "")}>{done ? "✓ " : ""}{status}</span></div>
+      <p className="libname">{e.name}</p>
+      <ResearchNote from={e.from} research={e.research} />
+      <p className="libline">{e.line}</p>
+      {done ? (
+        <>
+          <button className="insbtn" aria-expanded={showIns} onClick={() => { if (!showIns) track("view_insights", e.mini); setShowIns(!showIns); }}>Your insights <span aria-hidden="true">{showIns ? "▴" : "▾"}</span></button>
+          {showIns && <div className="insfold"><LensInsights id={e.mini} result={done} /><div className="insacts"><button className="rtbtn" onClick={() => onMini(e.mini)}>Open the full read</button><button className="rtbtn ghostbtn" onClick={() => onRetake(e.mini)}>Take it again</button></div></div>}
+        </>
+      ) : e.mini ? (
+        open ? <button className="rtbtn" onClick={() => onMini(e.mini)}>Take this lens</button>
+          : <button className="rtbtn ghostbtn" disabled aria-disabled="true">🔒 Opens at Full Portrait</button>
+      ) : <a className="rtbtn ghostbtn" href={mailto(e.name)}>Build this one first</a>}
+    </div>
+  );
+}
+
+function LibraryScreen({ state, onBack, onMini, onRetake, onAssessment }) {
+  const mailto = (n) => "mailto:ops@ishkiy.com?subject=" + encodeURIComponent("Library vote — " + n) + "&body=" + encodeURIComponent("Build “" + n + "” first. I'd take it.");
+  const miniDone = state.miniResults || {};
+  const st = profileStrength(state);
+  /* Deploy previews can open the Library early, so it can be checked without
+     sitting all nine parts. Never on the live site — same rule as PREVIEW. */
+  const [peek, setPeek] = useState(false);
+  const open = st.allParts || peek;
+  const built = EXPANSIONS.filter((e) => e.mini);
+  const taken = built.filter((e) => miniDone[e.mini]).length;
   return (
     <div className="reportpage tint-heather">
       <div className="rhead noprint">
         <button className="ghost inkghost" onClick={onBack}>← Home</button>
         <Wordmark />
-        <span />
+        <a className="sosjump" href="#sos" aria-label="SOS: urgent support">SOS</a>
       </div>
       <article className="report">
         <p className="kicker gold">The Library of You</p>
         <h1 className="display ink">One profile. Deepening for life.</h1>
         <Constellation />
-        <p className="libnarr">Your report was the first light — the centre of the constellation. The Library is where the rest arrive. Every assessment here is a lens ground from something proven: the frameworks psychologists actually use, the ideas from the books that changed how people work, and — in time — the thinkers you already trust, distilling their philosophy with us into something you can take. Each one you complete adds a star to the same map: your Companion answers with more of you in the room, your report grows new chapters, and what you choose to share with a human across the table arrives richer. Some lenses will be free. Some will come with membership. All of them make the mirror truer.</p>
+        <p className="libnarr">Your report was the first light, the centre of the constellation. The Library is where the rest arrive: {built.length} lenses across five parts of life — how you attach and how you fight, what drives you and what stops you, how you carry pressure, what money means to you, and whether the life you're building is the one you meant. Each is ground from research psychologists actually use. Each one you complete adds a star to the same map: your Companion answers with more of you in the room, and what you choose to share with a human arrives richer.</p>
+        {!st.allParts && (
+          <div className="liblock">
+            <p className="liblockk">🔒 Opens at Full Portrait</p>
+            <p className="liblockt">You've finished {st.parts} of {st.totalParts} parts of the assessment. Finish the rest and every lens here opens — including how you attach, how you fight, and where your idea of 'enough' came from.</p>
+            <div className="track"><div className="fill" style={{ width: `${Math.round((st.parts / st.totalParts) * 100)}%` }} /></div>
+            <button className="btn gold" onClick={onAssessment}>{st.parts ? "Continue the assessment" : "Start the assessment"}</button>
+            {isPreviewHost() && <button className="exskip libpeek" onClick={() => setPeek(!peek)}>{peek ? "Preview: lock it again" : "Preview build: open the Library anyway"}</button>}
+          </div>
+        )}
+        <p className="libtally"><span className="tnum">{taken}</span> of <span className="tnum">{built.length}</span> lenses taken</p>
         <div className="subjnav" role="list">
           {SUBJECTS.map((s) => {
-            const inIt = EXPANSIONS.filter((e) => e.subject === s.id);
-            const ready = inIt.filter((e) => e.mini).length;
+            const here = built.filter((e) => e.subject === s.id);
+            const doneHere = here.filter((e) => miniDone[e.mini]).length;
             return (
               <a key={s.id} role="listitem" className="subjchip" href={"#subj-" + s.id}>
-                {s.name}<span className="subjcount">{ready ? `${ready} ready` : "soon"}</span>
+                <SubjectIcon id={s.id} size={16} />{s.name}<span className="subjcount">{doneHere}/{here.length}</span>
               </a>
             );
           })}
+          <a role="listitem" className="subjchip sosclip" href="#sos"><SubjectIcon id="sos" size={16} />SOS</a>
         </div>
 
         {SUBJECTS.map((s) => {
           const inIt = EXPANSIONS.filter((e) => e.subject === s.id);
           if (!inIt.length) return null;
-          const doneHere = inIt.filter((e) => e.mini && miniDone && miniDone[e.mini]).length;
+          const here = inIt.filter((e) => e.mini);
+          const doneHere = here.filter((e) => miniDone[e.mini]).length;
           return (
             <section key={s.id} id={"subj-" + s.id} className="subject">
               <div className="subjhead">
-                <div>
-                  <p className="subjname">{s.name}</p>
-                  <p className="subjline">{s.line}</p>
+                <div className="subjtitle">
+                  <span className="subjbadge" style={{ background: SUBJ_ACC[s.id] + "1f" }}><SubjectIcon id={s.id} /></span>
+                  <div><p className="subjname">{s.name}</p><p className="subjline">{s.line}</p></div>
                 </div>
-                {doneHere > 0 && <span className="subjdone">{doneHere} taken</span>}
+                <span className={"subjdone" + (doneHere ? " some" : "")}>{doneHere} of {here.length} taken</span>
               </div>
               <p className="subjask">“{s.ask}”</p>
               <div className="libgrid">
-                {inIt.map((e) => (
-                  <div key={e.name} className={"libtile" + (e.mini ? " libready" : "")}>
-                    <div className="librow"><span className={"libtier t" + e.tier}>{e.tier}</span><span className="libstatus">{e.mini && miniDone && miniDone[e.mini] ? "Done" : e.status}</span></div>
-                    <p className="libname">{e.name}</p>
-                    <p className="libfrom">{e.from}</p>
-                    <p className="libline">{e.line}</p>
-                    {e.mini
-                      ? <button className="rtbtn" onClick={() => onMini(e.mini)}>{miniDone && miniDone[e.mini] ? "See it again" : "Take this lens"}</button>
-                      : <a className="rtbtn ghostbtn" href={mailto(e.name)}>Build this one first</a>}
-                  </div>
-                ))}
+                {inIt.map((e) => <LensTile key={e.name} e={e} done={e.mini ? miniDone[e.mini] : null} open={open} onMini={onMini} onRetake={onRetake} mailto={mailto} />)}
               </div>
             </section>
           );
         })}
+        <SOSSection />
         <p className="hquote">The future is not artificial; it's authentically human.</p>
       </article>
     </div>
@@ -925,9 +1109,9 @@ function LibraryScreen({ onBack, onMini, miniDone }) {
 }
 
 /* ---------------- the cockpit ---------------- */
-function HomeTile({ title, sub, locked, lockNote, onClick, art, badge, acc }) {
+function HomeTile({ title, sub, locked, lockNote, onClick, art, badge, acc, pulse }) {
   return (
-    <button className={"htile" + (locked ? " locked" : "")} style={acc ? { borderTopColor: acc, borderTopWidth: "4px", background: `linear-gradient(180deg, ${acc}14, transparent 55%)` } : undefined} onClick={locked ? undefined : onClick} aria-disabled={locked}>
+    <button className={"htile" + (locked ? " locked" : "") + (pulse ? " pulse" : "")} style={acc ? { borderTopColor: acc, borderTopWidth: "4px", background: `linear-gradient(180deg, ${acc}14, transparent 55%)` } : undefined} onClick={locked ? undefined : onClick} aria-disabled={locked}>
       {badge != null && <span className="htbadge">{badge}</span>}
       {art}
       <span className="httitle">{title}</span>
@@ -963,12 +1147,16 @@ const GLYPHS = [
 ];
 function RotatingFaces() { return <Rotator items={FACES} every={3600} />; }
 function RotatingGlyphs() { return <Rotator items={GLYPHS} every={4200} />; }
-function Home({ state, go, startAssessment, onTheme }) {
+function Home({ state, go, startAssessment, onTheme, onResume }) {
   const name = (state.answers["AR-1"] || "").trim();
   let compLeft = null;
   try { const cc = loadCompanion(); compLeft = Math.max(0, Q_CAP - (cc.count || 0)); } catch {}
   const hasReport = !!state.report;
-  const midway = !hasReport && Object.keys(state.answers).length > 0;
+  /* Finished at least the first look but no report on file — the old badge
+     screen could leave people here. Offer to write it rather than asking them
+     to carry on answering. */
+  const reportDue = !hasReport && STARTER_PARTS.every((id) => (state.completedAt || {})[id]);
+  const midway = !hasReport && !reportDue && Object.keys(state.answers).length > 0;
   const strength = profileStrength(state);
   const strengthStep = nextStep(strength);
   const gold = "#D4A547", faint = "rgba(15,30,61,0.18)";
@@ -977,14 +1165,22 @@ function Home({ state, go, startAssessment, onTheme }) {
       <div className="home">
         <div className="hrow"><Wordmark /><button className="thememini" onClick={onTheme}>{state.dark ? "Light mode" : "Dark mode"}</button></div>
         <h1 className="display ink hgreet">{name ? `Welcome back, ${name}.` : "Welcome."}</h1>
-        <p className="lede inkdim hsub">{hasReport ? "Your profile is waiting. So is the team." : midway ? "You're partway through. Pick up where you left off — your answers kept your place." : "Everything here begins with ten honest minutes. Start when you're ready."}</p>
+        <p className="lede inkdim hsub">{hasReport ? "Your profile is waiting. So is the team." : reportDue ? "You've done the first look. Your report is ready to be written — the Companion and the rest open once it is." : midway ? "You're partway through. Pick up where you left off — your answers kept your place." : "Everything here begins with ten honest minutes. Start when you're ready."}</p>
+        {state.paused && PARTS[state.paused.part] && (
+          <button className="resumecard" onClick={() => { track("resume"); onResume(); }}>
+            <span className="resumek">Saved for later</span>
+            <span className="resumet">Pick up where you left off</span>
+            <span className="resumes">{PARTS[state.paused.part].title}{state.paused.at === "run" ? ` · question ${state.paused.item + 1}` : ""} →</span>
+          </button>
+        )}
         <div className="hgrid">
           <HomeTile
             acc="#5C7CA3"
-            title={hasReport ? "Your profile" : midway ? "Continue the assessment" : "Take the assessment"}
-            badge={hasReport ? (levelFor(strength) || {}).name : null}
-            sub={hasReport ? "Read your report. Save it, share it, retake parts." : "Answer questions about yourself. Your first profile takes 10–15 minutes."}
-            onClick={hasReport ? () => { track("view_report"); go("report"); } : () => { track("assessment_start"); startAssessment(); }}
+            title={hasReport ? "Your profile" : reportDue ? "Write my report" : midway ? "Continue the assessment" : "Take the assessment"}
+            badge={hasReport ? (levelFor(strength) || {}).name : reportDue ? "Ready" : null}
+            pulse={reportDue}
+            sub={hasReport ? "Read your report. Save it, share it, retake parts." : reportDue ? "Your answers are in. Tap and it's written for you in about a minute. You can go deeper afterwards." : "Answer questions about yourself. Your first profile takes 10–15 minutes."}
+            onClick={hasReport || reportDue ? () => { track(reportDue ? "report_recover" : "view_report"); go("report"); } : state.paused ? () => { track("resume"); onResume(); } : () => { track("assessment_start"); startAssessment(); }}
             art={<svg viewBox="0 0 60 40" className="hart"><circle cx="30" cy="20" r="12" fill="none" stroke={gold} strokeWidth="2"/><circle cx="30" cy="20" r="4" fill={gold}/></svg>}
           />
           <HomeTile
@@ -1015,7 +1211,8 @@ function Home({ state, go, startAssessment, onTheme }) {
           <HomeTile
             acc="#8A6FA0"
             title="The Library of You"
-            sub="More assessments to add to your profile. Some free, some with membership."
+            sub={strength.allParts ? `Twelve lenses on relationships, drive, mind, money and purpose. ${strength.lenses} of ${strength.totalLenses} taken.` : "Twelve lenses on relationships, drive, mind, money and purpose. Browse now; they open at Full Portrait."}
+            badge={strength.allParts ? `${strength.lenses}/${strength.totalLenses} taken` : "Opens at Full Portrait"}
             onClick={() => { track("view_library"); go("library"); }}
             art={<RotatingGlyphs />}
           />
@@ -1070,7 +1267,7 @@ const saveC = (c) => { try { localStorage.setItem(CKEY, JSON.stringify(c)); } ca
 
 const COMPANION_SYSTEM = `You are the Report Companion inside iSHKiY's Essence Recovery Assessment. You have read this person's full profile and you speak as someone who knows them properly — plain, warm, honest. UK English. Short sentences. Under 170 words per reply. Same banned words and constructions as the report voice: no leverage/optimise/journey/unlock/delve/navigate, no "it's worth noting", no "not just X but Y", no bullet lists, no exclamation marks.
 
-Ground every answer in THEIR profile — their traits, values, interests, AND any mini-assessments they have taken (friend/attachment, approach-avoidance), plus their own words. If they have completed a lens like the friend assessment, weave what it revealed into your answer when relevant. Describe what their profile shows in plain human language; never quote raw numbers or scores at them — they have no context for a number. Say "you lean toward the long view", not "your openness is 72". If a question can't be answered from the profile plus ordinary life-and-work wisdom, say so plainly rather than inventing.
+Ground every answer in THEIR profile — their traits, values, interests, AND any Library lenses they have taken (attachment, closeness, conflict, drive, coping, pressure, resilience, money, aspiration, life story), plus their own words. If they have completed a lens, weave what it revealed into your answer when relevant. Describe what their profile shows in plain human language; never quote raw numbers or scores at them — they have no context for a number. Say "you lean toward the long view", not "your openness is 72". If a question can't be answered from the profile plus ordinary life-and-work wisdom, say so plainly rather than inventing.
 
 Hard boundaries: you are not a clinician and the assessment is not clinically validated — never diagnose, never advise on medication or medical or legal matters; suggest a proper professional instead. If they express serious distress or thoughts of harming themselves, respond with warmth and care, don't lecture, and gently encourage them to talk to someone they trust or a professional soon. You may be honest that some questions deserve a human. Whenever you state a boundary or disclaimer — that you are not a clinician, that this is not therapy or medical or legal advice, or that a professional is the right next step — wrap that exact sentence in [! and !] markers so it can be shown clearly.
 
@@ -1375,7 +1572,6 @@ NEW is yes if the question opens a subject unrelated to that voice's current top
           </button>
         ))}
       </div>
-      <p className="hquote">The future is not artificial; it's authentically human.</p>
     </section>
   );
 
@@ -1544,7 +1740,10 @@ function Retakes({ completedAt, onRetake }) {
 
 
 function CompanionScreen({ state, scores, onBack, onRegenerate, onHuman }) {
-  try { window.__eraMinis = state.miniResults || null; } catch {}
+  try {
+    const mr = state.miniResults || {};
+    window.__eraMinis = Object.keys(mr).length ? Object.fromEntries(Object.keys(mr).filter((id) => MINIS[id]).map((id) => { const r = readMini(id, mr[id]); return [id, { lens: MINIS[id].name, pattern: r && r.tag, read: r && r.headline, detail: r && r.bars.filter(([, v]) => v != null).map(([l, v]) => `${l}: ${bandOf("lens", v)}`).join("; ") }]; })) : null;
+  } catch {}
   if (!state.report || !scores) return null;
   return (
     <div className="reportpage">
@@ -1976,6 +2175,7 @@ const EXPLAIN = [
   { art: "fork", line: "For the choices that keep you up.", sub: "Hard decisions are usually hard because you don't yet know what you actually want. This is how you find out." },
   { art: "mirror", line: "It starts with a few honest questions.", sub: "What you're for. How you work. What pulls you." },
   { art: "report", line: "You get a report written just for you.", sub: "Yours to keep. No one else can read it." },
+  { art: "library", line: "Finish it, and the Library opens.", sub: "Twelve more lenses across Relationships, Drive, Mind, Money and Purpose. How you attach. How you fight. Where your idea of ‘enough’ came from. They unlock when your portrait is full." },
   { art: "voices", line: "Then a team who have read it — standing behind you.", sub: "One to listen, one to push, one for the long view. They share one memory of you, and they don't forget." },
   { art: "heart", line: "And, when you're ready, a real human to talk to.", sub: "Chosen to fit you — because they understand how you work." },
 ];
@@ -1995,6 +2195,20 @@ function ExplainArt({ kind }) {
       <path d="M40 92 A20 20 0 0 1 80 92" fill="none" stroke="#D4A547" strokeWidth="2.6" />
     </svg>
   );
+  /* The five Library subjects in a ring around a keyhole: what finishing opens. */
+  if (kind === "library") {
+    const ring = ["closeness", "drive", "mind", "money", "becoming"];
+    return (
+      <svg viewBox="0 0 120 104" className="exart">
+        {ring.map((id, k) => {
+          const a = -Math.PI / 2 + (k * 2 * Math.PI) / ring.length, x = 60 + 38 * Math.cos(a), y = 52 + 38 * Math.sin(a);
+          return <g key={id} transform={`translate(${x - 12} ${y - 12})`} stroke={SUBJ_ACC[id]}><SubjectGlyph id={id} /></g>;
+        })}
+        <circle cx="60" cy="52" r="15" fill="rgba(212,165,71,0.14)" stroke="#D4A547" strokeWidth="2" />
+        <circle cx="60" cy="48.5" r="3.6" fill="#D4A547" /><path d="M58 51 L56.8 59 H63.2 L62 51 Z" fill="#D4A547" />
+      </svg>
+    );
+  }
   // A line knocked down, and rising past where it fell.
   if (kind === "storm") return <svg viewBox="0 0 120 104" className="exart"><path d="M22 46 L44 46 L56 72 L70 30 L82 58 L98 58" fill="none" stroke="rgba(245,241,232,0.35)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/><path d="M70 30 L82 58 L98 58" fill="none" stroke="#D4A547" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"/><circle cx="98" cy="58" r="4" fill="#D4A547"/></svg>;
   // Something held around something soft.
@@ -2167,7 +2381,7 @@ function StrengthScreen({ state, onBack, onAssessment, onLibrary }) {
           <div className="sbrow">
             <div className="sbhead"><span>The Library</span><span className="tnum">{st.lenses} of {st.totalLenses} lenses</span></div>
             <div className="track"><div className="fill" style={{ width: `${lensPct}%` }} /></div>
-            <p className="sbnote">Worth {LENS_WEIGHT} of your 100. Lenses reach where the assessment can't — closeness, money, drive. More are being written, and your strength grows when they land.</p>
+            <p className="sbnote">Worth {LENS_WEIGHT} of your 100. Lenses reach where the assessment can't — relationships, drive, mind, money and purpose. They open at Full Portrait.</p>
           </div>
         </div>
 
@@ -2235,16 +2449,18 @@ function MiniRunner({ miniId, answers, onDone, onBack }) {
           <p className="kicker gold">{m.kicker}</p>
           <h2 className="question">{item.text}</h2>
           {item.format === "L5" && <div className="opts">{L5.map((o, k) => (<button key={o} className={"opt" + (chosen === k ? " sel" : "")} onClick={() => set(k, true)}><span className="odot" />{o}</button>))}</div>}
+          {item.format === "PK" && <div className="opts">{item.options.map((o) => (<button key={o.key} className={"opt" + (chosen === o.key ? " sel" : "")} onClick={() => set(o.key, true)}><span className="odot" />{o.text}</button>))}</div>}
           {item.format === "FC" && <div className="fc">{["a", "b"].map((kk) => (<button key={kk} className={"fccard" + (chosen === kk ? " sel" : "")} onClick={() => set(kk, true)}>{item[kk].text}</button>))}</div>}
         </div>
       </div>
     </Shell>
   );
 }
-function MiniResult({ miniId, result, onBack }) {
+function MiniResult({ miniId, result, onBack, onRetake }) {
   const [revealing, setRevealing] = useState(false);
   const again = () => { setRevealing(true); setTimeout(() => setRevealing(false), 1600); };
   const m = MINIS[miniId];
+  if (!m || !result) return null;
   return (
     <div className={"reportpage tint-" + m.tint}>
       <div className="rhead noprint"><button className="ghost inkghost" onClick={onBack}>← Library</button><Wordmark /><span /></div>
@@ -2252,30 +2468,52 @@ function MiniResult({ miniId, result, onBack }) {
         <p className="kicker gold">{m.kicker}</p>
         <h1 className="display ink">{m.name}</h1>
         {revealing && <div className="revealveil"><Orb size={84} /><p className="revealline">Looking again…</p></div>}
-        {result.kind === "friend" ? (
-          <div className="minibody">
-            <div className="minirow"><span>What you give</span><span className="tnum">{scoreLine("lens", result.give)}</span></div>
-            <div className="minirow"><span>What you need</span><span className="tnum">{scoreLine("lens", result.need)}</span></div>
-            <p className="rbody"><em>{result.give != null && result.need != null && result.give - result.need > 15 ? "You give more than you ask for. A quiet strength — and worth watching, so the well doesn't run dry." : result.need != null && result.give != null && result.need - result.give > 15 ? "You feel the need for closeness keenly. That's not weakness; it's how you're wired to bond." : "You give and need in fair balance. Rarer than it sounds."}</em></p>
-            {result.needMost && <p className="rbody">When it comes to it, the friend you need most is one who offers <strong>{result.needMost === "reliability" ? "reliability — someone who simply shows up" : "depth — someone who really gets you"}</strong>.</p>}
-          </div>
-        ) : (
-          <div className="minibody">
-            <div className="minirow"><span>Moving toward what you want</span><span className="tnum">{scoreLine("lens", result.approach)}</span></div>
-            <div className="minirow"><span>Moving away from what you fear</span><span className="tnum">{scoreLine("lens", result.avoid)}</span></div>
-            <p className="rbody"><em>{result.orientation === "toward" ? "You lead with the upside. You move toward what you want more than away from what you fear — which makes you brave, and occasionally blind to the cliff edge." : "You lead with care. You move to protect what matters before you reach for more — which makes you steady, and sometimes slower to the thing you'd love."}</em></p>
-          </div>
-        )}
-        <div className="minihelp"><p><strong>What this means.</strong> {result.kind === "friend" ? "This lens looks at two sides of closeness: what you naturally give the people you love, and what you quietly need back from them. Neither number is good or bad — the interesting part is the gap between them, and whether the people around you know what you need." : "This lens looks at what drives you: whether you move toward the things you want, or away from the things you fear. Most people do both, but one usually leads. Knowing which one leads helps you understand why some choices feel easy and others feel like a fight."}</p></div>
+        <p className="kicker">Your insights</p>
+        <LensInsights id={miniId} result={result} />
+        <div className="minihelp"><ResearchNote from={m.from} research={m.research} /></div>
         <button className="setbtn" onClick={again}>Reveal this insight again</button>
+        <button className="setbtn" onClick={onRetake}>Take this lens again</button>
+        {readMini(miniId, result)?.care && <div className="noprint"><SOSSection /></div>}
         <p className="integrity">A short lens, {m.from.toLowerCase()}. It adds to your profile — your Companion now knows this about you too. A self-discovery tool, not a clinical measure.</p>
       </article>
     </div>
   );
 }
 
+/* What each part adds, in the words the intro uses to invite people further. */
+const PART_GIVES = {
+  arrival: "your own story", think1: "how you work through patterns and numbers",
+  think2: "how you work with words and logic", ei1: "how you read a room", ei2: "how you handle the heat",
+  riasec: "what pulls you", values: "what you're for", big5: "how you work", mirror: "where you're headed",
+};
+const listJoin = (xs) => xs.length < 2 ? xs.join("") : xs.slice(0, -1).join(", ") + " and " + xs[xs.length - 1];
+/* Until the portrait is full, the report opens with this rather than an
+   AI-written opener: plain words on how much of the picture there is, and
+   what finishing adds. Written here, not by the model, so it can never
+   misname someone or list what they "didn't give". */
+function ViewIntro({ strength, completedAt, onDeeper }) {
+  const lvl = levelFor(strength);
+  const done = PARTS.filter((p) => completedAt[p.id]);
+  const todo = PARTS.filter((p) => !completedAt[p.id]);
+  return (
+    <section className="viewintro">
+      <p className="kicker gold">Your view so far</p>
+      <p className="viewhead">{lvl ? `${lvl.name}: ${lvl.accuracy}.` : "A first glimpse."}</p>
+      <div className="track"><div className="fill" style={{ width: `${Math.round((done.length / PARTS.length) * 100)}%` }} /></div>
+      <p className="viewmeta">{done.length} of {PARTS.length} parts</p>
+      <p>This report reads from {listJoin(done.map((p) => PART_GIVES[p.id] || p.title.toLowerCase()))}. That's enough for an honest look, and everything below comes straight from your answers.</p>
+      <p>Each part you add brings more of you into focus: {listJoin(todo.slice(0, 3).map((p) => PART_GIVES[p.id] || p.title.toLowerCase()))}{todo.length > 3 ? ", and more" : ""}. Finish all nine and you reach <strong>Full Portrait</strong>: the fullest picture iSHKiY can draw, your own words woven through the report, and the Library of You unlocked.</p>
+      {onDeeper && <button className="btn gold noprint" onClick={onDeeper}>Carry on where the picture stops →</button>}
+      <p className="viewthen">For now, here's what your answers already show.</p>
+    </section>
+  );
+}
+/* A report's opener is everything before its first "## " section. */
+const dropOpener = (text) => { const k = String(text || "").search(/(^|\n)## /); return k > 0 ? text.slice(k).replace(/^\n+/, "") : text; };
+
 function Report({ report, name, answers, scores, companionStart, completedAt, strength, onBack, onLibrary, onDeeper, onRegenerate, onRetake, onRestart, onStrength }) {
   if (!report) return null;
+  const partial = !strength.allParts && !report.preview;
   return (
     <div className="reportpage">
       <div className="rhead noprint">
@@ -2301,10 +2539,11 @@ function Report({ report, name, answers, scores, companionStart, completedAt, st
         <h1 className="display ink">{name ? `${name}, this is you.` : "This is you."}</h1>
         <p className="lede inkdim noprint">Your report, your dimension tiles, your share card — the centre everything else here orbits.</p>
         {report.preview && <div className="previewnote"><p>Your real report didn't finish writing — usually just a connection blip. Your answers are safe on this phone. One tap tries again.</p><button className="btn gold" onClick={onRegenerate}>Write my real report</button></div>}
+        {partial && <ViewIntro strength={strength} completedAt={completedAt} onDeeper={onDeeper} />}
         {scores && <Tiles scores={scores} />}
-        <div className="rbody" dangerouslySetInnerHTML={{ __html: md(report.text) }} />
+        <div className="rbody" dangerouslySetInnerHTML={{ __html: md(partial ? dropOpener(report.text) : report.text) }} />
         <p className="integrity">Grounded in established psychological frameworks — CHC, Big Five, Goleman EI, RIASEC and Schwartz Values. A structured self-discovery tool, not a clinical or validated psychometric instrument. Your answers never left your device, and no one — iSHKiY included — can see them or your conversations without your explicit permission. This report was written for you alone, and it belongs to you.</p>
-        {onDeeper && scores && scores.measured && !(scores.measured.thinking && scores.measured.ei && scores.measured.riasec && scores.measured.values && scores.measured.big5) && (
+        {!partial && onDeeper && scores && scores.measured && !(scores.measured.thinking && scores.measured.ei && scores.measured.riasec && scores.measured.values && scores.measured.big5) && (
           <button className="deeperband noprint" onClick={onDeeper}>
             <span className="libctak">Your report is real — and it can go deeper</span>
             <span className="libctat">Answer more parts to sharpen it. Each one earns a badge. →</span>
@@ -2316,6 +2555,7 @@ function Report({ report, name, answers, scores, companionStart, completedAt, st
         </button>
         <p className="printonly printfoot">ishkiy-era.netlify.app · #NotBuiltForABox · <em>The box was never you.</em></p>
         <Retakes completedAt={completedAt} onRetake={onRetake} />
+        {!report.preview && <button className="ghost inkghost noprint rewrite" onClick={() => { if (confirm("Rewrite your report from your current answers? This version is replaced.")) { track("report_rewrite"); onRegenerate(); } }}>Rewrite my report</button>}
         <button className="ghost inkghost noprint" onClick={() => { if (confirm("Start over? This clears your answers and report from this device.")) onRestart(); }}>Start over</button>
       </article>
     </div>
