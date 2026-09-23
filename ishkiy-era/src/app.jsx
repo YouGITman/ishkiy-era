@@ -1115,7 +1115,11 @@ function Home({ state, go, startAssessment, onTheme }) {
   let compLeft = null;
   try { const cc = loadCompanion(); compLeft = Math.max(0, Q_CAP - (cc.count || 0)); } catch {}
   const hasReport = !!state.report;
-  const midway = !hasReport && Object.keys(state.answers).length > 0;
+  /* Finished at least the first look but no report on file — the old badge
+     screen could leave people here. Offer to write it rather than asking them
+     to carry on answering. */
+  const reportDue = !hasReport && STARTER_PARTS.every((id) => (state.completedAt || {})[id]);
+  const midway = !hasReport && !reportDue && Object.keys(state.answers).length > 0;
   const strength = profileStrength(state);
   const strengthStep = nextStep(strength);
   const gold = "#D4A547", faint = "rgba(15,30,61,0.18)";
@@ -1124,14 +1128,14 @@ function Home({ state, go, startAssessment, onTheme }) {
       <div className="home">
         <div className="hrow"><Wordmark /><button className="thememini" onClick={onTheme}>{state.dark ? "Light mode" : "Dark mode"}</button></div>
         <h1 className="display ink hgreet">{name ? `Welcome back, ${name}.` : "Welcome."}</h1>
-        <p className="lede inkdim hsub">{hasReport ? "Your profile is waiting. So is the team." : midway ? "You're partway through. Pick up where you left off — your answers kept your place." : "Everything here begins with ten honest minutes. Start when you're ready."}</p>
+        <p className="lede inkdim hsub">{hasReport ? "Your profile is waiting. So is the team." : reportDue ? "You've done the first look. Your report is ready to be written — the Companion and the rest open once it is." : midway ? "You're partway through. Pick up where you left off — your answers kept your place." : "Everything here begins with ten honest minutes. Start when you're ready."}</p>
         <div className="hgrid">
           <HomeTile
             acc="#5C7CA3"
-            title={hasReport ? "Your profile" : midway ? "Continue the assessment" : "Take the assessment"}
-            badge={hasReport ? (levelFor(strength) || {}).name : null}
-            sub={hasReport ? "Read your report. Save it, share it, retake parts." : "Answer questions about yourself. Your first profile takes 10–15 minutes."}
-            onClick={hasReport ? () => { track("view_report"); go("report"); } : () => { track("assessment_start"); startAssessment(); }}
+            title={hasReport ? "Your profile" : reportDue ? "Write my report" : midway ? "Continue the assessment" : "Take the assessment"}
+            badge={hasReport ? (levelFor(strength) || {}).name : reportDue ? "Ready" : null}
+            sub={hasReport ? "Read your report. Save it, share it, retake parts." : reportDue ? "Your answers are in. Tap and it's written for you in about a minute. You can go deeper afterwards." : "Answer questions about yourself. Your first profile takes 10–15 minutes."}
+            onClick={hasReport || reportDue ? () => { track(reportDue ? "report_recover" : "view_report"); go("report"); } : () => { track("assessment_start"); startAssessment(); }}
             art={<svg viewBox="0 0 60 40" className="hart"><circle cx="30" cy="20" r="12" fill="none" stroke={gold} strokeWidth="2"/><circle cx="30" cy="20" r="4" fill={gold}/></svg>}
           />
           <HomeTile
