@@ -1,4 +1,19 @@
 // iSHKiY shared AI proxy — key lives in Netlify env var ANTHROPIC_API_KEY.
+/* The Companion resends the same profile, report and voice instructions with
+   every question. Sent as `cached`, that prefix is marked for prompt caching:
+   repeat reads within a few minutes cost about a tenth of fresh input, and only
+   the part that changes each time (`system`) is billed at full rate. Callers
+   that send `system` alone behave exactly as before. */
+const systemFrom = (body) => {
+  const cached = typeof body.cached === "string" ? body.cached.slice(0, 30000) : "";
+  const rest = typeof body.system === "string" ? body.system.slice(0, 32000 - cached.length) : "";
+  if (!cached) return rest || undefined;
+  return [
+    { type: "text", text: cached, cache_control: { type: "ephemeral" } },
+    ...(rest ? [{ type: "text", text: rest }] : []),
+  ];
+};
+
 export default async (req) => {
   if (req.method !== "POST") return new Response("Method not allowed", { status: 405 });
   const key = process.env.ANTHROPIC_API_KEY;
@@ -16,7 +31,7 @@ export default async (req) => {
     // 8000 used to sit here and the Companion silently overran it — the profile,
     // the report and the shared memory together run past 20k, and the tail of the
     // prompt (the "answer this message now" instruction) was being cut off.
-    system: typeof body.system === "string" ? body.system.slice(0, 32000) : undefined,
+    system: systemFrom(body),
     messages: Array.isArray(body.messages) ? body.messages.slice(0, 8) : [],
   };
 
