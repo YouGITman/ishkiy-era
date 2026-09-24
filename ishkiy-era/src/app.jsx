@@ -119,6 +119,22 @@ async function sha256(text) {
   return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
+/* ---------------- membership ----------------
+   Stripe is the record of who is a member. After checkout the app holds a
+   signed token for its Stripe customer (netlify/lib/membership.js) and asks
+   /api/membership now and then; it never decides membership on its own.
+   Founding access codes still work, and count as access. */
+const PRICE = { intro: "£9.99", monthly: "£12.99", annual: "£89.99" };
+const isMember = (s) => !!(s && s.membership && s.membership.live);
+const hasAccess = (s) => isMember(s) || !!(s && s.unlocked);
+const postJSON = async (path, body) => {
+  const r = await fetch(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(d.error || "Something went wrong. Try again in a moment.");
+  return d;
+};
+const fmtDate = (ms) => new Date(ms).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
+
 /* ---------------- scoring ---------------- */
 const likertVal = (idx, reverse) => (reverse ? 4 - idx : idx) + 1; // 1..5
 const to100 = (mean) => mean == null ? null : Math.round(((mean - 1) / 4) * 100);
@@ -310,6 +326,29 @@ function FramesSvg() {
 function App() {
   const [state, setState] = useState(() => ({ part: 0, item: 0, answers: {}, unlocked: false, report: null, ...load(), phase: "breath" }));
   const update = (patch) => setState((s) => { const n = { ...s, ...patch }; save(n); return n; });
+  /* Coming back from Stripe (checkout or the membership portal), and a quiet
+     re-check of membership every few hours so a cancellation or failed card
+     shows up without anyone having to do anything. */
+  useEffect(() => {
+    const q = new URLSearchParams(location.search);
+    const back = q.get("checkout"), sid = q.get("session_id"), portal = q.get("portal");
+    if (back || portal) history.replaceState(null, "", location.pathname);
+    if (back === "success" && sid) {
+      postJSON("/api/membership", { session_id: sid })
+        .then((m) => { track("member_join", m.plan); update({ membership: { ...m, checkedAt: Date.now() }, hadMembership: true, joinNote: null, phase: state.afterJoin || "home", afterJoin: null }); })
+        .catch(() => update({ phase: "unlock", joinNote: "Your payment went through, but we couldn't confirm it just now. Refresh this page in a minute. If it still won't open, email ops@ishkiy.com and we'll sort it." }));
+      return;
+    }
+    if (back === "cancel") { update({ phase: "unlock", joinNote: "No payment was taken. Pick up whenever you're ready." }); return; }
+    const m = state.membership;
+    if (m && m.token && (portal || !m.checkedAt || Date.now() - m.checkedAt > 6 * 3600e3)) {
+      postJSON("/api/membership", { token: m.token })
+        .then((d) => update({ membership: { ...d, checkedAt: Date.now() }, ...(portal ? { phase: "settings" } : {}) }))
+        .catch(() => {});
+    }
+  }, []);
+  const goJoin = (after) => update({ afterJoin: after, joinNote: null, phase: "unlock" });
+  const memberUpdate = (m) => update({ membership: { ...m, checkedAt: Date.now() }, hadMembership: true });
   const answers = state.answers;
   const scores = useMemo(() => (["glimmer", "generating", "report", "companion", "humans", "library", "account", "settings", "constellation"].includes(state.phase) && Object.keys(answers).length) ? computeScores(answers) : null, [state.phase, answers]);
 
@@ -318,26 +357,30 @@ function App() {
 
   if (state.phase === "breath") return <Breath onEnter={() => update({ phase: state.seenExplainer ? "home" : "explainer" })} />;
   if (state.phase === "home") return <Home state={state} onResume={() => { const p = state.paused; update({ part: p.part, item: p.item, arc: p.arc, paused: null, phase: p.at === "run" ? "run" : "intro" }); }} onTheme={() => update({ dark: !state.dark })} go={(p) => update({ phase: p })} startAssessment={() => update({ phase: Object.keys(answers).length ? "chooseDepth" : "chooseDepth" })} />;
-  if (state.phase === "companion") return <CompanionScreen state={state} scores={scores} onBack={() => update({ phase: "home" })} onRegenerate={() => update({ phase: "generating" })} onHuman={() => update({ phase: "humans" })} />;
+  if (state.phase === "companion") return <CompanionScreen state={state} scores={scores} onJoin={() => goJoin("companion")} onBack={() => update({ phase: "home" })} onRegenerate={() => update({ phase: "generating" })} onHuman={() => update({ phase: "humans" })} />;
   if (state.phase === "constellation") return <ConstellationScreen state={state} update={update} onBack={() => update({ phase: "home" })} />;
-  if (state.phase === "humans") return <HumansScreen scores={scores} state={state} onBack={() => update({ phase: "home" })} onApply={() => update({ phase: "apply" })} />;
-  if (state.phase === "account") return <AccountScreen state={state} scores={scores} onBack={() => update({ phase: "home" })} />;
-  if (state.phase === "settings") return <SettingsScreen state={state} update={update} onBack={() => update({ phase: "home" })} />;
+  if (state.phase === "humans") return <HumansScreen scores={scores} state={state} onJoin={() => goJoin("humans")} onBack={() => update({ phase: "home" })} onApply={() => update({ phase: "apply" })} />;
+  if (state.phase === "account") return <AccountScreen state={state} scores={scores} onMembership={memberUpdate} onBack={() => update({ phase: "home" })} />;
+  if (state.phase === "settings") return <SettingsScreen state={state} update={update} onJoin={() => goJoin("settings")} onBack={() => update({ phase: "home" })} />;
   if (state.phase === "apply") return <ApplyScreen onBack={() => update({ phase: "humans" })} />;
   if (state.phase === "strength") return <StrengthScreen state={state} onBack={() => update({ phase: "home" })} onAssessment={() => update({ phase: "chooseDepth" })} onLibrary={() => update({ phase: "library" })} />;
-  if (state.phase === "library") return <LibraryScreen state={state} onBack={() => update({ phase: "home" })} onAssessment={() => update({ phase: "chooseDepth" })} onMini={(id) => update({ miniId: id, phase: (state.miniResults || {})[id] ? "miniResult" : "miniRun" })} onRetake={(id) => update({ miniId: id, phase: "miniRun" })} />;
+  if (state.phase === "library") return <LibraryScreen state={state} onJoin={() => goJoin("library")} onBack={() => update({ phase: "home" })} onAssessment={() => update({ phase: "chooseDepth" })} onMini={(id) => update({ miniId: id, phase: (state.miniResults || {})[id] ? "miniResult" : "miniRun" })} onRetake={(id) => update({ miniId: id, phase: "miniRun" })} />;
   if (state.phase === "miniRun") return <MiniRunner miniId={state.miniId} answers={(state.miniAnswers || {})[state.miniId]} onBack={() => update({ phase: "library" })} onDone={(a) => { const res = scoreMini(state.miniId, a); track("mini_done", state.miniId); update({ miniAnswers: { ...(state.miniAnswers || {}), [state.miniId]: a }, miniResults: { ...(state.miniResults || {}), [state.miniId]: res }, phase: "miniResult" }); }} />;
   if (state.phase === "miniResult") return <MiniResult miniId={state.miniId} result={(state.miniResults || {})[state.miniId]} onBack={() => update({ phase: "library" })} onRetake={() => update({ phase: "miniRun" })} />;
-  if (state.phase === "welcome") return <Welcome onStart={() => update({ phase: state.unlocked ? (Object.keys(answers).length ? "intro" : "warmup") : "unlock" })} resumable={state.part > 0 || state.item > 0} />;
+  if (state.phase === "welcome") return <Welcome onStart={() => update({ afterJoin: "warmup", phase: hasAccess(state) ? (Object.keys(answers).length ? "intro" : "warmup") : "unlock" })} resumable={state.part > 0 || state.item > 0} />;
   /* Answers save on every tap already; "Save & pick up later" also remembers
      exactly where someone was, so Home can drop them straight back in. */
   const saveExit = (at) => { track("save_exit", PARTS[state.part] && PARTS[state.part].id); update({ phase: "home", paused: { at, part: state.part, item: at === "run" ? state.item : 0, arc: state.arc } }); };
-  if (state.phase === "unlock") return <Unlock onUnlock={() => update({ unlocked: true, phase: "warmup" })} onHome={() => update({ phase: "home" })} />;
+  if (state.phase === "unlock") return <Join state={state} note={state.joinNote}
+    onCode={() => update({ unlocked: true, joinNote: null, phase: state.afterJoin || "home", afterJoin: null })}
+    onRestored={(m) => update({ membership: { ...m, checkedAt: Date.now() }, hadMembership: true, joinNote: null, phase: state.afterJoin || "home", afterJoin: null })}
+    onAccount={() => update({ phase: "account" })}
+    onHome={() => update({ phase: "home", joinNote: null })} />;
   if (state.phase === "warmup") return <Warmup onDone={() => update({ phase: "intro" })} onExit={() => saveExit("intro")} />;
   if (state.phase === "explainer") return <Explainer onDone={() => update({ phase: "home", seenExplainer: true })} />;
   // Same deck, reachable any time from Home or Settings.
   if (state.phase === "explainerAgain") return <Explainer done="Done" onDone={() => update({ phase: state.explainerBack || "home" })} />;
-  if (state.phase === "chooseDepth") return <ChooseDepth state={state} onPick={(arc) => { const parts = arcParts(arc, state.completedAt); const first = parts[0] ?? 0; update({ arc, part: first, item: 0, paused: null, phase: state.unlocked ? "warmup" : "unlock" }); }} onBack={() => update({ phase: "home" })} />;
+  if (state.phase === "chooseDepth") return <ChooseDepth state={state} onPick={(arc) => { const parts = arcParts(arc, state.completedAt); const first = parts[0] ?? 0; update({ arc, part: first, item: 0, paused: null, afterJoin: "warmup", phase: hasAccess(state) ? "warmup" : "unlock" }); }} onBack={() => update({ phase: "home" })} />;
   /* The badge comes straight after the last part, before any report exists for
      the answers just given, so "See my report" has to write it first. Going
      straight to "report" landed on an empty page. */
@@ -408,7 +451,7 @@ function Welcome({ onStart, resumable }) {
         <div className="steps">
           <div className="step"><span className="stepn">1</span><span>Answer questions about yourself. Ten to fifteen minutes for your first profile, and you can go deeper whenever you want. It saves as you go.</span></div>
           <div className="step"><span className="stepn">2</span><span>Get a written report about you — how you think, what you enjoy, what matters to you. Yours to keep.</span></div>
-          <div className="step"><span className="stepn">3</span><span>Talk it over with your AI Companion for 7 days. Ask it anything about your life and work.</span></div>
+          <div className="step"><span className="stepn">3</span><span>Talk it over with your AI Companion, part of membership. Ask it anything about your life and work.</span></div>
         </div>
         <p className="lede dim">Built on trusted psychology (Big Five, CHC, Goleman EI, RIASEC, Schwartz Values). A self-discovery tool, not a medical test. Your answers stay on your phone — no one can read them, iSHKiY included.</p>
         <button className="btn gold" onClick={onStart}>{resumable ? "Continue where you left off" : "Begin"}</button>
@@ -417,24 +460,76 @@ function Welcome({ onStart, resumable }) {
   );
 }
 
-function Unlock({ onUnlock, onHome }) {
-  const [code, setCode] = useState(""); const [err, setErr] = useState(false); const [busy, setBusy] = useState(false);
+/* The paywall. One low price to begin, the report included, then membership
+   rolls monthly or yearly. Founding access codes still work, tucked under the
+   plans, and a member on a new device can restore by signing in. */
+function Join({ state, note, onCode, onRestored, onAccount, onHome }) {
+  const intro = !state.hadMembership;
+  const [plan, setPlan] = useState("monthly");
+  const [agree, setAgree] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+  const [showCode, setShowCode] = useState(isPreviewHost());
+  const [code, setCode] = useState(""); const [codeErr, setCodeErr] = useState(false);
+  const session = useSession();
+  const renewOn = fmtDate(Date.now() + 30 * DAY);
+  const pay = async () => {
+    if (!agree || busy) return;
+    setBusy(true); setErr("");
+    try { track("checkout_start", plan); const d = await postJSON("/api/checkout", { plan, intro }); window.location.href = d.url; }
+    catch (e) { setErr(e.message); setBusy(false); }
+  };
   const check = async () => {
-    setBusy(true); const h = await sha256(code); setBusy(false);
-    if (CODE_HASHES.includes(h) || (isPreviewHost() && h === PREVIEW_HASH)) onUnlock(); else setErr(true);
+    const h = await sha256(code);
+    if (CODE_HASHES.includes(h) || (isPreviewHost() && h === PREVIEW_HASH)) onCode(); else setCodeErr(true);
+  };
+  const restore = async () => {
+    setBusy(true); setErr("");
+    try { onRestored(await postJSON("/api/restore", { access_token: session.access_token })); }
+    catch (e) { setErr(e.message); setBusy(false); }
   };
   return (
     <Shell dark>
-      <div className="welcome">
+      <div className="welcome join">
         <button className="saveexit light" onClick={onHome}>← Home</button>
-        <p className="kicker">Founding access</p>
-        <h1 className="display sm">Enter your access code</h1>
-        <p className="lede dim">Your code came with your payment confirmation. £29 gets you: the full assessment, your written report (yours to keep), a share card, and 7 days with your AI Companion — a coach, a mentor and a sounding voice that have actually read you.</p>
-        <input className="code" value={code} onChange={(e) => { setCode(e.target.value); setErr(false); }} onKeyDown={(e) => e.key === "Enter" && code && check()} placeholder="e.g. ERA-XXXX-XXXX" autoFocus spellCheck="false" />
-        {err && <p className="err">That code isn't recognised. Check for typos — codes aren't case-sensitive.</p>}
-        {isPreviewHost() && <p className="tnote">This is a preview build, so the founder code <strong>PREVIEW</strong> works here. It does not work on the live site.</p>}
-        <button className="btn gold" disabled={!code || busy} onClick={check}>{busy ? "Checking…" : "Continue"}</button>
-        <a className="paylink" href="STRIPE_PAYMENT_LINK" target="_blank" rel="noreferrer">Don't have a code? Become a founding member →</a>
+        <p className="kicker">Membership</p>
+        <h1 className="display sm">Start with your report.</h1>
+        <p className="lede dim">The full assessment, your written report (yours to keep, whatever you decide later), your AI Companion, the Library of You, and real humans when you're ready.</p>
+        {note && <p className="joinnote">{note}</p>}
+        <div className="plans" role="radiogroup" aria-label="Choose a plan">
+          <button role="radio" aria-checked={plan === "monthly"} className={"plan" + (plan === "monthly" ? " sel" : "")} onClick={() => setPlan("monthly")}>
+            <span className="planname">Monthly</span>
+            <span className="planprice">{intro ? PRICE.intro : PRICE.monthly}<small>{intro ? " today" : " a month"}</small></span>
+            <span className="planline">{intro ? `Then ${PRICE.monthly} a month from ${renewOn}.` : "Rolling monthly."} Cancel any time.</span>
+          </button>
+          <button role="radio" aria-checked={plan === "annual"} className={"plan" + (plan === "annual" ? " sel" : "")} onClick={() => setPlan("annual")}>
+            <span className="plansave">Save 42%</span>
+            <span className="planname">Annual</span>
+            <span className="planprice">{PRICE.annual}<small> a year</small></span>
+            <span className="planline">About £7.50 a month. We'll email you before it renews.</span>
+          </button>
+        </div>
+        <label className="agree">
+          <input type="checkbox" checked={agree} onChange={(e) => setAgree(e.target.checked)} />
+          <span>Start my membership now. I understand my report is delivered straight away, so my 14-day right to cancel ends once it is, and that I can cancel membership at any time from Settings.</span>
+        </label>
+        {err && <p className="err">{err}</p>}
+        <button className="btn gold" disabled={!agree || busy} onClick={pay}>{busy ? "One moment…" : `Continue to payment · ${plan === "annual" ? PRICE.annual : intro ? PRICE.intro : PRICE.monthly}`}</button>
+        <p className="tnote">Secure payment by Stripe. Prices include VAT where it applies.</p>
+        <div className="joinalt">
+          {session
+            ? <button className="cimport" onClick={restore} disabled={busy}>Already a member? Restore it on this device</button>
+            : <button className="cimport" onClick={onAccount}>Already a member? Sign in to restore it</button>}
+          <button className="cimport" onClick={() => setShowCode(!showCode)}>{showCode ? "Hide access code" : "Have a founding access code?"}</button>
+        </div>
+        {showCode && (
+          <div className="codebox">
+            <input className="code" value={code} onChange={(e) => { setCode(e.target.value); setCodeErr(false); }} onKeyDown={(e) => e.key === "Enter" && code && check()} placeholder="e.g. ERA-XXXX-XXXX" spellCheck="false" />
+            {codeErr && <p className="err">That code isn't recognised. Check for typos — codes aren't case-sensitive.</p>}
+            {isPreviewHost() && <p className="tnote">This is a preview build, so the founder code <strong>PREVIEW</strong> works here. It does not work on the live site.</p>}
+            <button className="btn ghostlight" disabled={!code} onClick={check}>Use code</button>
+          </div>
+        )}
       </div>
     </Shell>
   );
@@ -1035,14 +1130,16 @@ function LensTile({ e, done, open, onMini, onRetake, mailto }) {
   );
 }
 
-function LibraryScreen({ state, onBack, onMini, onRetake, onAssessment }) {
+function LibraryScreen({ state, onBack, onMini, onRetake, onAssessment, onJoin }) {
   const mailto = (n) => "mailto:ops@ishkiy.com?subject=" + encodeURIComponent("Library vote — " + n) + "&body=" + encodeURIComponent("Build “" + n + "” first. I'd take it.");
   const miniDone = state.miniResults || {};
   const st = profileStrength(state);
   /* Deploy previews can open the Library early, so it can be checked without
      sitting all nine parts. Never on the live site — same rule as PREVIEW. */
   const [peek, setPeek] = useState(false);
-  const open = st.allParts || peek;
+  // Two keys: a full portrait, and membership (or a founding code).
+  const member = hasAccess(state);
+  const open = (st.allParts && member) || peek;
   const built = EXPANSIONS.filter((e) => e.mini);
   const taken = built.filter((e) => miniDone[e.mini]).length;
   return (
@@ -1064,6 +1161,13 @@ function LibraryScreen({ state, onBack, onMini, onRetake, onAssessment }) {
             <div className="track"><div className="fill" style={{ width: `${Math.round((st.parts / st.totalParts) * 100)}%` }} /></div>
             <button className="btn gold" onClick={onAssessment}>{st.parts ? "Continue the assessment" : "Start the assessment"}</button>
             {isPreviewHost() && <button className="exskip libpeek" onClick={() => setPeek(!peek)}>{peek ? "Preview: lock it again" : "Preview build: open the Library anyway"}</button>}
+          </div>
+        )}
+        {st.allParts && !member && !peek && (
+          <div className="liblock">
+            <p className="liblockk">🔒 Part of membership</p>
+            <p className="liblockt">Your portrait is full, so every lens here is ready for you. The Library opens with iSHKiY membership, alongside your Companion and real humans when you want one.</p>
+            <button className="btn gold" onClick={onJoin}>{state.hadMembership ? `Rejoin · ${PRICE.monthly} a month` : "Become a member"}</button>
           </div>
         )}
         <p className="libtally"><span className="tnum">{taken}</span> of <span className="tnum">{built.length}</span> lenses taken</p>
@@ -1357,10 +1461,11 @@ function Pulse({ mode, pulse, busy, onRefresh, canRefresh }) {
   );
 }
 
-function Companion({ scores, answers, reportText, start, onHuman }) {
+/* Members have the Companion for as long as they're members. Founding-code
+   holders keep the week they were promised. Anyone else sees the way back in. */
+function Companion({ scores, answers, reportText, start, onHuman, member, founder, lapsed, onJoin }) {
   const begun = start || Date.now();
-  const dayNum = Math.min(COMPANION_DAYS, Math.floor((Date.now() - begun) / DAY) + 1);
-  const ended = Date.now() - begun > COMPANION_DAYS * DAY;
+  const ended = member ? false : founder ? Date.now() - begun > COMPANION_DAYS * DAY : true;
   const [c, setC] = useState(() => loadCompanion());
   const [mode, setMode] = useState(() => c.mode || "companion");
   const [input, setInput] = useState("");
@@ -1383,9 +1488,9 @@ const pick = (m) => { setMode(m); commit((prev) => ({ ...prev, mode: m })); };
   if (ended) return (
     <section className="companion noprint">
       <p className="kicker gold">Your Report Companion</p>
-      <h2 className="ctitle">Your founding week has ended. Your report hasn't.</h2>
-      <p className="cexplain">The report on this page is yours for good. The Companion — the three voices that read you properly — returns with iSHKiY membership, which founding members will hear about first. If a week of it earned a place in your thinking, tell us and we'll keep your seat.</p>
-      <a className="rtbtn" href={"mailto:ops@ishkiy.com?subject=" + encodeURIComponent("Keep my Companion seat") + "&body=" + encodeURIComponent("My founding Companion week is over and I'd want it back when membership launches.")}>Keep my seat</a>
+      <h2 className="ctitle">{lapsed ? "Your membership has ended." : founder ? "Your founding week has ended." : "The Companion is part of membership."} Your report hasn't.</h2>
+      <p className="cexplain">The report on this page is yours for good. The Companion — three voices that have read you properly, sharing one memory of you — is part of iSHKiY membership{lapsed ? ". Rejoin and it picks up where you left off." : ", with the Library of You and real humans when you're ready."}</p>
+      <button className="btn gold" onClick={onJoin}>{lapsed ? `Rejoin · ${PRICE.monthly} a month` : "Become a member"}</button>
     </section>
   );
 
@@ -1449,13 +1554,13 @@ const pick = (m) => { setMode(m); commit((prev) => ({ ...prev, mode: m })); };
        a React state updater, which has not run yet at this point. */
     const before = cRef.current;
     const st = opening(before.streams[tm] || []);
-    const ctx = profileCtx() + centralMemory(before, tm);
     const lastDiv = st.map((m, i) => (m.divider ? i : -1)).reduce((a, b) => Math.max(a, b), -1);
     const hist = st.slice(lastDiv + 1).filter((m) => !m.divider);
     track("ask", tm);
     const prevSubj = [...hist].reverse().find((m) => m.subj)?.subj || null;
     const focus = `\n\nTHE MESSAGE YOU MUST ANSWER NOW: "${q}"\nAnswer this and only this. Earlier turns are background. If this changes the subject${prevSubj ? ` from "${prevSubj}"` : ""}, follow it completely and do not return to the earlier subject unless asked.`;
-    const raw = await fetchAI({ system: COMPANION_SYSTEM + MODES[tm].add + "\n\n" + ctx + focus, messages: hist.slice(-4).map(({ role, content }) => ({ role, content })), max_tokens: 500 });
+    // Stable per person and voice, so it goes in the cached block; memory and the question change every time.
+    const raw = await fetchAI({ cached: COMPANION_SYSTEM + MODES[tm].add + "\n\n" + profileCtx(), system: centralMemory(before, tm) + focus, messages: hist.slice(-4).map(({ role, content }) => ({ role, content })), max_tokens: 500 });
     let subj = null, text = raw;
     if (raw) { const m0 = raw.match(/^\s*~([^~\n]{2,60})~\s*/); if (m0) { subj = m0[1].trim(); text = raw.slice(m0[0].length).trim(); } }
     if (text) {
@@ -1739,7 +1844,7 @@ function Retakes({ completedAt, onRetake }) {
 }
 
 
-function CompanionScreen({ state, scores, onBack, onRegenerate, onHuman }) {
+function CompanionScreen({ state, scores, onBack, onRegenerate, onHuman, onJoin }) {
   try {
     const mr = state.miniResults || {};
     window.__eraMinis = Object.keys(mr).length ? Object.fromEntries(Object.keys(mr).filter((id) => MINIS[id]).map((id) => { const r = readMini(id, mr[id]); return [id, { lens: MINIS[id].name, pattern: r && r.tag, read: r && r.headline, detail: r && r.bars.filter(([, v]) => v != null).map(([l, v]) => `${l}: ${bandOf("lens", v)}`).join("; ") }]; })) : null;
@@ -1762,7 +1867,7 @@ function CompanionScreen({ state, scores, onBack, onRegenerate, onHuman }) {
         <p className="teamline">You don't have to know which one you need — iSHKiY can choose. Three voices, one memory, no judgement, and they've read every word you gave.</p>
         {state.report.preview
           ? <div className="previewnote"><p>Your report didn't finish writing, so the Companion is waiting. Your answers are safe — one tap tries again.</p><button className="btn gold" onClick={onRegenerate}>Write my real report</button></div>
-          : <Companion scores={scores} answers={state.answers || {}} reportText={state.report.text} start={state.companionStart} onHuman={onHuman} />}
+          : <Companion scores={scores} answers={state.answers || {}} reportText={state.report.text} start={state.companionStart} onHuman={onHuman} member={isMember(state)} founder={!!state.unlocked} lapsed={!!state.hadMembership} onJoin={onJoin} />}
         <p className="hquote">The future is not artificial; it's authentically human.</p>
       </article>
     </div>
@@ -1941,7 +2046,41 @@ function SectionHead({ kicker, title, line }) {
 
 
 /* ---------------- settings ---------------- */
-function SettingsScreen({ state, update, onBack }) {
+function MembershipGroup({ state, update, onJoin }) {
+  const m = state.membership;
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState("");
+  const manage = async () => {
+    setBusy(true); setNote("");
+    try { const d = await postJSON("/api/portal", { token: m.token }); window.location.href = d.url; }
+    catch (e) { setNote(e.message); setBusy(false); }
+  };
+  const refresh = async () => {
+    setBusy(true); setNote("");
+    try { const d = await postJSON("/api/membership", { token: m.token }); update({ membership: { ...d, checkedAt: Date.now() } }); setNote("Up to date."); }
+    catch (e) { setNote(e.message); }
+    setBusy(false);
+  };
+  const line = !m || m.status === "none" ? (state.unlocked ? "Founding access (code)" : "Not a member")
+    : m.live ? `${m.plan === "annual" ? "Annual" : "Monthly"} · ${m.status === "past_due" ? "payment needs attention" : m.cancelAtPeriodEnd ? "ends" : "renews"}${m.periodEnd ? " " + fmtDate(m.periodEnd) : ""}`
+    : `Ended${m.periodEnd ? " " + fmtDate(m.periodEnd) : ""}`;
+  return (
+    <div className="setgroup">
+      <p className="setlabel">Membership</p>
+      <div className="setrow"><span>Status</span><span className="tnum">{line}</span></div>
+      {m && m.token
+        ? <>
+            <button className="setbtn" disabled={busy} onClick={manage}>Manage, switch plan or cancel →</button>
+            <button className="setbtn" disabled={busy} onClick={refresh}>Check my membership again</button>
+          </>
+        : <button className="setbtn" onClick={onJoin}>Become a member →</button>}
+      {(!m || !m.live) && m && m.token && <button className="setbtn" onClick={onJoin}>Rejoin →</button>}
+      {note && <p className="tnote">{note}</p>}
+    </div>
+  );
+}
+
+function SettingsScreen({ state, update, onBack, onJoin }) {
   const st = profileStrength(state);
   const done = st.parts;
   const level = levelFor(st);
@@ -1961,6 +2100,8 @@ function SettingsScreen({ state, update, onBack }) {
       <article className="report">
         <p className="kicker gold">Settings</p>
         <h1 className="display ink">Your space, your say.</h1>
+
+        <MembershipGroup state={state} update={update} onJoin={onJoin} />
 
         <div className="setgroup">
           <p className="setlabel">Your assessment</p>
@@ -1999,7 +2140,7 @@ function SettingsScreen({ state, update, onBack }) {
   );
 }
 
-function AccountScreen({ state, scores, onBack }) {
+function AccountScreen({ state, scores, onBack, onMembership }) {
   const sb = getSupa();
   const session = useSession();
   const [email, setEmail] = useState("");
@@ -2016,6 +2157,13 @@ function AccountScreen({ state, scores, onBack }) {
     const payload = { report: state.report ? { text: state.report.text, preview: !!state.report.preview } : null, scores, name: (state.answers || {})["AR-1"] || null, savedAt: Date.now() };
     const { error } = await sb.from("living_profiles").upsert({ user_id: session.user.id, payload, updated_at: new Date().toISOString() });
     setNote(error ? "The copy didn't take — try again in a moment." : "Backed up. Your device is still home; the cloud is just a copy.");
+    setBusy(false);
+  };
+  // Brings a membership bought on another device onto this one, by the signed-in email.
+  const restore = async () => {
+    if (busy) return; setBusy(true);
+    try { const m = await postJSON("/api/restore", { access_token: session.access_token }); onMembership(m); setNote(m.live ? "Membership restored on this device." : "Found your membership, but it has ended. You can rejoin from Settings."); }
+    catch (e) { setNote(e.message); }
     setBusy(false);
   };
   const burn = async () => {
@@ -2041,6 +2189,7 @@ function AccountScreen({ state, scores, onBack }) {
           <p className="cline">Signed in as <b>{session.user.email}</b>.</p>
           <div className="cactions" style={{ justifyContent: "flex-start" }}>
             <button className="btn gold" disabled={busy || !state.report} onClick={syncUp}>Back up my profile</button>
+            {!isMember(state) && <button className="ghost inkghost" disabled={busy} onClick={restore}>Restore my membership</button>}
             <button className="ghost inkghost" disabled={busy} onClick={burn}>Delete cloud copy</button>
             <button className="ghost inkghost" onClick={() => sb.auth.signOut()}>Sign out</button>
           </div>
@@ -2143,7 +2292,7 @@ function ApplyScreen({ onBack }) {
   );
 }
 
-function HumansScreen({ scores, state, onBack, onApply }) {
+function HumansScreen({ scores, state, onBack, onApply, onJoin }) {
   return (
     <div className="reportpage tint-clay">
       <div className="rhead noprint">
@@ -2155,6 +2304,13 @@ function HumansScreen({ scores, state, onBack, onApply }) {
         <p className="kicker gold">A human, when ready</p>
         <h1 className="display ink">Real people, on your terms.</h1>
         <p className="lede inkdim">Counsellors, mentors and coaches — because human connection brings what AI never can. You choose who sees what, and when. Or no one, and that's fine too.</p>
+        {!hasAccess(state) && (
+          <div className="liblock">
+            <p className="liblockk">Members only, for now</p>
+            <p className="liblockt">Counsellors, coaches and mentors are open to iSHKiY members at launch. Members get free fit calls, and can share their profile with the person they choose, so the first session starts where it matters.</p>
+            <button className="btn gold" onClick={onJoin}>{state.hadMembership ? `Rejoin · ${PRICE.monthly} a month` : "Become a member"}</button>
+          </div>
+        )}
         <Directory state={state} scores={scores} />
         <Practitioners scores={scores} />
         <p className="cfoot" style={{ marginTop: 26 }}>Are you a therapist, coach, mentor or adviser? <button className="cimport" style={{ display: "inline", margin: 0 }} onClick={onApply}>Apply to join the human layer →</button></p>
