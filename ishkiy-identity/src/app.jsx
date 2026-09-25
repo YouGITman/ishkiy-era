@@ -521,7 +521,7 @@ function Today({ st, day, go }) {
   return (
     <Shell className="withtabs">
       <div className="today">
-        <div className="todayhead"><Wordmark sub="Identity" /><span className="count light">{n <= ERA_DAYS ? `Day ${n} of ${ERA_DAYS}` : `Day ${n}`}</span></div>
+        <div className="todayhead"><Wordmark sub="Identity" /><span className="count light">{n <= ERA_DAYS ? `Day ${n} of ${ERA_DAYS}` : `${ERA_DAYS} days done`}</span></div>
         <div className="idcard">
           <p className="kicker">{ns.eraName || "The new you"}</p>
           <p className="idline" key={lineI}>{lines[lineI % Math.max(1, lines.length)] || "I am…"}</p>
@@ -530,7 +530,7 @@ function Today({ st, day, go }) {
         {missedYesterday && !day.morning && <p className="gentle">You missed yesterday. Nothing resets. The era carries on from right here.</p>}
         {reviewReady && <Card kicker="Day 21" title="Your era review" line="Look at who you were and who you've become. Then choose what's next." cta="Open it" onClick={() => go("review")} accent />}
         {due && <Card kicker={`Week ${due}`} title="Your weekly check-in" line="Five minutes. Where did the old you pull back, and what did the new you do?" cta="Check in" onClick={() => go("weekly", due)} accent />}
-        <Card kicker="On waking" title={day.morning ? "Morning done" : "Morning practice"} line={day.morning ? `Said out loud ${day.spoken || 0} ${day.spoken === 1 ? "time" : "times"}. That's a vote for the new you.` : "Listen once, say your lines out loud, look yourself in the eye."} cta={day.morning ? "Again" : "Start"} done={day.morning} onClick={() => go("morning")} soft={hour >= 12 && !day.morning} />
+        <Card kicker="On waking" title={day.morning ? "Morning done" : "Morning practice"} line={day.morning ? (day.spoken ? `Said out loud ${day.spoken} ${day.spoken === 1 ? "time" : "times"}. Every one is a vote for the new you.` : "Done. Tomorrow, say your lines out loud too. Spoken lands deeper than thought.") : "Listen once, say your lines out loud, look yourself in the eye."} cta={day.morning ? "Again" : "Start"} done={day.morning} onClick={() => go("morning")} soft={hour >= 12 && !day.morning} />
         <div className="daycard">
           <p className="kicker">Through the day</p>
           <p className="pq">{questionFor(ns.questions)}</p>
@@ -700,7 +700,7 @@ function Weekly({ st, update, week, onDone }) {
   const submit = async () => {
     setStage("thinking");
     const ns = st.newSelf || {};
-    const fallback = `Week ${week}. You put yourself at ${self} out of 10. ${pull ? "The old you pulled back around this: " + pull.trim().replace(/[.]$/, "") + ". That's the rubber band, and noticing it is how it loosens." : ""} ${did ? "And the new you did this: " + did.trim().replace(/[.]$/, "") + ". That wasn't luck. That was you, voting." : ""} ${need ? "The line to carry this week: " + need.trim() : "Keep going. Morning and night."}`.replace(/\s+/g, " ").trim();
+    const fallback = `Week ${week}. You put yourself at ${self} out of 10. ${pull ? "The old you pulled back around this: " + pull.trim().replace(/[.]$/, "") + ". That's the rubber band, and noticing it is how it loosens." : ""} ${did ? "And the new you did this: " + did.trim().replace(/[.]$/, "") + ". That wasn't luck. That was you, voting." : ""}`.replace(/\s+/g, " ").trim() + "\n" + (need.trim() || "Morning and night. Keep going.");
     let text = fallback;
     try {
       text = await askAI(VOICE + "\n\nYou write a short weekly reflection for someone on a 21-day identity practice. 90 to 130 words. Speak to them as \"you\". Reflect their own words back in cleaner language. Name one pattern you can see, kindly. If the old self pulled them back, frame it as the rubber band snapping, which is normal and loosens with repetition, never as failure. End with one present-tense line for them to carry this week, on its own line.", JSON.stringify({ week, selfImageOutOf10: self, dailyFeelings: feels, newLines: (ns.statements || []).map((s) => s.text), eraName: ns.eraName, oldSelfPulledBack: pull, newSelfDid: did, lineTheyNeed: need }), 450);
