@@ -1,0 +1,17 @@
+{
+  "name": "ishkiy-identity",
+  "version": "1.0.0",
+  "description": "iSHKiY Identity: let the old you go, become the new one.",
+  "scripts": {
+    "build": "esbuild src/app.jsx --bundle --minify --outfile=dist/app.js",
+    "preview": "esbuild src/app.jsx --bundle --outfile=dist/app.js --servedir=. --serve=5299"
+  },
+  "author": "",
+  "license": "UNLICENSED",
+  "dependencies": {
+    "esbuild": "^0.28.2",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0"
+  },
+  "private": true
+}
