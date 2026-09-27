@@ -66,6 +66,7 @@ Run it locally with `npm install`, then `npm run preview` → `http://127.0.0.1:
 | `src/visuals.jsx` | Orb, dust field, dissolve, explainer drawings, trend line |
 | `src/store.js` | Storage, IndexedDB for the voice, calendar reminders |
 | `sw.js` | Offline cache |
+| `site/` | Build output: what Netlify publishes. Made by `npm run build`, never edited or committed |
 | `netlify/functions/claude.js` | The shared iSHKiY AI proxy (the model is pinned here) |
 
 ## Honest notes
