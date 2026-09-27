@@ -299,3 +299,29 @@ function encodeWav(buf) {
   for (let i = 0; i < n; i++) for (let c = 0; c < ch; c++) { const s = Math.max(-1, Math.min(1, chans[c][i])); out.setInt16(o, s < 0 ? s * 0x8000 : s * 0x7fff, true); o += 2; }
   return new Blob([out], { type: "audio/wav" });
 }
+
+/* ---------------- spoken guidance ----------------
+   Pre-recorded clips (audio/calm/*.mp3), decoded once and scheduled on the
+   audio clock, so the timing holds even if the phone throttles the page. */
+const clipCache = {};
+export async function loadClip(url) {
+  if (!clipCache[url]) clipCache[url] = fetch(url).then((r) => { if (!r.ok) throw new Error(url); return r.arrayBuffer(); }).then((b) => new Promise((res, rej) => getCtx().decodeAudioData(b, res, rej)));
+  try { return await clipCache[url]; } catch (e) { delete clipCache[url]; throw e; }
+}
+/* steps: [{ buf, gap }]. Returns the start time of each step and a stop(). */
+export function scheduleGuide(steps, { lead = 1.2, level = 1 } = {}) {
+  const ac = getCtx();
+  const out = ac.createGain(); out.gain.value = level;
+  const wet = ac.createConvolver(); wet.buffer = impulse(ac, 2.2, 3);
+  const wg = ac.createGain(); wg.gain.value = 0.16;
+  out.connect(ac.destination); out.connect(wet).connect(wg).connect(ac.destination);
+  let t = ac.currentTime + lead;
+  const sources = [], starts = [];
+  steps.forEach((s) => {
+    const src = ac.createBufferSource(); src.buffer = s.buf; src.connect(out);
+    src.start(t); sources.push(src); starts.push(t - ac.currentTime);
+    t += s.buf.duration + s.gap;
+  });
+  return { starts, total: t - ac.currentTime, t0: ac.currentTime, stop: () => { sources.forEach((s) => { try { s.stop(); } catch {} }); setTimeout(() => { try { out.disconnect(); } catch {} }, 200); } };
+}
+export const audioNow = () => getCtx().currentTime;

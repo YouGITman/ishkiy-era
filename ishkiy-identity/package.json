@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "iSHKiY Identity: let the old you go, become the new one.",
   "scripts": {
-    "build": "esbuild src/app.jsx --bundle --minify --outfile=site/dist/app.js && cp index.html manifest.json sw.js icon.svg favicon.svg icon-192.png icon-512.png apple-touch-icon.png site/",
+    "build": "esbuild src/app.jsx --bundle --minify --outfile=site/dist/app.js && cp index.html manifest.json sw.js icon.svg favicon.svg icon-192.png icon-512.png apple-touch-icon.png site/ && cp -r audio site/",
     "preview": "esbuild src/app.jsx --bundle --outfile=dist/app.js --servedir=. --serve=5299"
   },
   "author": "",

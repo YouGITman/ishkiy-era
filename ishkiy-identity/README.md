@@ -38,7 +38,8 @@ Everything is generated in the browser, so there are no audio or image files, no
 
 - **Beds** (`src/audio.js`): theta at 6 Hz, alpha at 10 Hz and deep sleep at 2.5 Hz binaural beats, plus a *No beat* bed. Each is a stereo pair of tones over brown noise ("soft rain"), a warm pad that breathes on slow LFOs, and a distant singing bowl every 40 to 70 seconds. The beats need headphones.
 - **Singing bowls**, the **release sound** and small chimes are synthesised from inharmonic partials.
-- **The voice** plays through a light generated reverb.
+- **The guide's voice.** *Calm body, calm mind* is spoken from start to finish, so it works with your eyes shut. The voice is **Emma**, a British voice from Kokoro-82M, an open-source neural text-to-speech model licensed under Apache 2.0, which means the recordings are ours to ship. There are 17 short clips in `audio/calm/` (700 KB in total), scheduled on the audio clock with timed silences between them. To change a line or the voice, edit `CALM_SCRIPT` in `src/content.js` and run `tools/make-voice.py` (setup steps are at the top of that file). If the clips can't load, the phone's own voice reads the same words instead.
+- **Your recording** plays through a light generated reverb.
 - **Download my mix** (Sound room) renders the voice over the theta bed with `OfflineAudioContext` into a WAV file that plays in any music app with the screen off. A five-minute recording plus three minutes of bed comes to about 45 MB.
 - **Visuals** (`src/visuals.jsx`): a breathing orb (ten-second cycle, roughly six breaths a minute), a drifting gold dust field, the particle dissolve, and line drawings for the explainer cards. Nothing flashes. All motion stops when the phone asks for reduced motion.
 
@@ -66,6 +67,8 @@ Run it locally with `npm install`, then `npm run preview` → `http://127.0.0.1:
 | `src/visuals.jsx` | Orb, dust field, dissolve, explainer drawings, trend line |
 | `src/store.js` | Storage, IndexedDB for the voice, calendar reminders |
 | `sw.js` | Offline cache |
+| `audio/calm/` | The spoken calm-body-calm-mind guide, one clip per line |
+| `tools/` | `make-voice.py` records the guide; `calm-lines.mjs` feeds it the lines |
 | `site/` | Build output: what Netlify publishes. Made by `npm run build`, never edited or committed |
 | `netlify/functions/claude.js` | The shared iSHKiY AI proxy (the model is pinned here) |
 

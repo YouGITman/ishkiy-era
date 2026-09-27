@@ -1,8 +1,8 @@
 // The practices themselves: calm body calm mind, listening, saying it out
 // loud, the mirror, and recording your own voice.
 import React, { useEffect, useRef, useState } from "react";
-import { CALM_STEPS } from "./content.js";
-import { startBed, stopBed, playSession, speakScript, listenLevel, bowl, getCtx } from "./audio.js";
+import { CALM_SCRIPT } from "./content.js";
+import { startBed, stopBed, playSession, speakScript, listenLevel, bowl, getCtx, loadClip, scheduleGuide, audioNow } from "./audio.js";
 import { Orb } from "./visuals.jsx";
 import { getVoice } from "./store.js";
 
@@ -32,45 +32,80 @@ function useElapsed(running) {
   return s;
 }
 
-/* ---------------- calm body, calm mind ---------------- */
-export function CalmSession({ short = false, onDone, onExit }) {
+/* ---------------- calm body, calm mind ----------------
+   Spoken throughout, so it works with the eyes shut. The recorded voice is
+   scheduled on the audio clock; if the clips can't load (offline on first
+   use), the phone's own voice reads the same words instead. */
+export function CalmSession({ short = false, autoNext = false, onDone, onExit }) {
   const [on, setOn] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [idx, setIdx] = useState(0);
+  const [total, setTotal] = useState(short ? 210 : 600);
+  const [ended, setEnded] = useState(false);
   const elapsed = useElapsed(on);
-  const scale = short ? 0.35 : 1; // the evening version runs about three and a half minutes
-  const steps = CALM_STEPS.filter((s) => !short || s.t <= 420).map((s) => ({ ...s, t: s.t * scale }));
-  const cur = steps.filter((s) => s.t <= elapsed).pop() || steps[0];
-  const total = short ? 210 : 600;
-  const out = Math.floor(elapsed / 5) % 2 === 1; // the orb breathes in five, out five
-  const word = Math.floor(elapsed / 10) % 2 === 0 ? "calm body" : "calm mind";
+  const steps = CALM_SCRIPT.filter((s) => (short ? !s.longOnly : !s.shortOnly)).map((s) => ({ ...s, gap: short ? Math.max(3, Math.round(s.gap * 0.4)) : s.gap }));
+  const guide = useRef(null), timer = useRef(null), dead = useRef(false);
   useWakeLock(on);
-  useEffect(() => () => stopBed(2), []);
-  const begin = () => { getCtx(); startBed("alpha", { volume: 0.7 }); bowl(174.6, 0.12); setOn(true); };
-  const finish = () => { stopBed(3); bowl(261.6, 0.1); onDone && onDone(Math.round(elapsed)); };
+  useEffect(() => () => { dead.current = true; clearInterval(timer.current); guide.current && guide.current.stop(); stopBed(2); }, []);
+  const finish = () => { if (dead.current) return; dead.current = true; clearInterval(timer.current); guide.current && guide.current.stop(); stopBed(3); onDone && onDone(Math.round(elapsed)); };
+  const finishRef = useRef(finish); finishRef.current = finish;
+  const reachEnd = () => { setEnded(true); bowl(261.6, 0.1); if (autoNext) setTimeout(() => finishRef.current(), 4000); };
+
+  const begin = async () => {
+    getCtx(); setLoading(true);
+    startBed("alpha", { volume: 0.45 }); bowl(174.6, 0.12);
+    let bufs = null;
+    try { bufs = await Promise.all(steps.map((s) => loadClip(`/audio/calm/${s.id}.mp3`))); } catch { bufs = null; }
+    if (dead.current) return;
+    setLoading(false); setOn(true);
+    if (bufs) {
+      const g = scheduleGuide(steps.map((s, i) => ({ buf: bufs[i], gap: s.gap })));
+      guide.current = g; setTotal(Math.round(g.total));
+      timer.current = setInterval(() => {
+        const t = audioNow() - g.t0;
+        let i = 0; g.starts.forEach((st, k) => { if (t >= st) i = k; });
+        setIdx(i);
+        if (t >= g.total - 0.5) { clearInterval(timer.current); reachEnd(); }
+      }, 400);
+    } else {
+      // no clips: read the same words with the phone's voice, step by step
+      let i = 0;
+      const run = () => {
+        if (dead.current) return;
+        if (i >= steps.length) { reachEnd(); return; }
+        const step = steps[i]; setIdx(i); i++;
+        const sp = speakScript(step.say, { rate: 0.8, onDone: () => { timer.current = setTimeout(run, step.gap * 1000); } });
+        guide.current = { stop: () => { sp.stop(); clearTimeout(timer.current); } };
+      };
+      setTotal(steps.reduce((a, s) => a + s.gap + 6, 0));
+      run();
+    }
+  };
   if (!on) return (
     <div className="session center">
-      <Orb size={180} still />
+      <Orb size={180} still={!loading} />
       <p className="kicker">Calm body, calm mind</p>
       <h1 className="display sm">{short ? "A few minutes to soften." : "Ten minutes to feel safe."}</h1>
-      <p className="lede dim">Nothing new gets in while your body is braced. So this comes first, every time. Headphones if you have them. Lie down or sit back.</p>
-      <button className="btn gold" onClick={begin}>Start</button>
+      <p className="lede dim">Nothing new gets in while your body is braced. So this comes first, every time. A voice will talk you through it, so you can close your eyes. Headphones if you have them.</p>
+      <button className="btn gold" onClick={begin} disabled={loading}>{loading ? "Getting ready…" : "Start"}</button>
       {onExit && <button className="ghost light" onClick={onExit}>Not now</button>}
     </div>
   );
+  const cur = steps[idx] || steps[0];
   return (
     <div className="session center">
       <Orb size={220} />
-      <p className="gline" key={cur.line}>{cur.line}</p>
-      {cur.sub && <p className="gsub">{cur.sub}</p>}
-      {elapsed * (1 / scale) >= 180 && <p className="mantra" aria-live="off">{out ? "breathe out · " + word : "breathe in"}</p>}
+      <p className={"gline" + (cur.mantra ? " mantra-big" : "")} key={idx}>{ended ? "Welcome back." : cur.line}</p>
+      {!ended && cur.sub && <p className="gsub">{cur.sub}</p>}
       <div className="meter"><div className="meterfill" style={{ width: Math.min(100, (elapsed / total) * 100) + "%" }} /></div>
-      <p className="count light">{mmss(elapsed)} {elapsed < total ? "of " + mmss(total) : ""}</p>
-      <button className="btn gold" onClick={finish}>{elapsed >= total ? "I'm here" : "Finish"}</button>
+      <p className="count light">{mmss(Math.min(elapsed, total))} of {mmss(total)}</p>
+      <button className="btn gold" onClick={finish}>{ended ? (autoNext ? "Carry on" : "I'm here") : "Finish early"}</button>
     </div>
   );
 }
 
 /* ---------------- listening ---------------- */
-export function ListenSession({ script, night = false, bedKey = "theta", onDone, onExit }) {
+export function ListenSession({ script, night = false, bedKey = "theta", autoStart = false, onDone, onExit }) {
   const [phase, setPhase] = useState("ready"); // ready | playing | tail | done
   const [line, setLine] = useState("");
   const [dim, setDim] = useState(false);
@@ -96,6 +131,8 @@ export function ListenSession({ script, night = false, bedKey = "theta", onDone,
     if (night) setTimeout(() => setDim(true), 20000);
   };
   const finish = () => { handle.current && handle.current.stop(); handle.current = null; onDone && onDone(); };
+  // straight on from the calm, eyes still shut: no button to find
+  useEffect(() => { if (autoStart) start(); }, []);
 
   if (phase === "ready") return (
     <div className="session center">

@@ -1,8 +1,9 @@
 // iSHKiY Identity: works offline once it has loaded once. The app shell is
 // cached on install; fonts are cached the first time they're fetched. The AI
 // proxy is never cached.
-const CACHE = "identity-v1";
-const SHELL = ["/", "/index.html", "/dist/app.js", "/manifest.json", "/icon.svg", "/icon-192.png", "/icon-512.png", "/apple-touch-icon.png"];
+const CACHE = "identity-v2";
+const SHELL = ["/", "/index.html", "/dist/app.js", "/manifest.json", "/icon.svg", "/icon-192.png", "/icon-512.png", "/apple-touch-icon.png",
+  ...["c01","c02","c03","c04","c05","c06","c07","c08","c09","c10","c11","c12","c13","c14","c15","c16","c17"].map((c) => `/audio/calm/${c}.mp3`)];
 self.addEventListener("install", (e) => { e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting())); });
 self.addEventListener("activate", (e) => { e.waitUntil(caches.keys().then((ks) => Promise.all(ks.filter((k) => k !== CACHE).map((k) => caches.delete(k)))).then(() => self.clients.claim())); });
 self.addEventListener("fetch", (e) => {

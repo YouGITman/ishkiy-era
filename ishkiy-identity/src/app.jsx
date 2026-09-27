@@ -601,6 +601,7 @@ function Evening({ st, day, setDay, update, go, onDone }) {
   const [feel, setFeel] = useState(day.feel != null ? day.feel : 5);
   const [input, setInput] = useState(day.input || null);
   const [vote, setVote] = useState("");
+  const [fromCalm, setFromCalm] = useState(false);
   const saveCheck = () => {
     setDay({ feel, input, checked: true });
     if (vote.trim()) update((s) => ({ evidence: [{ id: uid(), at: dayKey(), text: vote.trim() }, ...(s.evidence || [])] }));
@@ -627,8 +628,8 @@ function Evening({ st, day, setDay, update, go, onDone }) {
         <button className="btn gold" onClick={() => setStage("calmOn")}>Soften (three minutes)</button>
         <button className="ghost light" onClick={() => setStage("listen")}>Straight to my recording</button>
       </div>}
-      {stage === "calmOn" && <CalmSession short onDone={() => { update((s) => ({ calmCount: (s.calmCount || 0) + 1 })); setStage("listen"); }} />}
-      {stage === "listen" && <ListenSession night script={st.script || ""} onDone={done} onExit={done} />}
+      {stage === "calmOn" && <CalmSession short autoNext onDone={() => { update((s) => ({ calmCount: (s.calmCount || 0) + 1 })); setFromCalm(true); setStage("listen"); }} />}
+      {stage === "listen" && <ListenSession night autoStart={fromCalm} script={st.script || ""} onDone={done} onExit={done} />}
       {stage === "done" && <div className="glimmer">
         <Orb size={120} />
         <p className="gline">Sleep as the new you.</p>

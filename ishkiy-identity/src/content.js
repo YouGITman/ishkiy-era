@@ -91,21 +91,35 @@ export const POWER_QUESTIONS = [
   "What am I letting in right now, and does it belong to the old me or the new?",
 ];
 
-export const CALM_STEPS = [
-  { t: 0, line: "Lie down, or sit somewhere that holds you.", sub: "Let your eyes close when you're ready." },
-  { t: 20, line: "Imagine your body is made of balloons.", sub: "Soft, full, a little too tight." },
-  { t: 40, line: "There's a small valve on the sole of each foot.", sub: "Let them open. Feel the air begin to leave." },
-  { t: 65, line: "Your feet go soft. Then your calves. Then your knees.", sub: "Your legs empty and settle flat." },
-  { t: 95, line: "A valve opens in your chest.", sub: "The air escapes. Your ribs soften. Your belly lets go." },
-  { t: 125, line: "Your shoulders. Your arms. Your hands.", sub: "Empty. Heavy. Resting." },
-  { t: 150, line: "Your neck. Your jaw. The small muscles round your eyes.", sub: "Let any worry fizz out with the air." },
-  { t: 180, line: "Now just notice the breath going out.", sub: "On one out-breath, say to yourself: calm body." },
-  { t: 205, line: "On the next: calm mind.", sub: "Calm body. Calm mind. That's all there is to do." },
-  { t: 240, line: "When a thought pulls you off, that's fine.", sub: "Don't judge it. Come back to the next out-breath." },
-  { t: 300, line: "Calm body.", sub: "" },
-  { t: 330, line: "Calm mind.", sub: "" },
-  { t: 420, line: "You're doing it. Stay as long as you like.", sub: "Nothing to try at. Trying is the one thing that doesn't work here." },
-  { t: 600, line: "Ten minutes. Your nervous system knows this place now.", sub: "Do this for a week and you'll be able to find it on command." },
+/* Calm body, calm mind: spoken, so it works with the eyes shut. Each step is
+   one recorded clip (audio/calm/<id>.mp3, made by tools/make-voice.py from
+   the "say" text), followed by "gap" seconds of quiet. The evening version
+   plays the steps without "longOnly" and shortens every gap. Change a line
+   here, then run the tool again to re-record it. */
+export const CALM_SCRIPT = [
+  { id: "c01", line: "Lie down, or sit somewhere that holds you.", sub: "Let your eyes close when you're ready.", say: "Lie down, or sit somewhere that holds you. Let your eyes close when you're ready. You won't need the screen. Just listen.", gap: 10 },
+  { id: "c02", line: "Imagine your body is made of balloons.", sub: "Soft, full, a little too tight.", say: "Imagine your body is made of balloons. Soft. Full. A little too tight.", gap: 12 },
+  { id: "c03", line: "There's a small valve on the sole of each foot.", sub: "Let them open. Feel the air begin to leave.", say: "There's a small valve on the sole of each foot. Let them open. Feel the air begin to leave.", gap: 14 },
+  { id: "c04", line: "Your feet go soft. Then your calves. Then your knees.", sub: "Your legs empty and settle flat.", say: "Your feet go soft. Then your calves. Then your knees. Your legs empty, and settle flat.", gap: 16 },
+  { id: "c05", line: "A valve opens in your chest.", sub: "The air escapes. Your ribs soften. Your belly lets go.", say: "Now a valve opens in the middle of your chest. The air escapes. Your ribs soften. Your belly lets go.", gap: 16 },
+  { id: "c06", line: "Your shoulders. Your arms. Your hands.", sub: "Empty. Heavy. Resting.", say: "Your shoulders. Your arms. Your hands. Empty. Heavy. Resting.", gap: 16 },
+  { id: "c07", line: "Your neck. Your jaw. The small muscles round your eyes.", sub: "Let any worry fizz out with the air.", say: "Your neck. Your jaw. The small muscles around your eyes. Let any worry fizz out with the air.", gap: 18 },
+  { id: "c08", line: "Now just notice the breath going out.", sub: "You don't need to change it.", say: "Now just notice the breath going out. You don't need to change it.", gap: 10 },
+  { id: "c09", line: "On the next out-breath: calm body.", sub: "Say it quietly to yourself.", say: "On the next out-breath, say quietly to yourself: calm body.", gap: 8 },
+  { id: "c10", line: "And on the one after: calm mind.", sub: "", say: "And on the one after: calm mind.", gap: 10 },
+  { id: "c11", line: "Calm body.", sub: "", say: "Calm body.", gap: 9, mantra: true },
+  { id: "c12", line: "Calm mind.", sub: "", say: "Calm mind.", gap: 9, mantra: true },
+  { id: "c11", line: "Calm body.", sub: "", say: "Calm body.", gap: 9, mantra: true },
+  { id: "c12", line: "Calm mind.", sub: "", say: "Calm mind.", gap: 12, mantra: true },
+  { id: "c13", line: "When a thought pulls you off, that's fine.", sub: "Don't judge it. Come back to the next out-breath.", say: "If a thought pulls you away, that's fine. Don't judge it. Just come back to the next out-breath.", gap: 30 },
+  { id: "c11", line: "Calm body.", sub: "", say: "Calm body.", gap: 10, mantra: true },
+  { id: "c12", line: "Calm mind.", sub: "", say: "Calm mind.", gap: 30, mantra: true },
+  { id: "c14", line: "You're doing it.", sub: "Nothing to try at. Trying is the one thing that doesn't work here.", say: "You're doing it. There's nothing to try at here. Trying is the one thing that doesn't work. Just let go.", gap: 60, longOnly: true },
+  { id: "c11", line: "Calm body.", sub: "", say: "Calm body.", gap: 12, mantra: true, longOnly: true },
+  { id: "c12", line: "Calm mind.", sub: "", say: "Calm mind.", gap: 60, mantra: true, longOnly: true },
+  { id: "c15", line: "Stay here as long as you like.", sub: "", say: "Stay here as long as you like.", gap: 90, longOnly: true },
+  { id: "c16", line: "Your nervous system knows this place now.", sub: "Do this each day and you'll find it on command.", say: "Your nervous system knows this place now. Do this each day, and you'll be able to find it on command. When you're ready, gently open your eyes.", gap: 4, last: true, longOnly: true },
+  { id: "c17", line: "Take your time.", sub: "When you're ready, the next part begins.", say: "Take your time. When you're ready, open your eyes, and we'll carry on.", gap: 4, last: true, shortOnly: true },
 ];
 
 /* Morning and evening, the two windows where the mind takes suggestion best. */
