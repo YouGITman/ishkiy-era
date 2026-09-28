@@ -39,12 +39,24 @@ The music and visuals are generated in the browser, so there are no licences to 
 
 - **Beds** (`src/audio.js`): theta at 6 Hz, alpha at 10 Hz and deep sleep at 2.5 Hz binaural beats, plus a *No beat* bed. Each is a stereo pair of tones over brown noise ("soft rain"), a warm pad that breathes on slow LFOs, and a distant singing bowl every 40 to 70 seconds. The beats need headphones.
 - **Singing bowls**, the **release sound** and small chimes are synthesised from inharmonic partials.
-- **The guide's voice.** *Calm body, calm mind* is spoken from start to finish, so it works with your eyes shut. The voice is **George**, a British male voice from Kokoro-82M, an open-source neural text-to-speech model licensed under Apache 2.0, which means the recordings are ours to ship. The daytime top-ups use the same voice. There are 17 clips in `audio/calm/` (700 KB) and 38 in `audio/topup/` (1.4 MB), scheduled on the audio clock with timed silences between them. To change a line or the voice, edit `CALM_SCRIPT` or `TOPUPS` in `src/content.js` and run `tools/make-voice.py` (setup steps are at the top of that file). If the clips can't load, the phone's own voice reads the same words instead.
+- **The guide's voice.** *Calm body, calm mind* is spoken from start to finish, so it works with your eyes shut. The voice is **George**, a British male voice from Kokoro-82M, an open-source neural text-to-speech model licensed under Apache 2.0, which means the recordings are ours to ship. The daytime top-ups use the same voice. There are 17 clips in `audio/calm/` (700 KB) and 38 in `audio/topup/` (1.4 MB), scheduled on the audio clock with timed silences between them. To change a line or the voice, edit `CALM_SCRIPT` or `TOPUPS` in `src/content.js` and run `tools/make-voice.py` (or, with ElevenLabs set up, just deploy) (setup steps are at the top of that file). If the clips can't load, the phone's own voice reads the same words instead.
 - **Your recording** plays through a light generated reverb.
 - **Download my mix** (Sound room) renders the voice over the theta bed with `OfflineAudioContext` into a WAV file that plays in any music app with the screen off. A five-minute recording plus three minutes of bed comes to about 45 MB.
 - **Visuals** (`src/visuals.jsx`): a breathing orb (ten-second cycle, roughly six breaths a minute), a drifting gold dust field, the particle dissolve, and line drawings for the explainer cards. Nothing flashes. All motion stops when the phone asks for reduced motion.
 
 If you'd rather use recorded music later, anything licensed CC0 or royalty-free can be dropped in, but you don't need to: the generated beds are yours outright.
+
+## Using an ElevenLabs voice for the guides
+
+The guides ship with Kokoro recordings. To use an ElevenLabs voice instead, Netlify records them during the build, so the API key never leaves Netlify:
+
+1. On ElevenLabs, take a paid plan. Starter is the cheapest one that includes a commercial licence.
+2. In **Voice Library**, search "meditation" or "calm", filter to male and British, and sort by most used. Listen to a few, add your favourite to **My Voices**, and copy its **voice ID**.
+3. Create an API key (profile → **API keys**; text-to-speech access is enough).
+4. In Netlify, go to **Project configuration → Environment variables** and add `ELEVENLABS_API_KEY` and `ELEVENLABS_VOICE_ID`. Optional: `ELEVENLABS_SPEED` (0.7 to 1.2, default 0.88) and `ELEVENLABS_STABILITY` (default 0.6; higher is steadier, lower is more expressive).
+5. Run **Deploy project** (not "without cache": the cache is what stops you paying twice). The build log shows `eleven-voice: 53 recorded…`.
+
+A full recording uses about 6,000 characters. After that, only new or changed lines are recorded. Changing the voice records everything once more. If ElevenLabs fails for a line, that line keeps its Kokoro recording and the build still succeeds. The code is in `plugins/eleven-voice/`.
 
 ## Deploy
 

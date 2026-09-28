@@ -35,11 +35,12 @@ for folder, cid, text in jobs:
     for p in parts:
         audio, sr = k.create(p, voice=a.voice, speed=a.speed, lang="en-gb")
         chunks += [audio, np.zeros(int(sr * 0.55), dtype=audio.dtype)]
-    audio = np.concatenate(chunks[:-1])
+    # keep a little air after the last word so the fade never eats a final consonant
+    audio = np.concatenate(chunks[:-1] + [np.zeros(int(sr * 0.45), dtype=chunks[0].dtype)])
     with tempfile.NamedTemporaryFile(suffix=".wav") as t:
         sf.write(t.name, audio, sr)
         subprocess.run([ff, "-loglevel", "error", "-y", "-i", t.name,
-                        "-af", "loudnorm=I=-20:TP=-2:LRA=7,afade=t=in:d=0.08,areverse,afade=t=in:d=0.25,areverse",
+                        "-af", "loudnorm=I=-20:TP=-2:LRA=7,afade=t=in:d=0.05,areverse,afade=t=in:d=0.12,areverse",
                         "-ac", "1", "-ar", "24000", "-c:a", "libmp3lame", "-b:a", "48k",
                         os.path.join(a.out, folder, cid + ".mp3")], check=True)
     print(folder, cid, round(len(audio) / sr, 1), "s")

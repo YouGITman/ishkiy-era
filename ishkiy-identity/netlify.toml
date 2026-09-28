@@ -14,3 +14,7 @@
   for = "/*"
   [headers.values]
     Permissions-Policy = "microphone=(self), camera=(self)"
+
+# Records the spoken guides with ElevenLabs when a key and voice are set.
+[[plugins]]
+  package = "./plugins/eleven-voice"
