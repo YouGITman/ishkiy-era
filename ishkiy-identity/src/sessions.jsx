@@ -32,76 +32,99 @@ function useElapsed(running) {
   return s;
 }
 
-/* ---------------- calm body, calm mind ----------------
-   Spoken throughout, so it works with the eyes shut. The recorded voice is
-   scheduled on the audio clock; if the clips can't load (offline on first
-   use), the phone's own voice reads the same words instead. */
-export function CalmSession({ short = false, autoNext = false, onDone, onExit }) {
+/* ---------------- guided sessions ----------------
+   One player for everything spoken: calm body calm mind and the daytime
+   top-ups. Recorded clips (audio/<dir>/<id>.mp3) are scheduled on the audio
+   clock, so timing holds even if the phone throttles the page. If they can't
+   load (offline on first use), the phone's own voice reads the same words.
+   A { lines: true } step pauses the voice while the person says their own
+   lines out loud, then the voice carries on. */
+export function GuideSession({ steps, dir, bed = "alpha", bedVolume = 0.45, kicker, title, lede, lines = [], autoNext = false, finishLabel = "I'm here", onDone, onExit }) {
   const [on, setOn] = useState(false);
   const [loading, setLoading] = useState(false);
   const [idx, setIdx] = useState(0);
-  const [total, setTotal] = useState(short ? 210 : 600);
+  const [total, setTotal] = useState(steps.reduce((a, s) => a + (s.gap || 0) + 6, 0));
+  const [saying, setSaying] = useState(false);
   const [ended, setEnded] = useState(false);
-  const elapsed = useElapsed(on);
-  const steps = CALM_SCRIPT.filter((s) => (short ? !s.longOnly : !s.shortOnly)).map((s) => ({ ...s, gap: short ? Math.max(3, Math.round(s.gap * 0.4)) : s.gap }));
-  const guide = useRef(null), timer = useRef(null), dead = useRef(false);
+  const elapsed = useElapsed(on && !saying);
+  const segs = [];
+  steps.forEach((s, i) => { if (s.lines) segs.push({ lines: true }); else { const last = segs[segs.length - 1]; if (last && !last.lines) last.items.push({ ...s, i }); else segs.push({ items: [{ ...s, i }] }); } });
+  const guide = useRef(null), timer = useRef(null), dead = useRef(false), bufs = useRef(null), spoken = useRef(0);
   useWakeLock(on);
-  useEffect(() => () => { dead.current = true; clearInterval(timer.current); guide.current && guide.current.stop(); stopBed(2); }, []);
-  const finish = () => { if (dead.current) return; dead.current = true; clearInterval(timer.current); guide.current && guide.current.stop(); stopBed(3); onDone && onDone(Math.round(elapsed)); };
+  useEffect(() => () => { dead.current = true; clearInterval(timer.current); clearTimeout(timer.current); guide.current && guide.current.stop(); stopBed(2); }, []);
+  const finish = () => { if (dead.current) return; dead.current = true; clearInterval(timer.current); guide.current && guide.current.stop(); stopBed(3); onDone && onDone({ secs: Math.round(elapsed), spoken: spoken.current }); };
   const finishRef = useRef(finish); finishRef.current = finish;
   const reachEnd = () => { setEnded(true); bowl(261.6, 0.1); if (autoNext) setTimeout(() => finishRef.current(), 4000); };
 
-  const begin = async () => {
-    getCtx(); setLoading(true);
-    startBed("alpha", { volume: 0.45 }); bowl(174.6, 0.12);
-    let bufs = null;
-    try { bufs = await Promise.all(steps.map((s) => loadClip(`/audio/calm/${s.id}.mp3`))); } catch { bufs = null; }
+  const runSeg = (k) => {
     if (dead.current) return;
-    setLoading(false); setOn(true);
-    if (bufs) {
-      const g = scheduleGuide(steps.map((s, i) => ({ buf: bufs[i], gap: s.gap })));
-      guide.current = g; setTotal(Math.round(g.total));
+    const seg = segs[k];
+    if (!seg) { reachEnd(); return; }
+    if (seg.lines) { if (lines.length) { setSaying(true); guide.current = null; } else runSeg(k + 1); return; }
+    const next = () => runSeg(k + 1);
+    if (bufs.current) {
+      const g = scheduleGuide(seg.items.map((s) => ({ buf: bufs.current[s.i], gap: s.gap })));
+      guide.current = g;
       timer.current = setInterval(() => {
         const t = audioNow() - g.t0;
-        let i = 0; g.starts.forEach((st, k) => { if (t >= st) i = k; });
-        setIdx(i);
-        if (t >= g.total - 0.5) { clearInterval(timer.current); reachEnd(); }
+        let j = 0; g.starts.forEach((st, n) => { if (t >= st) j = n; });
+        setIdx(seg.items[j].i);
+        if (t >= g.total - 0.3) { clearInterval(timer.current); next(); }
       }, 400);
     } else {
-      // no clips: read the same words with the phone's voice, step by step
-      let i = 0;
+      let j = 0;
       const run = () => {
         if (dead.current) return;
-        if (i >= steps.length) { reachEnd(); return; }
-        const step = steps[i]; setIdx(i); i++;
+        if (j >= seg.items.length) { next(); return; }
+        const step = seg.items[j]; setIdx(step.i); j++;
         const sp = speakScript(step.say, { rate: 0.8, onDone: () => { timer.current = setTimeout(run, step.gap * 1000); } });
         guide.current = { stop: () => { sp.stop(); clearTimeout(timer.current); } };
       };
-      setTotal(steps.reduce((a, s) => a + s.gap + 6, 0));
       run();
     }
   };
+  const segAfterLines = () => segs.findIndex((s) => s.lines) + 1;
+
+  const begin = async () => {
+    getCtx(); setLoading(true);
+    startBed(bed, { volume: bedVolume }); bowl(174.6, 0.12);
+    try { bufs.current = await Promise.all(steps.map((s) => (s.lines ? null : loadClip(`/audio/${dir}/${s.id}.mp3`)))); } catch { bufs.current = null; }
+    if (dead.current) return;
+    if (bufs.current) setTotal(Math.round(steps.reduce((a, s, i) => a + (s.lines ? 0 : bufs.current[i].duration + s.gap), 1.2)));
+    setLoading(false); setOn(true);
+    runSeg(0);
+  };
+
   if (!on) return (
     <div className="session center">
-      <Orb size={180} still={!loading} />
-      <p className="kicker">Calm body, calm mind</p>
-      <h1 className="display sm">{short ? "A few minutes to soften." : "Ten minutes to feel safe."}</h1>
-      <p className="lede dim">Nothing new gets in while your body is braced. So this comes first, every time. A voice will talk you through it, so you can close your eyes. Headphones if you have them.</p>
+      <Orb size={170} still={!loading} />
+      <p className="kicker">{kicker}</p>
+      <h1 className="display sm">{title}</h1>
+      <p className="lede dim">{lede}</p>
       <button className="btn gold" onClick={begin} disabled={loading}>{loading ? "Getting ready…" : "Start"}</button>
       {onExit && <button className="ghost light" onClick={onExit}>Not now</button>}
     </div>
   );
+  if (saying) return <SayAloud lines={lines} sub="Say it like it's already true." onDone={(n) => { spoken.current += n; setSaying(false); runSeg(segAfterLines()); }} onExit={(n) => { spoken.current += n; setSaying(false); runSeg(segAfterLines()); }} />;
   const cur = steps[idx] || steps[0];
   return (
     <div className="session center">
-      <Orb size={220} />
+      <Orb size={210} />
       <p className={"gline" + (cur.mantra ? " mantra-big" : "")} key={idx}>{ended ? "Welcome back." : cur.line}</p>
       {!ended && cur.sub && <p className="gsub">{cur.sub}</p>}
       <div className="meter"><div className="meterfill" style={{ width: Math.min(100, (elapsed / total) * 100) + "%" }} /></div>
       <p className="count light">{mmss(Math.min(elapsed, total))} of {mmss(total)}</p>
-      <button className="btn gold" onClick={finish}>{ended ? (autoNext ? "Carry on" : "I'm here") : "Finish early"}</button>
+      <button className="btn gold" onClick={finish}>{ended ? (autoNext ? "Carry on" : finishLabel) : "Finish early"}</button>
     </div>
   );
+}
+
+/* Calm body, calm mind: the full ten minutes, or the evening three and a half. */
+export function CalmSession({ short = false, autoNext = false, onDone, onExit }) {
+  const steps = CALM_SCRIPT.filter((s) => (short ? !s.longOnly : !s.shortOnly)).map((s) => ({ ...s, gap: short ? Math.max(3, Math.round(s.gap * 0.4)) : s.gap }));
+  return <GuideSession steps={steps} dir="calm" kicker="Calm body, calm mind" title={short ? "A few minutes to soften." : "Ten minutes to feel safe."}
+    lede="Nothing new gets in while your body is braced. So this comes first, every time. A voice will talk you through it, so you can close your eyes. Headphones if you have them."
+    autoNext={autoNext} onExit={onExit} onDone={(r) => onDone && onDone(r.secs)} />;
 }
 
 /* ---------------- listening ---------------- */

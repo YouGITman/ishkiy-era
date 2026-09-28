@@ -33,7 +33,7 @@ export const uid = () => Math.random().toString(36).slice(2, 10);
 
 /* A calendar file with two daily reminders for the length of the era. It is
    the one reminder that fires reliably on every phone without a server. */
-export function reminderICS({ start, days = 21, morning = "06:45", evening = "22:00", eraName }) {
+export function reminderICS({ start, days = 21, morning = "06:45", evening = "22:00", midday, eraName }) {
   const d = start.replace(/-/g, "");
   const ev = (time, title, body, id) => {
     const t = time.replace(":", "") + "00";
@@ -54,6 +54,7 @@ export function reminderICS({ start, days = 21, morning = "06:45", evening = "22
     "BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//iSHKiY//Identity//EN", "CALSCALE:GREGORIAN",
     ev(morning, "iSHKiY · Morning. Before the phone, you first", `Open iSHKiY Identity. Listen once and say your lines out loud${eraName ? " as " + eraName : ""}.`, "am"),
     ev(evening, "iSHKiY · Tonight. Calm body, calm mind", "Open iSHKiY Identity. Check in, then fall asleep to your recording.", "pm"),
+    ...(midday ? [ev(midday, "iSHKiY · A two-minute top-up", "Open iSHKiY Identity. Two minutes to come back to the new you.", "md")] : []),
     "END:VCALENDAR",
   ].join("\r\n");
 }

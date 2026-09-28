@@ -8,7 +8,7 @@ Setup, once:
 Then, from the project folder:
     node tools/calm-lines.mjs > /tmp/calm-lines.json
     .venv/bin/python tools/make-voice.py /tmp/calm-lines.json --voice bf_emma --models /path/to/models
-Writes audio/calm/<id>.mp3.
+Writes audio/<folder>/<id>.mp3 for every line. --only <folder> records one folder.
 """
 import argparse, json, os, subprocess, tempfile
 import numpy as np, soundfile as sf, imageio_ffmpeg
@@ -19,14 +19,16 @@ ap.add_argument("lines")
 ap.add_argument("--voice", default="bf_emma")
 ap.add_argument("--speed", type=float, default=0.82)
 ap.add_argument("--models", default=".")
-ap.add_argument("--out", default="audio/calm")
+ap.add_argument("--out", default="audio")
+ap.add_argument("--only", default=None)
 a = ap.parse_args()
 
 k = Kokoro(os.path.join(a.models, "kokoro-v1.0.onnx"), os.path.join(a.models, "voices-v1.0.bin"))
 ff = imageio_ffmpeg.get_ffmpeg_exe()
-os.makedirs(a.out, exist_ok=True)
-lines = json.load(open(a.lines))
-for cid, text in lines.items():
+groups = json.load(open(a.lines))
+jobs = [(folder, cid, text) for folder, lines in groups.items() if not a.only or folder == a.only for cid, text in lines.items()]
+for folder, cid, text in jobs:
+    os.makedirs(os.path.join(a.out, folder), exist_ok=True)
     # sentence by sentence, with a breath of silence between, reads slower and calmer than one run
     parts = [p.strip() for p in text.replace("?", "?|").replace(".", ".|").replace(":", ":|").split("|") if p.strip()]
     chunks = []
@@ -39,5 +41,5 @@ for cid, text in lines.items():
         subprocess.run([ff, "-loglevel", "error", "-y", "-i", t.name,
                         "-af", "loudnorm=I=-20:TP=-2:LRA=7,afade=t=in:d=0.08,areverse,afade=t=in:d=0.25,areverse",
                         "-ac", "1", "-ar", "24000", "-c:a", "libmp3lame", "-b:a", "48k",
-                        os.path.join(a.out, cid + ".mp3")], check=True)
-    print(cid, round(len(audio) / sr, 1), "s")
+                        os.path.join(a.out, folder, cid + ".mp3")], check=True)
+    print(folder, cid, round(len(audio) / sr, 1), "s")

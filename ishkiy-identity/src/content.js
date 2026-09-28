@@ -195,3 +195,88 @@ export function buildScript({ statements, scene, eraName }) {
 }
 const fix = (t) => { let s = t.trim().replace(/\s+/g, " "); s = s.charAt(0).toUpperCase() + s.slice(1); return /[.!?]$/.test(s) ? s.replace(/[.!?]$/, "") : s; };
 const present = (t) => fix(t).replace(/\bI will be\b/gi, "I am").replace(/\bI'll be\b/gi, "I am").replace(/\bI will\b/gi, "I").replace(/\bI'll\b/gi, "I");
+
+/* Daytime top-ups: short, optional, spoken. Same voice and the same engine
+   as calm body calm mind; clips live in audio/topup/<id>.mp3 and are
+   recorded by tools/make-voice.py. "lines" marks the point where the
+   person's own lines are said out loud with the mic. */
+export const TOPUPS = [
+  {
+    id: "reset", name: "Two-minute reset", when: "When stress spikes", mins: 2, bed: "alpha",
+    line: "Breathe out the spike. Come back to calm body, calm mind.",
+    steps: [
+      { id: "r01", line: "Two minutes. Wherever you are, this is enough.", sub: "Feet on the floor. Shoulders down.", say: "Two minutes. Wherever you are, this is enough. Let your feet find the floor. Let your shoulders drop, away from your ears.", gap: 6 },
+      { id: "r02", line: "In through the nose.", sub: "Out slowly, longer than the breath in.", say: "Breathe in through your nose. And let it go slowly, longer than the breath in.", gap: 8 },
+      { id: "r03", line: "Again.", sub: "In, and a long, slow breath out.", say: "Again. In. And a long, slow breath out.", gap: 9 },
+      { id: "r04", line: "One more.", sub: "As you breathe out, let your jaw soften.", say: "One more. And as you breathe out, let your jaw soften.", gap: 9 },
+      { id: "r05", line: "Calm body.", sub: "", say: "Calm body.", gap: 7, mantra: true },
+      { id: "r06", line: "Calm mind.", sub: "", say: "Calm mind.", gap: 7, mantra: true },
+      { id: "r05", line: "Calm body.", sub: "", say: "Calm body.", gap: 8, mantra: true },
+      { id: "r06", line: "Calm mind.", sub: "", say: "Calm mind.", gap: 8, mantra: true },
+      { id: "r07", line: "In here, you're alright.", sub: "Your body is safe right now.", say: "Your body is safe right now. Whatever is happening out there, in here, you're alright.", gap: 10 },
+      { id: "r08", line: "Nothing's changed out there. You have.", sub: "", say: "When you're ready, carry this with you. Nothing's changed out there. You have.", gap: 2 },
+    ],
+  },
+  {
+    id: "before", name: "Before it matters", when: "Before a call, a meeting, a hard talk", mins: 2, bed: "alpha",
+    line: "Walk in as the new you, not the old one.",
+    steps: [
+      { id: "b01", line: "Something's coming up that matters.", sub: "Let's get you ready.", say: "Something's coming up that matters. A call, a meeting, a conversation. Let's get you ready.", gap: 4 },
+      { id: "b02", line: "Feet on the floor.", sub: "Breathe out slowly, longer than the breath in. Twice more.", say: "Feet on the floor. Breathe out slowly, longer than the breath in. And twice more.", gap: 12 },
+      { id: "b03", line: "Picture the moment.", sub: "Where you'll be. Who'll be there.", say: "Now picture the moment. Where you'll be. Who'll be there.", gap: 10 },
+      { id: "b04", line: "What would my highest, most developed self do here?", sub: "", say: "Ask yourself: what would my highest, most developed self do here?", gap: 12 },
+      { id: "b05", line: "See yourself doing it.", sub: "Unhurried. Clear.", say: "See yourself doing it. The way you stand. The way you speak. Unhurried. Clear.", gap: 14 },
+      { id: "b06", line: "It's done, and it went well.", sub: "How does that feel in your chest?", say: "Now fast forward. It's done, and it went well. How does that feel, in your chest?", gap: 14 },
+      { id: "b07", line: "Stay in that feeling.", sub: "It isn't a hope. It's already yours.", say: "Stay in that feeling. It isn't a hope. It's already yours.", gap: 10 },
+      { id: "b08", line: "Go and be them.", sub: "", say: "It isn't the old you walking into this. It's the new one. Go and be them.", gap: 2 },
+    ],
+  },
+  {
+    id: "noise", name: "After the noise", when: "After the news, the scroll, a hard person", mins: 2, bed: "still",
+    line: "Clear what went in. Choose what goes in next.",
+    steps: [
+      { id: "n01", line: "Something got in that belongs to the old you.", sub: "That's alright. Let's clear it.", say: "You've let something in that belongs to the old you. The news, the scroll, a hard conversation. That's alright. Let's clear it.", gap: 4 },
+      { id: "n02", line: "Phone face down, if you can.", sub: "Breathe out, long and slow.", say: "Put the phone face down, if you can. Breathe out, long and slow.", gap: 8 },
+      { id: "n03", line: "It's just static on the surface.", sub: "You don't need to fight it.", say: "Picture it as grey static on the surface of your mind. You don't need to fight it. It's just noise.", gap: 10 },
+      { id: "n04", line: "With every breath out, a little more drifts away.", sub: "", say: "With every breath out, watch a little more of it drift away.", gap: 14 },
+      { id: "n05", line: "What went in doesn't decide who you are.", sub: "What you let in next does.", say: "What went in doesn't decide who you are. What you let in next does.", gap: 8 },
+      { id: "n06", line: "Choose it now.", sub: "Music, a walk, someone who lifts you, your own recording.", say: "So choose it now. Something that feeds the new you. Music, a walk, someone who lifts you, your own recording.", gap: 10 },
+      { id: "n07", line: "Your input is your outlook.", sub: "", say: "Your input is your outlook. Go and choose it.", gap: 2 },
+    ],
+  },
+  {
+    id: "questions", name: "Power questions", when: "Any time you're drifting", mins: 2, bed: "alpha",
+    line: "Five questions your brain can't leave alone.",
+    steps: [
+      { id: "q01", line: "Give your brain good questions.", sub: "Answer inside, or out loud. There's no wrong answer.", say: "The brain can't leave a question alone. So let's give it good ones. Answer inside, or out loud. There's no wrong answer.", gap: 4 },
+      { id: "q02", line: "What would my highest, most developed self do right now?", sub: "", say: "What would my highest, most developed self do, right now?", gap: 20 },
+      { id: "q03", line: "What would a healed nervous system feel like right now?", sub: "", say: "What would a healed nervous system feel like, right now?", gap: 20 },
+      { id: "q04", line: "What can I be grateful for right now?", sub: "", say: "What can I be grateful for, right now?", gap: 20 },
+      { id: "q05", line: "Who do I love, and who loves me?", sub: "", say: "Who do I love? And who loves me?", gap: 20 },
+      { id: "q06", line: "What would the new me do with the next ten minutes?", sub: "", say: "What would the new me do with the next ten minutes?", gap: 20 },
+      { id: "q07", line: "Let whatever came up lead the next hour.", sub: "", say: "Whatever came up, let it lead the next hour. Go gently.", gap: 2 },
+    ],
+  },
+  {
+    id: "thanks", name: "Two minutes of thank you", when: "Midday, or when it feels thin", mins: 2, bed: "alpha",
+    line: "Gratitude is the feeling of already having.",
+    steps: [
+      { id: "g01", line: "Two minutes of thank you.", sub: "Let your breath slow down.", say: "Two minutes of thank you. Let your breath slow down.", gap: 6 },
+      { id: "g02", line: "One thing from today that went right.", sub: "However small. Hold it.", say: "Think of one thing from today that went right. However small. Hold it.", gap: 14 },
+      { id: "g03", line: "One person who's glad you exist.", sub: "See their face.", say: "Now one person. Someone who's glad you exist. See their face.", gap: 14 },
+      { id: "g04", line: "One thing about you.", sub: "Something the new you does that the old you didn't.", say: "And one thing about yourself. Something the new you is doing, that the old you didn't.", gap: 16 },
+      { id: "g05", line: "Say thank you for all three.", sub: "Inside, or out loud.", say: "Say thank you, inside or out loud, for all three.", gap: 10 },
+      { id: "g06", line: "Carry the feeling of already having.", sub: "", say: "Gratitude is the feeling of already having. Carry that into the rest of your day.", gap: 2 },
+    ],
+  },
+  {
+    id: "lines", name: "Your lines, out loud", when: "A quick midday booster", mins: 1, bed: "alpha",
+    line: "Stand up and say who you are now.",
+    steps: [
+      { id: "y01", line: "Let's say your lines.", sub: "Out loud, present tense, like they're already true.", say: "Let's say your lines. Out loud, in the present tense, like they're already true. Stand up if you can.", gap: 1 },
+      { id: "lines", lines: true },
+      { id: "y02", line: "That's a vote for the new you.", sub: "", say: "That's a vote for the new you. Every word you speak is an affirmation. Keep choosing these ones.", gap: 2 },
+    ],
+  },
+];
+export const topupOf = (id) => TOPUPS.find((t) => t.id === id);

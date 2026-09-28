@@ -26,6 +26,7 @@ A mobile-first app that you install from the browser, in the ERA look and voice.
 
 - **On waking.** Listen to the recording, then say each line out loud. The mic checks it was spoken, not just thought: a second of voice fills the ring. Then optional mirror work with the front camera.
 - **Through the day.** A power question that rotates by the hour. *I caught the old voice*: pick the old line and say the new one out loud to swap it. *Log evidence*: votes for the new self.
+- **Daytime top-ups (optional).** Six short sessions, spoken in the same voice over a soft bed: *Two-minute reset* (when stress spikes), *Before it matters* (before a call or a hard conversation), *After the noise* (after the news or the scroll), *Power questions*, *Two minutes of thank you*, and *Your lines, out loud*. That last one hands over to the mic for your own lines, then the voice picks up again. The list highlights the one that fits the time of day. Each top-up counts towards the day and the era review, and there's an optional midday calendar reminder.
 - **Before sleep.** A check-in (how much they felt like the new self, from 0 to 10; what went in today, clean or noise; one vote), then a three-minute calm, then the recording. The screen dims itself and the bed plays on for ten minutes after the words stop.
 - **Every 7 days.** A weekly check-in: self-image from 0 to 10, where the old self pulled back (the rubber band), what the new self did, and the line they need next week. It ends with a short written reflection.
 - **Day 21.** The era review: the old lines struck through beside the new ones, counts of mornings, nights, lines said aloud and pieces of evidence, the nightly trend, and then run another 21 days, rewrite the lines, or let go of something new.
@@ -34,11 +35,11 @@ Missed days never reset anything. The copy says so.
 
 ## Sound and visuals
 
-Everything is generated in the browser, so there are no audio or image files, no licences, and it all works offline.
+The music and visuals are generated in the browser, so there are no licences to worry about, and it all works offline. The only audio files are the spoken guides, which are recordings we made ourselves.
 
 - **Beds** (`src/audio.js`): theta at 6 Hz, alpha at 10 Hz and deep sleep at 2.5 Hz binaural beats, plus a *No beat* bed. Each is a stereo pair of tones over brown noise ("soft rain"), a warm pad that breathes on slow LFOs, and a distant singing bowl every 40 to 70 seconds. The beats need headphones.
 - **Singing bowls**, the **release sound** and small chimes are synthesised from inharmonic partials.
-- **The guide's voice.** *Calm body, calm mind* is spoken from start to finish, so it works with your eyes shut. The voice is **Emma**, a British voice from Kokoro-82M, an open-source neural text-to-speech model licensed under Apache 2.0, which means the recordings are ours to ship. There are 17 short clips in `audio/calm/` (700 KB in total), scheduled on the audio clock with timed silences between them. To change a line or the voice, edit `CALM_SCRIPT` in `src/content.js` and run `tools/make-voice.py` (setup steps are at the top of that file). If the clips can't load, the phone's own voice reads the same words instead.
+- **The guide's voice.** *Calm body, calm mind* is spoken from start to finish, so it works with your eyes shut. The voice is **Emma**, a British voice from Kokoro-82M, an open-source neural text-to-speech model licensed under Apache 2.0, which means the recordings are ours to ship. The daytime top-ups use the same voice. There are 17 clips in `audio/calm/` (700 KB) and 38 in `audio/topup/` (1.4 MB), scheduled on the audio clock with timed silences between them. To change a line or the voice, edit `CALM_SCRIPT` or `TOPUPS` in `src/content.js` and run `tools/make-voice.py` (setup steps are at the top of that file). If the clips can't load, the phone's own voice reads the same words instead.
 - **Your recording** plays through a light generated reverb.
 - **Download my mix** (Sound room) renders the voice over the theta bed with `OfflineAudioContext` into a WAV file that plays in any music app with the screen off. A five-minute recording plus three minutes of bed comes to about 45 MB.
 - **Visuals** (`src/visuals.jsx`): a breathing orb (ten-second cycle, roughly six breaths a minute), a drifting gold dust field, the particle dissolve, and line drawings for the explainer cards. Nothing flashes. All motion stops when the phone asks for reduced motion.
@@ -67,7 +68,7 @@ Run it locally with `npm install`, then `npm run preview` → `http://127.0.0.1:
 | `src/visuals.jsx` | Orb, dust field, dissolve, explainer drawings, trend line |
 | `src/store.js` | Storage, IndexedDB for the voice, calendar reminders |
 | `sw.js` | Offline cache |
-| `audio/calm/` | The spoken calm-body-calm-mind guide, one clip per line |
+| `audio/calm/`, `audio/topup/` | The spoken guides, one clip per line |
 | `tools/` | `make-voice.py` records the guide; `calm-lines.mjs` feeds it the lines |
 | `site/` | Build output: what Netlify publishes. Made by `npm run build`, never edited or committed |
 | `netlify/functions/claude.js` | The shared iSHKiY AI proxy (the model is pinned here) |

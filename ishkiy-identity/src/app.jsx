@@ -2,11 +2,11 @@
 // the ERA pattern: everything on the phone, one optional AI proxy.
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { EXPLAIN, PATH, AREAS, areaOf, ORIGIN_AGES, REWRITES, tenseCheck, SENSES, POWER_QUESTIONS, INPUT_CHOICES, QUOTES, SAFETY, SOS_LINES, MORNING_LINES, EVENING_LINES, buildScript } from "./content.js";
+import { TOPUPS, topupOf, EXPLAIN, PATH, AREAS, areaOf, ORIGIN_AGES, REWRITES, tenseCheck, SENSES, POWER_QUESTIONS, INPUT_CHOICES, QUOTES, SAFETY, SOS_LINES, MORNING_LINES, EVENING_LINES, buildScript } from "./content.js";
 import { load, save, wipe, putVoice, getVoice, delVoice, dayKey, daysBetween, uid, reminderICS, download } from "./store.js";
 import { BEDS, startBed, stopBed, liveBed, releaseSound, bowl, renderMix, getCtx } from "./audio.js";
 import { Field, Orb, Dissolve, ExplainArt, Spark } from "./visuals.jsx";
-import { CalmSession, ListenSession, SayAloud, Mirror, Recorder } from "./sessions.jsx";
+import { CalmSession, GuideSession, ListenSession, SayAloud, Mirror, Recorder } from "./sessions.jsx";
 
 const ERA_DAYS = 21;
 
@@ -64,6 +64,8 @@ function App() {
   if (view === "begin") return <Begin st={st} update={update} onBegin={() => { update({ era: { start: today, n: ((st.era && st.era.n) || 0) + 1 } }); markDone("begin"); go("today"); }} onBack={() => go("path")} />;
   if (view === "morning") return <Morning st={st} day={day} setDay={setDay} onDone={() => go("today")} />;
   if (view === "evening") return <Evening st={st} day={day} setDay={setDay} update={update} go={go} onDone={() => go("today")} />;
+  if (view === "topups") return <TopUps st={st} day={day} go={go} back={() => go(arg || (inEra ? "today" : "path"))} />;
+  if (view === "topup") return <TopUp st={st} id={arg} onDone={(r) => { setDay({ topups: [...(day.topups || []), arg], spoken: (day.spoken || 0) + ((r && r.spoken) || 0) }); go("topups"); }} onExit={() => go("topups")} />;
   if (view === "caught") return <Caught st={st} day={day} setDay={setDay} onDone={() => go("today")} />;
   if (view === "weekly") return <Weekly st={st} update={update} week={arg} onDone={() => go("today")} />;
   if (view === "review") return <Review st={st} update={update} go={go} />;
@@ -475,7 +477,7 @@ function Begin({ st, update, onBegin, onBack }) {
   const r = st.reminders || { morning: "06:45", evening: "22:00" };
   const setR = (k, v) => update({ reminders: { ...r, [k]: v } });
   const [added, setAdded] = useState(false);
-  const ics = () => { download(new Blob([reminderICS({ start: dayKey(), days: ERA_DAYS, morning: r.morning, evening: r.evening, eraName: st.newSelf && st.newSelf.eraName })], { type: "text/calendar" }), "ishkiy-identity-reminders.ics"); setAdded(true); };
+  const ics = () => { download(new Blob([reminderICS({ start: dayKey(), days: ERA_DAYS, morning: r.morning, evening: r.evening, midday: r.midday, eraName: st.newSelf && st.newSelf.eraName })], { type: "text/calendar" }), "ishkiy-identity-reminders.ics"); setAdded(true); };
   return (
     <Shell>
       <div className="toprow"><Back onClick={onBack} /></div>
@@ -485,13 +487,14 @@ function Begin({ st, update, onBegin, onBack }) {
         <p className="lede dim">Twenty-one days is how long Maxwell Maltz found people needed before a new self-image started to settle. Treat it as a floor, not a finish line.</p>
         <div className="plan">
           <div className="planrow"><span className="planwhen">On waking</span><span>Listen once. Say your lines out loud. Mirror, if you like. Ten minutes, before the phone.</span></div>
-          <div className="planrow"><span className="planwhen">Through the day</span><span>Guard what goes in. Ask your questions. Catch the old voice and swap the line. Log the evidence.</span></div>
+          <div className="planrow"><span className="planwhen">Through the day</span><span>Guard what goes in. Ask your questions. Catch the old voice and swap the line. Log the evidence. Optional two-minute top-ups whenever you need one.</span></div>
           <div className="planrow"><span className="planwhen">Before sleep</span><span>Check in. Calm body, calm mind. Fall asleep to your recording.</span></div>
           <div className="planrow"><span className="planwhen">Every 7 days</span><span>A longer check-in: where did the old you pull back, and what did the new you do?</span></div>
         </div>
         <div className="times">
           <label>Wake-up reminder<input type="time" className="tin" value={r.morning} onChange={(e) => setR("morning", e.target.value)} /></label>
           <label>Bedtime reminder<input type="time" className="tin" value={r.evening} onChange={(e) => setR("evening", e.target.value)} /></label>
+          <label className="span2">Midday top-up (optional)<input type="time" className="tin" value={r.midday || ""} onChange={(e) => setR("midday", e.target.value)} /></label>
         </div>
         <button className="btn ink2" onClick={ics}>{added ? "Added. Open the file to save it" : "Add reminders to my calendar"}</button>
         <p className="tnote light">Your calendar will remind you at those times for all 21 days, with no account and nothing sent anywhere. For the best experience, add this app to your home screen from your browser's menu.</p>
@@ -537,7 +540,9 @@ function Today({ st, day, go }) {
           <div className="row wrap">
             <button className="btn ink2 small" onClick={() => go("caught")}>I caught the old voice</button>
             <button className="btn ink2 small" onClick={() => go("evidence")}>Log evidence</button>
+            <button className="btn gold small" onClick={() => go("topups", "today")}>Top-up sessions</button>
           </div>
+          {(day.topups || []).length > 0 && <p className="tnote light">{day.topups.length} top-up{day.topups.length === 1 ? "" : "s"} today. Each one is a vote.</p>}
           {(day.caught || 0) > 0 && <p className="tnote light">Caught and swapped {day.caught} {day.caught === 1 ? "time" : "times"} today.</p>}
           <p className="tnote light">Guard your input. Every podcast, feed and conversation either feeds the old you or the new one.</p>
         </div>
@@ -636,6 +641,46 @@ function Evening({ st, day, setDay, update, go, onDone }) {
         <p className="gsub">Assume the feeling of it done, and rest there.</p>
         <button className="btn gold" onClick={onDone}>Goodnight</button>
       </div>}
+    </Shell>
+  );
+}
+
+/* ---------------- daytime top-ups ---------------- */
+function TopUps({ st, day, go, back }) {
+  const done = day.topups || [];
+  const h = new Date().getHours();
+  // a gentle nudge towards the one that fits the hour
+  const pick = h < 11 ? "before" : h < 14 ? "thanks" : h < 17 ? "questions" : "reset";
+  return (
+    <Shell>
+      <div className="toprow"><Back onClick={back} /></div>
+      <div className="flow">
+        <p className="kicker">Top-ups · optional</p>
+        <h1 className="display sm">Two minutes, whenever you need them.</h1>
+        <p className="lede dim">Morning and night do the deep work. These keep it topped up in between: before something that matters, after the noise gets in, or just because. Eyes open or shut.</p>
+        <div className="topups">
+          {TOPUPS.map((t) => { const n = done.filter((x) => x === t.id).length; return (
+            <button key={t.id} className={"topup" + (t.id === pick ? " suggest" : "")} onClick={() => go("topup", t.id)}>
+              <span className="tuhead"><span className="tuname">{t.name}</span><span className="tumins">{t.mins} min</span></span>
+              <span className="tuwhen">{t.when}{t.id === pick ? " · good for now" : ""}</span>
+              <span className="tuline">{t.line}</span>
+              {n > 0 && <span className="tudone">✓ {n === 1 ? "Done today" : `Done ${n} times today`}</span>}
+            </button>); })}
+        </div>
+      </div>
+    </Shell>
+  );
+}
+function TopUp({ st, id, onDone, onExit }) {
+  const t = topupOf(id) || TOPUPS[0];
+  const lines = ((st.newSelf || {}).statements || []).map((x) => x.text).filter(Boolean);
+  const steps = t.steps.filter((x) => !x.lines || lines.length);
+  return (
+    <Shell className="practice">
+      <div className="toprow"><Back onClick={onExit} label="Top-ups" /></div>
+      <GuideSession steps={steps} dir="topup" bed={t.bed} bedVolume={0.35} lines={lines} kicker={`Top-up · ${t.mins} min`} title={t.name}
+        lede={`${t.line} A voice talks you through it.${t.bed === "alpha" ? " Headphones make it better, never while driving." : ""}`}
+        finishLabel="Back to my day" onExit={onExit} onDone={onDone} />
     </Shell>
   );
 }
@@ -749,6 +794,7 @@ function Review({ st, update, go }) {
   const inEra = Object.keys(days).filter((k) => k >= st.era.start);
   const mornings = inEra.filter((k) => days[k].morning).length, nights = inEra.filter((k) => days[k].evening).length;
   const spoken = inEra.reduce((a, k) => a + (days[k].spoken || 0), 0);
+  const topups = inEra.reduce((a, k) => a + ((days[k].topups || []).length), 0);
   const feels = inEra.sort().map((k) => days[k].feel);
   const weekly = (st.weekly || []).filter((w) => w.era === st.era.n);
   const again = () => { update({ era: { start: dayKey(), n: st.era.n + 1 } }); go("today"); };
@@ -766,6 +812,7 @@ function Review({ st, update, go }) {
           <div><b>{mornings}</b><span>mornings</span></div><div><b>{nights}</b><span>nights</span></div><div><b>{spoken}</b><span>lines said aloud</span></div><div><b>{(st.evidence || []).length}</b><span>pieces of evidence</span></div>
         </div>
         {feels.filter((v) => v != null).length > 1 && <><p className="tnote light">How much you felt like the new you, night by night</p><Spark values={feels} /></>}
+        {topups > 0 && <p className="lede dim">And {topups} daytime top-up{topups === 1 ? "" : "s"}, on top of the mornings and nights.</p>}
         {weekly.length > 0 && <p className="lede dim">Week one you put yourself at {weekly[0].self} out of 10. {weekly.length > 1 ? `Now: ${weekly[weekly.length - 1].self}.` : ""}</p>}
         <p className="lede">Maltz called 21 days the minimum. The picture is still setting. Most people run a second era with the same lines to lock it in, or rewrite the lines that have already come true.</p>
         <button className="btn gold" onClick={again}>Begin another 21 days</button>
@@ -819,6 +866,11 @@ function Sound({ st, update, go, back }) {
         <label className="q">Sleep timer</label>
         <div className="chips">{[0, 15, 30, 60].map((m) => <button key={m} className={"chip" + (sleepMin === m ? " on" : "")} onClick={() => setSleepMin(m)}>{m ? m + " min" : "Off"}</button>)}</div>
         <div className="panel">
+          <p className="kicker">Daytime top-ups</p>
+          <p className="lede dim">Two minutes, spoken, whenever the day pulls you back. Optional, and each one counts.</p>
+          <button className="btn ink2" onClick={() => go("topups", "sound")}>Open top-ups</button>
+        </div>
+        <div className="panel">
           <p className="kicker">Your recording</p>
           {hasVoice ? <>
             <p className="lede dim">Download your voice mixed over the theta bed as one audio file. Play it from any music app with the screen off, all night if you like.</p>
@@ -840,7 +892,7 @@ function You({ st, update, go, back }) {
   const r = st.reminders || { morning: "06:45", evening: "22:00" };
   const [sure, setSure] = useState(false);
   const exportData = () => download(new Blob([JSON.stringify(st, null, 2)], { type: "application/json" }), "ishkiy-identity-backup.json");
-  const ics = () => download(new Blob([reminderICS({ start: dayKey(), days: Math.max(1, ERA_DAYS - eraDay(st) + 1), morning: r.morning, evening: r.evening, eraName: ns.eraName })], { type: "text/calendar" }), "ishkiy-identity-reminders.ics");
+  const ics = () => download(new Blob([reminderICS({ start: dayKey(), days: Math.max(1, ERA_DAYS - eraDay(st) + 1), morning: r.morning, evening: r.evening, midday: r.midday, eraName: ns.eraName })], { type: "text/calendar" }), "ishkiy-identity-reminders.ics");
   return (
     <Shell className="withtabs">
       {back && <div className="toprow"><Back onClick={back} /></div>}
@@ -859,6 +911,7 @@ function You({ st, update, go, back }) {
           <div className="times">
             <label>On waking<input type="time" className="tin" value={r.morning} onChange={(e) => update({ reminders: { ...r, morning: e.target.value } })} /></label>
             <label>Before sleep<input type="time" className="tin" value={r.evening} onChange={(e) => update({ reminders: { ...r, evening: e.target.value } })} /></label>
+            <label className="span2">Midday top-up (optional)<input type="time" className="tin" value={r.midday || ""} onChange={(e) => update({ reminders: { ...r, midday: e.target.value } })} /></label>
           </div>
           <button className="btn ink2 small" onClick={ics}>Add to my calendar</button>
         </div>
