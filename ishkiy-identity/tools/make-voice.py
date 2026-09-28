@@ -7,7 +7,7 @@ Setup, once:
     curl -LO https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0/voices-v1.0.bin
 Then, from the project folder:
     node tools/calm-lines.mjs > /tmp/calm-lines.json
-    .venv/bin/python tools/make-voice.py /tmp/calm-lines.json --voice bf_emma --models /path/to/models
+    .venv/bin/python tools/make-voice.py /tmp/calm-lines.json --voice bm_george --models /path/to/models
 Writes audio/<folder>/<id>.mp3 for every line. --only <folder> records one folder.
 """
 import argparse, json, os, subprocess, tempfile
@@ -16,7 +16,7 @@ from kokoro_onnx import Kokoro
 
 ap = argparse.ArgumentParser()
 ap.add_argument("lines")
-ap.add_argument("--voice", default="bf_emma")
+ap.add_argument("--voice", default="bm_george")
 ap.add_argument("--speed", type=float, default=0.82)
 ap.add_argument("--models", default=".")
 ap.add_argument("--out", default="audio")
