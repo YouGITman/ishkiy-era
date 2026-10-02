@@ -3,6 +3,10 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 
+/* One dial for the pace of everything that moves. The CSS timings in index.html
+   were scaled by the same factor; change both together. */
+export const TEMPO = 1.6;
+
 export const still = () => { try { return window.matchMedia("(prefers-reduced-motion: reduce)").matches; } catch { return false; } };
 
 /* The last place a finger or pointer touched, so a theme change can open from it. */
@@ -50,9 +54,9 @@ export function Sky({ density = 1 }) {
       });
     };
     const draw = (now) => {
-      const t = calm ? 0 : (now - t0) / 1000;
+      const t = calm ? 0 : (now - t0) / 1000 / TEMPO;
       cx.clearRect(0, 0, w, h);
-      ptr.px += (ptr.tx - ptr.px) * 0.05; ptr.py += (ptr.ty - ptr.py) * 0.05;
+      ptr.px += (ptr.tx - ptr.px) * 0.05 / TEMPO; ptr.py += (ptr.ty - ptr.py) * 0.05 / TEMPO;
       const near = [];
       for (const s of stars) {
         let y = (s.y - t * (1.5 + s.z * 5)) % h; if (y < 0) y += h;
@@ -95,7 +99,7 @@ export function Sky({ density = 1 }) {
             cx.strokeStyle = g; cx.lineWidth = 1.3; cx.beginPath(); cx.moveTo(ex, ey); cx.lineTo(ex - Math.cos(fall.ang) * len, ey - Math.sin(fall.ang) * len); cx.stroke();
           }
         }
-        ptr.seen = Math.max(0, ptr.seen - 0.004);
+        ptr.seen = Math.max(0, ptr.seen - 0.004 / TEMPO);
       }
       if (!calm && alive) raf = requestAnimationFrame(draw);
     };
@@ -117,7 +121,7 @@ export function Sky({ density = 1 }) {
 export function Words({ text, delay = 0, step = 55 }) {
   const parts = String(text == null ? "" : text).split(/(\s+)/);
   let k = 0;
-  return <>{parts.map((p, i) => (/^\s+$/.test(p) || !p ? p : <span key={i} className="w" style={{ "--i": k++, "--wd": delay + "ms", "--ws": step + "ms" }}>{p}</span>))}</>;
+  return <>{parts.map((p, i) => (/^\s+$/.test(p) || !p ? p : <span key={i} className="w" style={{ "--i": k++, "--wd": Math.round(delay * TEMPO) + "ms", "--ws": Math.round(step * TEMPO) + "ms" }}>{p}</span>))}</>;
 }
 
 /* A ring of gold sparks thrown once from the middle of whatever holds it. */
@@ -125,7 +129,7 @@ export function Burst({ n = 16, spread = 120 }) {
   const sparks = useMemo(() => Array.from({ length: n }, (_, i) => ({
     a: (i / n) * 360 + (i % 3) * 7, r: spread * (0.6 + ((i * 37) % 10) / 22), s: 3 + (i % 4), d: (i % 5) * 40,
   })), [n, spread]);
-  return <span className="burst" aria-hidden="true">{sparks.map((p, i) => <i key={i} style={{ "--a": p.a + "deg", "--r": p.r + "px", "--s": p.s + "px", "--d": p.d + "ms" }} />)}</span>;
+  return <span className="burst" aria-hidden="true">{sparks.map((p, i) => <i key={i} style={{ "--a": p.a + "deg", "--r": p.r + "px", "--s": p.s + "px", "--d": Math.round(p.d * TEMPO) + "ms" }} />)}</span>;
 }
 
 /* A number that counts up to where it's going, easing out as it lands. */
@@ -133,9 +137,9 @@ export function useCountUp(target, dur = 1500, delay = 250) {
   const [v, setV] = useState(() => (still() ? target : 0));
   useEffect(() => {
     if (still()) { setV(target); return; }
-    let raf = 0; const from = 0, start = performance.now() + delay;
+    let raf = 0; const from = 0, start = performance.now() + delay * TEMPO, span = dur * TEMPO;
     const tick = (now) => {
-      const k = Math.min(1, Math.max(0, (now - start) / dur));
+      const k = Math.min(1, Math.max(0, (now - start) / span));
       setV(Math.round(from + (target - from) * (1 - Math.pow(1 - k, 4))));
       if (k < 1) raf = requestAnimationFrame(tick);
     };
@@ -179,7 +183,7 @@ export function installFx() {
     s.className = "ripple";
     s.style.cssText = `width:${size}px;height:${size}px;left:${e.clientX - r.left - size / 2}px;top:${e.clientY - r.top - size / 2}px`;
     el.appendChild(s);
-    setTimeout(() => s.remove(), 900);
+    setTimeout(() => s.remove(), 900 * TEMPO + 100);
   }, { passive: true });
 
   /* Reading line: a hairline of gold across the top of long pages. */
@@ -204,7 +208,7 @@ export function installFx() {
   const io = new IntersectionObserver((entries) => {
     let k = 0;
     entries.filter((en) => en.isIntersecting).sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top).forEach((en) => {
-      en.target.style.setProperty("--rvd", Math.min(k++, 6) * 70 + "ms");
+      en.target.style.setProperty("--rvd", Math.round(Math.min(k++, 6) * 70 * TEMPO) + "ms");
       en.target.classList.add("rv-in");
       io.unobserve(en.target);
     });

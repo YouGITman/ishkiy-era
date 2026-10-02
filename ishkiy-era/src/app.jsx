@@ -4,7 +4,7 @@ import { createRoot } from "react-dom/client";
 import { PARTS, L5, E5, RIASEC_PHRASES } from "./items.js";
 import { MINIS, scoreMini, readMini } from "./mini.js";
 import { createClient } from "@supabase/supabase-js";
-import { Sky, Words, Burst, useCountUp, transition, installFx } from "./fx.jsx";
+import { Sky, Words, Burst, useCountUp, transition, installFx, TEMPO } from "./fx.jsx";
 
 /* ---------------- backend (Supabase, connect-only v1) ----------------
    Paste your project URL and anon public key below (Settings -> API).
@@ -480,7 +480,7 @@ function PartIntro({ part, n, onGo, onExit }) {
   const [ready, setReady] = useState(false);
   const [line, setLine] = useState(0);
   useEffect(() => { const t = setInterval(() => setLine((v) => (v + 1) % MINDSET.length), 9000); return () => clearInterval(t); }, []);
-  const go = () => { setReady(true); setTimeout(onGo, 900); };
+  const go = () => { setReady(true); setTimeout(onGo, 900 * TEMPO); };
   return (
     <Shell>
       <div className="exitrow"><SaveExit onExit={onExit} /></div>
@@ -879,7 +879,7 @@ function Orb({ size = 96 }) {
       <path d="M38 46 q4 -4 8 0" fill="none" stroke="#0F1E3D" strokeWidth="2.6" strokeLinecap="round" />
       <path d="M52 46 q4 -4 8 0" fill="none" stroke="#0F1E3D" strokeWidth="2.6" strokeLinecap="round" />
       <path d={still ? SMILE_TO : SMILE_FROM} fill="none" stroke="#0F1E3D" strokeWidth="2.6" strokeLinecap="round">
-        {!still && <animate attributeName="d" from={SMILE_FROM} to={SMILE_TO} dur="4s" begin="0.3s" fill="freeze" calcMode="spline" keyTimes="0;1" keySplines="0.45 0 0.2 1" />}
+        {!still && <animate attributeName="d" from={SMILE_FROM} to={SMILE_TO} dur={4 * TEMPO + "s"} begin={0.3 * TEMPO + "s"} fill="freeze" calcMode="spline" keyTimes="0;1" keySplines="0.45 0 0.2 1" />}
       </path>
     </svg>
   );
@@ -1170,8 +1170,8 @@ const GLYPHS = [
   // the thinker — head with a star inside
   (<svg key="g3" viewBox="0 0 60 40" className="hart"><path d="M24 34 L24 29 Q16 25 18 16 Q20 7 30 7 Q40 7 42 16 L44 21 L41 22 L41 27 Q41 30 36 30 L36 34" fill="none" stroke="currentColor" strokeWidth="1.8" opacity=".55" strokeLinejoin="round"/><circle cx="29" cy="17" r="2.6" fill={FACE_GOLD}/></svg>),
 ];
-function RotatingFaces() { return <Rotator items={FACES} every={3600} />; }
-function RotatingGlyphs() { return <Rotator items={GLYPHS} every={4200} />; }
+function RotatingFaces() { return <Rotator items={FACES} every={3600 * TEMPO} />; }
+function RotatingGlyphs() { return <Rotator items={GLYPHS} every={4200 * TEMPO} />; }
 function Home({ state, go, startAssessment, onTheme, onResume }) {
   const name = (state.answers["AR-1"] || "").trim();
   let compLeft = null;
@@ -2485,7 +2485,7 @@ function MiniRunner({ miniId, answers, onDone, onBack }) {
 }
 function MiniResult({ miniId, result, onBack, onRetake }) {
   const [revealing, setRevealing] = useState(false);
-  const again = () => { setRevealing(true); setTimeout(() => setRevealing(false), 1600); };
+  const again = () => { setRevealing(true); setTimeout(() => setRevealing(false), 1600 * TEMPO); };
   const m = MINIS[miniId];
   if (!m || !result) return null;
   return (
