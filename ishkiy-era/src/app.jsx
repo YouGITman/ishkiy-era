@@ -4,7 +4,7 @@ import { createRoot } from "react-dom/client";
 import { PARTS, L5, E5, RIASEC_PHRASES } from "./items.js";
 import { MINIS, scoreMini, readMini } from "./mini.js";
 import { createClient } from "@supabase/supabase-js";
-import { Sky, Words, Burst, useCountUp, transition, installFx, TEMPO } from "./fx.jsx";
+import { Sky, Words, Burst, LockIcon, useCountUp, transition, installFx, TEMPO } from "./fx.jsx";
 
 /* ---------------- backend (Supabase, connect-only v1) ----------------
    Paste your project URL and anon public key below (Settings -> API).
@@ -1040,9 +1040,11 @@ function LensInsights({ id, result }) {
 
 function LensTile({ e, done, open, onMini, onRetake, mailto }) {
   const [showIns, setShowIns] = useState(false);
+  const [denied, deny] = useDenied();
+  const locked = e.mini && !open && !done;
   const status = done ? "Taken" : !e.mini ? e.status : !open ? "Opens at Full Portrait" : e.tier === "MEMBERSHIP" ? "Open to founders" : "Ready";
   return (
-    <div className={"libtile" + (e.mini ? " libready" : "") + (done ? " libdone" : "") + (e.mini && !open && !done ? " liblocked" : "")}>
+    <div className={"libtile" + (e.mini ? " libready" : "") + (done ? " libdone" : "") + (locked ? " liblocked" : "") + (denied ? " denied" : "")} onClick={locked ? () => { track("locked_tap", e.mini); deny(); } : undefined}>
       <div className="librow"><span className={"libtier t" + e.tier}>{e.tier}</span><span className={"libstatus" + (done ? " done" : "")}>{done ? "✓ " : ""}{status}</span></div>
       <p className="libname">{e.name}</p>
       <ResearchNote from={e.from} research={e.research} />
@@ -1054,7 +1056,7 @@ function LensTile({ e, done, open, onMini, onRetake, mailto }) {
         </>
       ) : e.mini ? (
         open ? <button className="rtbtn" onClick={() => onMini(e.mini)}>Take this lens</button>
-          : <button className="rtbtn ghostbtn" disabled aria-disabled="true">🔒 Opens at Full Portrait</button>
+          : <button className="rtbtn ghostbtn lockpill" aria-disabled="true" onClick={(ev) => { ev.stopPropagation(); deny(); }}><LockIcon size={13} /> <span className="locknote" key={denied}>Opens at Full Portrait — finish all nine parts</span></button>
       ) : <a className="rtbtn ghostbtn" href={mailto(e.name)}>Build this one first</a>}
     </div>
   );
@@ -1134,15 +1136,49 @@ function LibraryScreen({ state, onBack, onMini, onRetake, onAssessment }) {
 }
 
 /* ---------------- the cockpit ---------------- */
-function HomeTile({ title, sub, locked, lockNote, onClick, art, badge, acc, pulse }) {
+/* A tap on something not open yet shouldn't feel like nothing happened. The
+   tile answers with a calm flash of clay round its edge and lights up the line
+   that says how to open it. Tapping again plays it again. */
+function useDenied() {
+  const [at, setAt] = useState(0);
+  useEffect(() => { if (!at) return; const t = setTimeout(() => setAt(0), 2700 * TEMPO); return () => clearTimeout(t); }, [at]);
+  const deny = () => { setAt(0); requestAnimationFrame(() => setAt(Date.now())); };
+  return [at, deny];
+}
+function HomeTile({ title, sub, locked, lockNote, onClick, art, badge, acc, pulse, fresh }) {
+  const [denied, deny] = useDenied();
+  const opened = fresh && !locked;
   return (
-    <button className={"htile" + (locked ? " locked" : "") + (pulse ? " pulse" : "")} style={acc ? { "--acc": acc } : undefined} onClick={locked ? undefined : onClick} aria-disabled={locked}>
-      {badge != null && <span className="htbadge">{badge}</span>}
+    <button className={"htile" + (locked ? " locked" : "") + (pulse ? " pulse" : "") + (denied ? " denied" : "") + (opened ? " fresh" : "")} style={acc ? { "--acc": acc } : undefined}
+      onClick={locked ? () => { track("locked_tap", title); deny(); } : onClick} aria-disabled={locked}>
+      {opened && <span className="opened" aria-hidden="true"><Burst n={18} spread={130} /></span>}
+      {opened
+        ? <span className="htbadge openbadge"><LockIcon open /> Now open</span>
+        : locked ? <span className="htlock" aria-hidden="true"><LockIcon size={15} /></span>
+        : badge != null && <span className="htbadge">{badge}</span>}
       {art}
       <span className="httitle">{title}</span>
-      <span className="htsub">{locked ? lockNote : sub}</span>
+      <span className="htsub" aria-live="polite">{locked ? <span className="locknote" key={denied}>{lockNote}</span> : sub}</span>
     </button>
   );
+}
+
+/* Which tiles have already announced they're open. A tile that opens says so
+   once; if it locks again (a reset, say) it forgets, so it says so again the
+   next time it opens. */
+const OPEN_KEY = "era-opened";
+function useFreshlyOpened(unlocks) {
+  const [fresh] = useState(() => {
+    let seen = {}; try { seen = JSON.parse(localStorage.getItem(OPEN_KEY)) || {}; } catch {}
+    return Object.fromEntries(Object.entries(unlocks).filter(([k, open]) => open && !seen[k]).map(([k]) => [k, true]));
+  });
+  const sig = JSON.stringify(unlocks);
+  useEffect(() => {
+    let seen = {}; try { seen = JSON.parse(localStorage.getItem(OPEN_KEY)) || {}; } catch {}
+    Object.entries(unlocks).forEach(([k, open]) => { if (open) seen[k] = true; else delete seen[k]; });
+    try { localStorage.setItem(OPEN_KEY, JSON.stringify(seen)); } catch {}
+  }, [sig]);
+  return fresh;
 }
 
 function Rotator({ items, every = 3800 }) {
@@ -1184,6 +1220,7 @@ function Home({ state, go, startAssessment, onTheme, onResume }) {
   const midway = !hasReport && !reportDue && Object.keys(state.answers).length > 0;
   const strength = profileStrength(state);
   const strengthStep = nextStep(strength);
+  const fresh = useFreshlyOpened({ companion: hasReport, humans: hasReport, library: strength.allParts });
   const gold = "#D4A547", faint = "rgba(15,30,61,0.18)";
   return (
     <Shell>
@@ -1221,6 +1258,7 @@ function Home({ state, go, startAssessment, onTheme, onResume }) {
             title="Your companion"
             sub="Talk about your life and work with three AI voices that know your report and share one memory. Ten questions a day."
             locked={!hasReport} lockNote="Opens after your report is written."
+            fresh={fresh.companion}
             onClick={() => go("companion")}
             badge={hasReport && compLeft != null ? `${compLeft} left today` : null}
             art={<svg viewBox="0 0 60 40" className="hart"><circle cx="22" cy="20" r="9" fill="none" stroke={gold} strokeWidth="2"/><circle cx="38" cy="20" r="9" fill="none" stroke={faint} strokeWidth="2"/></svg>}
@@ -1230,6 +1268,7 @@ function Home({ state, go, startAssessment, onTheme, onResume }) {
             title="A human, when ready"
             sub="Real people to talk to, later. You choose what they see of you."
             locked={!hasReport} lockNote="Opens after your report is written."
+            fresh={fresh.humans}
             onClick={() => { track("view_humans"); go("humans"); }}
             art={<RotatingFaces />}
           />
@@ -1238,6 +1277,7 @@ function Home({ state, go, startAssessment, onTheme, onResume }) {
             title="The Library of You"
             sub={strength.allParts ? `Twelve lenses on relationships, drive, mind, money and purpose. ${strength.lenses} of ${strength.totalLenses} taken.` : "Twelve lenses on relationships, drive, mind, money and purpose. Browse now; they open at Full Portrait."}
             badge={strength.allParts ? `${strength.lenses}/${strength.totalLenses} taken` : "Opens at Full Portrait"}
+            fresh={fresh.library}
             onClick={() => { track("view_library"); go("library"); }}
             art={<RotatingGlyphs />}
           />

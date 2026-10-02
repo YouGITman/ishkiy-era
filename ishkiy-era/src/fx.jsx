@@ -132,6 +132,16 @@ export function Burst({ n = 16, spread = 120 }) {
   return <span className="burst" aria-hidden="true">{sparks.map((p, i) => <i key={i} style={{ "--a": p.a + "deg", "--r": p.r + "px", "--s": p.s + "px", "--d": Math.round(p.d * TEMPO) + "ms" }} />)}</span>;
 }
 
+/* A small padlock. Open, its shackle lifts free. */
+export function LockIcon({ open, size = 14 }) {
+  return (
+    <svg viewBox="0 0 16 16" width={size} height={size} className={"lockic" + (open ? " open" : "")} aria-hidden="true">
+      <path className="shackle" d="M5 7.5 V5.2 a3 3 0 0 1 6 0 V7.5" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+      <rect x="3" y="7.2" width="10" height="7.3" rx="2.2" fill="currentColor" />
+    </svg>
+  );
+}
+
 /* A number that counts up to where it's going, easing out as it lands. */
 export function useCountUp(target, dur = 1500, delay = 250) {
   const [v, setV] = useState(() => (still() ? target : 0));
@@ -151,7 +161,9 @@ export function useCountUp(target, dur = 1500, delay = 250) {
 
 /* ---------------- page-wide behaviour, installed once ---------------- */
 const SPOT = ".htile,.depthcard,.vcard,.libtile,.capp,.tile,.prac,.sostile,.resumecard,.libcta,.deeperband";
-const PRESS = ".btn,.opt,.fccard,.depthcard,.htile,.vcard,.resumecard,.libcta,.deeperband,.setbtn,.rtbtn,.insbtn,.tilehead";
+/* Answers aren't here: they fill with gold instead, and a ripple on them showed
+   as a square block on phones that don't clip a moving layer to round corners. */
+const PRESS = ".btn,.depthcard,.htile,.vcard,.resumecard,.libcta,.deeperband,.setbtn,.rtbtn,.insbtn,.tilehead";
 const REVEAL = ".rbody > *,.tile,.libtile,.subject,.sostile,.rung,.prac,.capp,.vcard,.sbrow,.nextrung,.integrity,.libcta,.deeperband,.retakes,.subjask,.libnarr,.constel,.setgroup,.pracs,.tierbox,.badgestrip,.voicehub,.hquote,.privline,.hlinks,.liblock,.libtally,.subjnav";
 
 let installed = false;
@@ -172,18 +184,22 @@ export function installFx() {
   };
   window.addEventListener("pointermove", (e) => { lastPtr.x = e.clientX; lastPtr.y = e.clientY; if (e.pointerType === "mouse") { spotEv = e; if (!spotRaf) spotRaf = requestAnimationFrame(spot); } }, { passive: true });
 
-  /* Press: a soft ripple from the exact point of contact. */
+  /* Press: a soft ripple from the exact point of contact. It runs inside its own
+     clipped layer (see .ripwrap) so it can never spill past rounded corners. */
   window.addEventListener("pointerdown", (e) => {
     lastPtr.x = e.clientX; lastPtr.y = e.clientY;
     if (calm) return;
     const el = e.target && e.target.closest ? e.target.closest(PRESS) : null;
     if (!el || el.disabled || el.getAttribute("aria-disabled") === "true") return;
     const r = el.getBoundingClientRect(), size = Math.max(r.width, r.height) * 2.2;
+    const wrap = doc.createElement("span");
+    wrap.className = "ripwrap"; wrap.setAttribute("aria-hidden", "true");
     const s = doc.createElement("span");
     s.className = "ripple";
     s.style.cssText = `width:${size}px;height:${size}px;left:${e.clientX - r.left - size / 2}px;top:${e.clientY - r.top - size / 2}px`;
-    el.appendChild(s);
-    setTimeout(() => s.remove(), 900 * TEMPO + 100);
+    wrap.appendChild(s);
+    el.appendChild(wrap);
+    setTimeout(() => wrap.remove(), 900 * TEMPO + 100);
   }, { passive: true });
 
   /* Reading line: a hairline of gold across the top of long pages. */

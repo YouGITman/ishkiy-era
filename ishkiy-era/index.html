@@ -1078,6 +1078,84 @@
   /* little screens don't need a 2-line sticky header, or a wider gutter */
   @media (max-width:420px){ .shell{padding-left:18px; padding-right:18px} .report{padding-left:18px; padding-right:18px} }
 
+
+  /* --- the intro's symbols take their time: a long fade out of focus, then a
+         slow draw, then the fills settle in --- */
+  .explainer .exwrap{animation:artin 3.2s cubic-bezier(.22,.8,.2,1) both}
+  .exart :is(path,line,circle,ellipse,rect,polyline):not([stroke-dasharray]):not([stroke="none"]){animation:draw 5.2s cubic-bezier(.45,0,.2,1) forwards .7s}
+  .exart :is(path,circle,ellipse,rect)[fill]:not([fill="none"]):not([fill="transparent"]){animation:draw 5.2s cubic-bezier(.45,0,.2,1) forwards .7s, fillin 2.6s ease both 2.8s}
+  .exart g[stroke] :is(path,circle,ellipse){animation-delay:calc(.7s + var(--gi, 0s))}
+  .exart g:nth-of-type(2) > *{--gi:.5s} .exart g:nth-of-type(3) > *{--gi:1s} .exart g:nth-of-type(4) > *{--gi:1.5s} .exart g:nth-of-type(5) > *{--gi:2s}
+
+  /* --- light to dark, and back, as a slow tide rather than a switch --- */
+  html[data-vt="theme"]::view-transition-new(root){animation:vtcircle 3s cubic-bezier(.45,0,.15,1)}
+  body{transition:background-color 2.6s ease, color 2.6s ease}
+
+  /* --- small print, bigger and firmer everywhere --- */
+  :root{--ink60:rgba(15,30,61,.72)}
+  body.dm{--ink60:rgba(245,241,232,.76)}
+  .kicker{font-size:12.5px; font-weight:700}
+  .tnote, .tabout, .sbnote, .rungb, .badgeexplain, .cfoot, .integrity, .privline, .sosregion, .modedesc, .pwhy, .pfit, .resumes, .subjline, .depthsub, .htsub, .vcslogan, .ctag, .libline, .cexplain, .soswhat, .pline{font-size:15px; font-weight:500; line-height:1.6}
+  .tlabel, .setlabel, .viewmeta, .libtally, .libfrom, .resumek, .libctak, .liblockk, .instag, .depthtime, .nextrungk{font-size:12.5px; font-weight:700}
+  .htbadge, .libtier, .demobadge, .pmatch, .subjdone{font-size:12px; font-weight:700}
+  .libstatus, .soshours, .cstate, .vclast, .routed, .qpush, .exhint, .mlabel, .topicdiv span, .subjcount, .exstep{font-size:13px; font-weight:600}
+  .count, .bchip, .exskip, .saveexit, .thememini, .pulsebtn, .setmini, .showold, .prole, .rungyou, .hsdismiss{font-size:14px; font-weight:600}
+  .smeterl{font-size:11.5px; font-weight:600}
+  .mcount{font-size:11.5px; font-weight:700}
+  .hquote{font-size:18px; font-weight:420}
+  .gsub, .lede.dim{font-weight:450}
+  .exhint{color:rgba(245,241,232,.55)} .exstep{color:rgba(245,241,232,.62)} .exskip{color:rgba(245,241,232,.68)}
+
+  /* --- the clipped layer a ripple lives in, so it keeps to round corners --- */
+  .ripwrap{position:absolute; inset:0; border-radius:inherit; overflow:hidden; pointer-events:none; z-index:0;
+    -webkit-mask-image:-webkit-radial-gradient(white, black); mask-image:radial-gradient(white, black); transform:translateZ(0)}
+
+  /* --- locked: a padlock in the corner; a tap answers calmly --- */
+  .htlock{position:absolute; top:16px; right:16px; color:var(--ink60); opacity:.8; transition:color .8s, transform .8s var(--ease-spring)}
+  .htile.locked, .libtile.liblocked{cursor:pointer}
+  .htile.locked{transition:opacity 1s ease, filter 1s ease, box-shadow .6s}
+  .htile.denied, .libtile.denied{opacity:1; filter:none}
+  .htile.denied{animation:deny 3.4s ease-in-out both}
+  .libtile.denied{animation:deny 3.4s ease-in-out both}
+  @keyframes deny{
+    0%{box-shadow:0 0 0 1px var(--ring), var(--lift)}
+    16%{box-shadow:0 0 0 2px rgba(192,107,92,.8), 0 0 0 10px rgba(192,107,92,.16), 0 0 40px -6px rgba(192,107,92,.5)}
+    38%{box-shadow:0 0 0 1.5px rgba(192,107,92,.45), 0 0 0 4px rgba(192,107,92,.06), var(--lift)}
+    58%{box-shadow:0 0 0 2px rgba(192,107,92,.7), 0 0 0 9px rgba(192,107,92,.13), 0 0 36px -6px rgba(192,107,92,.42)}
+    100%{box-shadow:0 0 0 1px var(--ring), var(--lift)}}
+  .denied .htlock{color:#C06B5C; opacity:1; animation:locknod 1.6s ease-in-out .2s 2}
+  @keyframes locknod{0%,100%{transform:rotate(0)} 30%{transform:rotate(-9deg)} 65%{transform:rotate(6deg)}}
+  /* the line that says how to open it lights up like a highlighter stroke */
+  .locknote{transition:color .8s ease}
+  .denied .locknote{color:var(--ink); font-weight:650; -webkit-box-decoration-break:clone; box-decoration-break:clone; padding:1px 3px; margin:0 -3px; border-radius:4px;
+    background:linear-gradient(100deg, rgba(212,165,71,.42), rgba(242,213,142,.5)) no-repeat 0 0 / 0% 100%; animation:marker 1.6s cubic-bezier(.45,0,.2,1) .35s forwards}
+  @keyframes marker{to{background-size:100% 100%}}
+  body.dm .denied .locknote{background-image:linear-gradient(100deg, rgba(212,165,71,.38), rgba(212,165,71,.24))}
+  .lockpill{display:inline-flex; align-items:center; gap:6px; cursor:pointer; opacity:.9}
+  .lockpill .lockic{flex:none}
+  .denied .lockpill{border-color:rgba(192,107,92,.6); color:var(--ink); opacity:1}
+
+  /* --- newly open: the padlock lifts, light spills out, then it settles --- */
+  .htile.fresh{animation:risein 1.52s var(--ease-out) both, freshring 3.6s ease-in-out 3 both;
+    animation-delay:calc(var(--n,0) * 112ms + 608ms), calc(var(--n,0) * 112ms + 1.9s);
+    box-shadow:0 0 0 1.5px rgba(212,165,71,.65), 0 18px 46px -18px rgba(212,165,71,.7)}
+  @keyframes freshring{
+    0%,100%{box-shadow:0 0 0 1.5px rgba(212,165,71,.65), 0 18px 46px -18px rgba(212,165,71,.7)}
+    45%{box-shadow:0 0 0 2px #E8C26A, 0 0 0 12px rgba(212,165,71,.16), 0 0 54px -4px rgba(212,165,71,.7)}}
+  .opened{position:absolute; inset:0; border-radius:inherit; pointer-events:none; z-index:0;
+    background:radial-gradient(90% 70% at 50% 45%, rgba(242,213,142,.42), transparent 70%); opacity:0; animation:openglow 3.6s ease-in-out 3 both; animation-delay:calc(var(--n,0) * 112ms + 1.9s)}
+  @keyframes openglow{0%,100%{opacity:.15} 45%{opacity:1}}
+  .opened .burst i{animation-delay:calc(var(--d) + 2.1s)}
+  .htile.fresh > :not(.opened){position:relative; z-index:1}
+  .htile.fresh > .htbadge{position:absolute}
+  .openbadge{display:inline-flex; align-items:center; gap:6px; color:#8a6d1f; background:linear-gradient(140deg, rgba(242,213,142,.6), rgba(212,165,71,.3)); border-color:rgba(212,165,71,.7);
+    box-shadow:0 0 16px -2px rgba(212,165,71,.7); animation:fadein 1.4s var(--ease-out) both 1.4s}
+  body.dm .openbadge{color:#F6DE9C}
+  .lockic .shackle{transform-box:view-box; transform-origin:11px 7.5px}
+  .lockic.open .shackle{animation:unlatch 1.6s cubic-bezier(.34,1.56,.64,1) both 2.2s}
+  @keyframes unlatch{to{transform:translateY(-1.6px) rotate(32deg)}}
+  .htile.fresh > .ripwrap{position:absolute}
+
   /* --- quieter when asked for --- */
   @media (prefers-reduced-motion: reduce){
     *, *::before, *::after{animation-duration:.01ms !important; animation-iteration-count:1 !important; animation-delay:0ms !important; transition-duration:.01ms !important}
