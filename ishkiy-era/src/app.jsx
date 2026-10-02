@@ -1,9 +1,10 @@
 // iSHKiY — ERA v1. Single-component app, Haven pattern.
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { PARTS, L5, E5, RIASEC_PHRASES } from "./items.js";
 import { MINIS, scoreMini, readMini } from "./mini.js";
 import { createClient } from "@supabase/supabase-js";
+import { Sky, Words, Burst, useCountUp, transition, installFx } from "./fx.jsx";
 
 /* ---------------- backend (Supabase, connect-only v1) ----------------
    Paste your project URL and anon public key below (Settings -> API).
@@ -273,7 +274,9 @@ function md(text) {
   const esc = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   const ACCENTS = { "How you think": "acc-think", "How you carry yourself": "acc-heart", "What pulls you": "acc-pull", "What you're for": "acc-values", "How you work": "acc-work", "The tensions": "acc-tension", "What this suggests": "acc-gold" };
   let cur = "";
-  return esc(text).split(/\n{2,}/).map((block) => {
+  /* Headings get their own block even when the writer only left one line break
+     after them; otherwise a whole section renders as one giant heading. */
+  return esc(text).replace(/^(#{2,3} [^\n]*)$/gm, "\n$1\n").split(/\n{2,}/).map((block) => {
     const b = block.trim(); if (!b) return "";
     if (b.startsWith("## ")) { const title = b.slice(3).trim(); cur = ACCENTS[title] || ""; return `<h2 class="${cur}">${inline(title)}</h2>`; }
     if (b.startsWith("### ")) return `<p class="pull ${cur}">${inline(b.slice(4))}</p>`;
@@ -309,11 +312,18 @@ function FramesSvg() {
 /* ---------------- app ---------------- */
 function App() {
   const [state, setState] = useState(() => ({ part: 0, item: 0, answers: {}, unlocked: false, report: null, ...load(), phase: "breath" }));
-  const update = (patch) => setState((s) => { const n = { ...s, ...patch }; save(n); return n; });
+  const apply = (patch) => setState((s) => { const n = { ...s, ...patch }; save(n); return n; });
+  /* A new screen, or a new theme, arrives through a view transition. Everything
+     else (an answer, a seed) applies straight away. */
+  const update = (patch) => {
+    if ("dark" in patch && !!patch.dark !== !!state.dark) return transition(() => apply(patch), "theme");
+    if (patch.phase && patch.phase !== state.phase) return transition(() => apply(patch));
+    apply(patch);
+  };
   const answers = state.answers;
   const scores = useMemo(() => (["glimmer", "generating", "report", "companion", "humans", "library", "account", "settings", "constellation"].includes(state.phase) && Object.keys(answers).length) ? computeScores(answers) : null, [state.phase, answers]);
 
-  useEffect(() => { window.scrollTo(0, 0); }, [state.phase, state.part, state.item]);
+  useLayoutEffect(() => { window.scrollTo(0, 0); }, [state.phase, state.part, state.item]);
   useEffect(() => { document.body.classList.toggle("dm", !!state.dark); }, [state.dark]);
 
   if (state.phase === "breath") return <Breath onEnter={() => update({ phase: state.seenExplainer ? "home" : "explainer" })} />;
@@ -363,7 +373,7 @@ function App() {
 }
 
 function Shell({ dark, children, footer }) {
-  return (<div className={"shell" + (dark ? " dark" : "")}><div className="col">{children}</div>{footer}</div>);
+  return (<div className={"shell" + (dark ? " dark" : "")}>{dark && <Sky />}<div className="col">{children}</div>{footer}</div>);
 }
 
 const WARMUP = [
@@ -383,8 +393,8 @@ function Warmup({ onDone, onExit }) {
       <div className="exitrow"><SaveExit onExit={onExit} light /></div>
       <div className="glimmer">
         <div className="breath" aria-hidden="true"><span /></div>
-        <p className="gline" key={i}>{WARMUP[i].line}</p>
-        <p className="gsub">{WARMUP[i].sub}</p>
+        <p className="gline" key={i}><Words text={WARMUP[i].line} delay={150} /></p>
+        <p className="gsub fadein" key={"s" + i}>{WARMUP[i].sub}</p>
         <button className="btn gold" onClick={() => (last ? onDone() : setI(i + 1))}>{last ? "I'm ready" : "Go on"}</button>
       </div>
     </Shell>
@@ -403,7 +413,7 @@ function Welcome({ onStart, resumable }) {
       <div className="welcome">
         <Wordmark light />
         <p className="kicker">Essence Recovery Assessment</p>
-        <h1 className="display">You weren't built for a box.</h1>
+        <h1 className="display"><Words text="You weren't built for a box." delay={200} /></h1>
         <p className="lede">This app helps you understand yourself — and use what you learn.</p>
         <div className="steps">
           <div className="step"><span className="stepn">1</span><span>Answer questions about yourself. Ten to fifteen minutes for your first profile, and you can go deeper whenever you want. It saves as you go.</span></div>
@@ -477,7 +487,7 @@ function PartIntro({ part, n, onGo, onExit }) {
       <Dots n={n} />
       <div className={"intro mindset" + (ready ? " leaving" : "")}>
         <p className="kicker gold">{part.kicker}</p>
-        <h1 className="display ink">{part.title}</h1>
+        <h1 className="display ink"><Words text={part.title} delay={150} /></h1>
         <p className="lede inkdim">{part.intro}</p>
         <div className="mindwrap">
           <BreathDiagram />
@@ -615,8 +625,8 @@ function Glimmer({ part, answers, scores, onNext }) {
   return (
     <Shell dark>
       <div className="glimmer">
-        <GlimmerArt kind={part.glimmer.visual} scores={scores} />
-        <p className="gline">{line}</p>
+        <div className="gartwrap"><Burst n={14} spread={110} /><GlimmerArt kind={part.glimmer.visual} scores={scores} /></div>
+        <p className="gline"><Words text={line} delay={700} step={40} /></p>
         <button className="btn gold" onClick={onNext}>Carry on</button>
       </div>
     </Shell>
@@ -653,9 +663,15 @@ function Generating({ answers, scores, onDone }) {
   return (
     <Shell dark>
       <div className="glimmer">
-        <div className="orbwrap"><Orb size={100} /></div>
-        <p className="gline">That's everything. Most people never sit with themselves this long.</p>
-        <p className="gsub">{lines[Math.min(step, lines.length - 1)]}…</p>
+        <div className="orbwrap genorb">
+          <svg viewBox="0 0 140 140" className="genring" aria-hidden="true">
+            <circle cx="70" cy="70" r="64" className="genrtrack" />
+            <circle cx="70" cy="70" r="64" className="genrfill" pathLength="100" strokeDasharray={`${Math.max(4, ((step + 0.5) / calls.length) * 100)} 100`} transform="rotate(-90 70 70)" />
+          </svg>
+          <Orb size={100} />
+        </div>
+        <p className="gline"><Words text="That's everything. Most people never sit with themselves this long." delay={300} step={45} /></p>
+        <p className="gsub fadein" key={step}>{lines[Math.min(step, lines.length - 1)]}…</p>
       </div>
     </Shell>
   );
@@ -666,7 +682,7 @@ const GOLD = "#D4A547", INK = "var(--ink)", INK18 = "var(--ink12)";
 
 function MiniBars({ pairs, max = 100 }) {
   return (<svg viewBox={`0 0 120 ${pairs.length * 16}`} className="mini">{pairs.map(([label, v], i) => (
-    <g key={label} transform={`translate(0 ${i * 16})`}>
+    <g key={label + i} transform={`translate(0 ${i * 16})`}>
       <rect x="0" y="4" width="120" height="6" rx="3" fill={INK18} />
       <rect x="0" y="4" width={Math.max(6, (v / max) * 120)} height="6" rx="3" fill={i === 0 ? GOLD : INK} opacity={i === 0 ? 1 : 0.55} />
     </g>))}</svg>);
@@ -722,7 +738,7 @@ function Tiles({ scores }) {
   return (
     <div className="tiles">
       {shown.map((tile) => (
-        <div key={tile.id} className={"tile" + (open === tile.id ? " open" : "")} style={{ borderTopColor: tile.acc, borderTopWidth: "4px" }}>
+        <div key={tile.id} className={"tile" + (open === tile.id ? " open" : "")} style={{ "--acc": tile.acc }}>
           <button className="tilehead" onClick={() => setOpen(open === tile.id ? null : tile.id)} aria-expanded={open === tile.id}>
             {tile.art}
             <span className="tlabel">{tile.label}</span>
@@ -850,9 +866,16 @@ function Orb({ size = 96 }) {
           <stop offset="50%" stopColor="#D4A547" stopOpacity="0.32" />
           <stop offset="100%" stopColor="#D4A547" stopOpacity="0" />
         </radialGradient>
+        <radialGradient id={gid + "b"} cx="38%" cy="32%" r="75%">
+          <stop offset="0%" stopColor="#FBE7AE" />
+          <stop offset="45%" stopColor="#E2B556" />
+          <stop offset="100%" stopColor="#B07F27" />
+        </radialGradient>
       </defs>
       <circle cx="48" cy="48" r="46" fill={`url(#${gid})`} className="orbhalo" />
-      <circle cx="48" cy="48" r="27" fill="#D4A547" />
+      <g className="orbit"><circle cx="48" cy="48" r="38" fill="none" stroke="#D4A547" strokeOpacity=".35" strokeWidth=".8" strokeDasharray="1 4.2" /><circle cx="86" cy="48" r="1.8" fill="#F6DE9C" /></g>
+      <circle cx="48" cy="48" r="27" fill={`url(#${gid}b)`} />
+      <ellipse cx="40" cy="36" rx="9" ry="5" fill="#FFF6DA" opacity=".35" transform="rotate(-25 40 36)" />
       <path d="M38 46 q4 -4 8 0" fill="none" stroke="#0F1E3D" strokeWidth="2.6" strokeLinecap="round" />
       <path d="M52 46 q4 -4 8 0" fill="none" stroke="#0F1E3D" strokeWidth="2.6" strokeLinecap="round" />
       <path d={still ? SMILE_TO : SMILE_FROM} fill="none" stroke="#0F1E3D" strokeWidth="2.6" strokeLinecap="round">
@@ -862,13 +885,15 @@ function Orb({ size = 96 }) {
   );
 }
 
+function Count({ to }) { return useCountUp(to, 1600, 600); }
+
 function Breath({ onEnter }) {
   const quote = useMemo(qNext, []);
   return (
     <Shell dark>
       <div className="glimmer breathscreen">
         <div className="breath" aria-hidden="true"><span /></div>
-        <p className="gline bquote">{quote}</p>
+        <p className="gline bquote"><Words text={quote} delay={350} step={110} /></p>
         <button className="btn gold" onClick={() => { track("enter"); onEnter(); }}>Enter</button>
         <div className="bfoot"><Wordmark light /></div>
       </div>
@@ -1054,7 +1079,7 @@ function LibraryScreen({ state, onBack, onMini, onRetake, onAssessment }) {
       </div>
       <article className="report">
         <p className="kicker gold">The Library of You</p>
-        <h1 className="display ink">One profile. Deepening for life.</h1>
+        <h1 className="display ink"><Words text="One profile. Deepening for life." delay={150} /></h1>
         <Constellation />
         <p className="libnarr">Your report was the first light, the centre of the constellation. The Library is where the rest arrive: {built.length} lenses across five parts of life — how you attach and how you fight, what drives you and what stops you, how you carry pressure, what money means to you, and whether the life you're building is the one you meant. Each is ground from research psychologists actually use. Each one you complete adds a star to the same map: your Companion answers with more of you in the room, and what you choose to share with a human arrives richer.</p>
         {!st.allParts && (
@@ -1111,7 +1136,7 @@ function LibraryScreen({ state, onBack, onMini, onRetake, onAssessment }) {
 /* ---------------- the cockpit ---------------- */
 function HomeTile({ title, sub, locked, lockNote, onClick, art, badge, acc, pulse }) {
   return (
-    <button className={"htile" + (locked ? " locked" : "") + (pulse ? " pulse" : "")} style={acc ? { borderTopColor: acc, borderTopWidth: "4px", background: `linear-gradient(180deg, ${acc}14, transparent 55%)` } : undefined} onClick={locked ? undefined : onClick} aria-disabled={locked}>
+    <button className={"htile" + (locked ? " locked" : "") + (pulse ? " pulse" : "")} style={acc ? { "--acc": acc } : undefined} onClick={locked ? undefined : onClick} aria-disabled={locked}>
       {badge != null && <span className="htbadge">{badge}</span>}
       {art}
       <span className="httitle">{title}</span>
@@ -1164,7 +1189,7 @@ function Home({ state, go, startAssessment, onTheme, onResume }) {
     <Shell>
       <div className="home">
         <div className="hrow"><Wordmark /><button className="thememini" onClick={onTheme}>{state.dark ? "Light mode" : "Dark mode"}</button></div>
-        <h1 className="display ink hgreet">{name ? `Welcome back, ${name}.` : "Welcome."}</h1>
+        <h1 className="display ink hgreet"><Words text={name ? `Welcome back, ${name}.` : "Welcome."} delay={150} /></h1>
         <p className="lede inkdim hsub">{hasReport ? "Your profile is waiting. So is the team." : reportDue ? "You've done the first look. Your report is ready to be written — the Companion and the rest open once it is." : midway ? "You're partway through. Pick up where you left off — your answers kept your place." : "Everything here begins with ten honest minutes. Start when you're ready."}</p>
         {state.paused && PARTS[state.paused.part] && (
           <button className="resumecard" onClick={() => { track("resume"); onResume(); }}>
@@ -1529,7 +1554,7 @@ NEW is yes if the question opens a subject unrelated to that voice's current top
   const enterRoom = (k) => { if (k !== "auto") pick(k); setChoice(null); setRoom(k); track("voice_open", k); };
 
   if (room === "auto") return (
-    <section className="companion noprint room autoroom" style={{ borderTopColor: "#D4A547" }}>
+    <section className="companion noprint room autoroom" style={{ "--acc": "#D4A547" }}>
       <button className="ghost inkghost" onClick={() => setRoom(null)}>← All voices</button>
       <div className="roomhead" style={{ background: "linear-gradient(180deg, #D4A5471f, transparent)" }}>
         <Avatar kind="auto" size={46} />
@@ -1557,14 +1582,14 @@ NEW is yes if the question opens a subject unrelated to that voice's current top
       <h2 className="ctitle">Three voices. One memory between them.</h2>
       <p className="cexplain">Each voice keeps its own conversation, but all three remember everything you've said to any of them. They share {Q_CAP} questions a day between them — {left} left today. Day {dayNum} of your 7. No one can read these conversations, iSHKiY included.</p>
       <div className="voicehub">
-        <button className="vcard vcauto" style={{ borderTopColor: "#D4A547" }} onClick={() => enterRoom("auto")}>
+        <button className="vcard vcauto" style={{ "--acc": "#D4A547" }} onClick={() => enterRoom("auto")}>
           <Avatar kind="auto" size={40} />
           <span className="vcname" style={{ color: "#D4A547" }}>Let iSHKiY choose</span>
           <span className="vcslogan">Not sure who you need? Just ask.</span>
           <span className="vclast dimtext">We'll pick the voice and the moment</span>
         </button>
         {Object.entries(MODES).map(([k, m]) => (
-          <button key={k} className="vcard" style={{ borderTopColor: m.colour }} onClick={() => enterRoom(k)}>
+          <button key={k} className="vcard" style={{ "--acc": m.colour }} onClick={() => enterRoom(k)}>
             <Avatar kind={k} size={40} />
             <span className="vcname" style={{ color: m.colour }}>{m.label}</span>
             <span className="vcslogan">{m.slogan}</span>
@@ -1577,7 +1602,7 @@ NEW is yes if the question opens a subject unrelated to that voice's current top
 
   const M = MODES[mode];
   return (
-    <section className="companion noprint room" style={{ borderTopColor: M.colour }}>
+    <section className="companion noprint room" style={{ "--acc": M.colour }}>
       <button className="ghost inkghost" onClick={() => setRoom(null)}>← All voices</button>
       <div className="roomhead" style={{ background: `linear-gradient(180deg, ${M.colour}1f, transparent)` }}>
         <Avatar kind={mode} size={46} />
@@ -1607,7 +1632,7 @@ NEW is yes if the question opens a subject unrelated to that voice's current top
           {m.role === "user" && m.subj && <span className="mlabel usubj">{m.subj}</span>}
           <div className={"bubble" + (m.err ? " errb" : "")} dangerouslySetInnerHTML={{ __html: md(m.content) }} />
         </div>))}
-        {busy && <div className="msg assistant"><div className="bubble thinking">Reading you back…</div></div>}
+        {busy && <div className="msg assistant"><div className="bubble thinking">Reading you back<span className="typing" aria-hidden="true"><i /><i /><i /></span></div></div>}
         <div ref={endRef} />
       </div>
       {left > 0 ? (
@@ -1754,7 +1779,7 @@ function CompanionScreen({ state, scores, onBack, onRegenerate, onHuman }) {
       </div>
       <article className="report">
         <p className="kicker gold">The Companion</p>
-        <h1 className="display ink">Three voices that read you.</h1>
+        <h1 className="display ink"><Words text="Three voices that read you." delay={150} /></h1>
         <p className="lede inkdim">Sounding, Coach, Mentor — ten questions a day, answered by voices that know your report line by line and remember everything you've told any of them.</p>
         <div className="teamrow">
           <Avatar kind="companion" /><Avatar kind="coach" /><Avatar kind="mentor" />
@@ -1960,7 +1985,7 @@ function SettingsScreen({ state, update, onBack }) {
       <div className="rhead noprint"><button className="ghost inkghost" onClick={onBack}>← Home</button><Wordmark /><span /></div>
       <article className="report">
         <p className="kicker gold">Settings</p>
-        <h1 className="display ink">Your space, your say.</h1>
+        <h1 className="display ink"><Words text="Your space, your say." delay={150} /></h1>
 
         <div className="setgroup">
           <p className="setlabel">Your assessment</p>
@@ -2153,7 +2178,7 @@ function HumansScreen({ scores, state, onBack, onApply }) {
       </div>
       <article className="report">
         <p className="kicker gold">A human, when ready</p>
-        <h1 className="display ink">Real people, on your terms.</h1>
+        <h1 className="display ink"><Words text="Real people, on your terms." delay={150} /></h1>
         <p className="lede inkdim">Counsellors, mentors and coaches — because human connection brings what AI never can. You choose who sees what, and when. Or no one, and that's fine too.</p>
         <Directory state={state} scores={scores} />
         <Practitioners scores={scores} />
@@ -2276,8 +2301,8 @@ function Explainer({ onDone, done = "Begin" }) {
           <div className="exwrap" key={i}><ExplainArt kind={s.art} /></div>
           <div aria-live="polite" aria-atomic="true">
             <p className="exstep">{i + 1} of {n}</p>
-            <p className="gline exline" key={"l" + i}>{s.line}</p>
-            <p className="gsub" key={"s" + i}>{s.sub}</p>
+            <p className="gline exline" key={"l" + i}><Words text={s.line} delay={120} step={45} /></p>
+            <p className="gsub fadein" key={"s" + i}>{s.sub}</p>
           </div>
         </div>
         <div className="exdots" role="tablist" aria-label="Slides">
@@ -2306,7 +2331,7 @@ function ChooseDepth({ state, onPick, onBack }) {
       <div className="intro">
         <button className="ghost inkghost" onClick={onBack}>← Home</button>
         <p className="kicker gold">How deep, today?</p>
-        <h1 className="display ink">Start small. Go deeper when you want.</h1>
+        <h1 className="display ink"><Words text="Start small. Go deeper when you want." delay={150} /></h1>
         <p className="lede inkdim">You don't have to do it all at once. Every part you finish makes your report truer — and you can always come back.</p>
         <div className="depthgrid">
           <button className="depthcard" onClick={() => onPick("starter")}>
@@ -2337,12 +2362,14 @@ function ChooseDepth({ state, onPick, onBack }) {
    what it's called — a level nobody can cash in is just a sticker. */
 function StrengthMeter({ score }) {
   const r = 54, c = 2 * Math.PI * r;
+  const shown = useCountUp(score, 1700, 350);
   return (
     <svg viewBox="0 0 130 130" className="smeter" role="img" aria-label={`Profile strength ${score} out of 100`}>
+      <defs><linearGradient id="smgrad" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor="#F2D58E" /><stop offset=".55" stopColor="#D4A547" /><stop offset="1" stopColor="#A87A26" /></linearGradient></defs>
       <circle cx="65" cy="65" r={r} fill="none" stroke="var(--ink12)" strokeWidth="9" />
-      <circle cx="65" cy="65" r={r} fill="none" stroke="#D4A547" strokeWidth="9" strokeLinecap="round"
-        strokeDasharray={`${(score / 100) * c} ${c}`} transform="rotate(-90 65 65)" />
-      <text x="65" y="62" textAnchor="middle" className="smetern">{score}</text>
+      <circle cx="65" cy="65" r={r} fill="none" stroke="url(#smgrad)" strokeWidth="9" strokeLinecap="round" className="smarc"
+        strokeDasharray={`${(shown / 100) * c} ${c}`} transform="rotate(-90 65 65)" />
+      <text x="65" y="62" textAnchor="middle" className="smetern">{shown}</text>
       <text x="65" y="82" textAnchor="middle" className="smeterl">of 100</text>
     </svg>
   );
@@ -2358,7 +2385,7 @@ function StrengthScreen({ state, onBack, onAssessment, onLibrary }) {
       <div className="rhead noprint"><button className="ghost inkghost" onClick={onBack}>← Home</button><Wordmark /><span /></div>
       <article className="report">
         <p className="kicker gold">Profile strength</p>
-        <h1 className="display ink">{level ? level.name : "Not started yet"}</h1>
+        <h1 className="display ink"><Words text={level ? level.name : "Not started yet"} delay={150} step={90} /></h1>
         <StrengthMeter score={st.score} />
         <p className="lede inkdim">{level ? level.blurb : "Answer your first part and the picture begins."}</p>
 
@@ -2415,11 +2442,11 @@ function BadgeScreen({ state, onDone }) {
   return (
     <Shell dark>
       <div className="glimmer">
-        <div className="badgeorb"><Orb size={92} /><span className="badgestars" aria-hidden="true">{LEVELS.map((_, k) => <i key={k} className={"bstar" + (k < lit ? " lit" : "")} />)}</span></div>
+        <div className="badgeorb"><Burst n={22} spread={150} /><Orb size={92} /><span className="badgestars" aria-hidden="true">{LEVELS.map((_, k) => <i key={k} className={"bstar" + (k < lit ? " lit" : "")} />)}</span></div>
         <p className="kicker gold">Badge earned</p>
-        <p className="gline">{level ? level.name : "First steps"}</p>
+        <p className="gline badgename"><Words text={level ? level.name : "First steps"} delay={500} step={120} /></p>
         <p className="gsub">{level ? level.blurb : "You've begun."}</p>
-        <p className="badgestrength">Profile strength <strong>{st.score}</strong> / 100</p>
+        <p className="badgestrength">Profile strength <strong><Count to={st.score} /></strong> / 100</p>
         {step && <p className="badgenext">{step.what} to earn <strong>{step.level.name}</strong> — {step.level.accuracy}.</p>}
         <button className="btn gold" onClick={onDone}>See my report</button>
       </div>
@@ -2536,7 +2563,7 @@ function Report({ report, name, answers, scores, companionStart, completedAt, st
           </div>
         ); })()}
         <p className="kicker gold noprint">Essence Recovery Assessment</p>
-        <h1 className="display ink">{name ? `${name}, this is you.` : "This is you."}</h1>
+        <h1 className="display ink"><Words text={name ? `${name}, this is you.` : "This is you."} delay={200} step={80} /></h1>
         <p className="lede inkdim noprint">Your report, your dimension tiles, your share card — the centre everything else here orbits.</p>
         {report.preview && <div className="previewnote"><p>Your real report didn't finish writing — usually just a connection blip. Your answers are safe on this phone. One tap tries again.</p><button className="btn gold" onClick={onRegenerate}>Write my real report</button></div>}
         {partial && <ViewIntro strength={strength} completedAt={completedAt} onDeeper={onDeeper} />}
@@ -2563,4 +2590,4 @@ function Report({ report, name, answers, scores, companionStart, completedAt, st
 }
 
 const rootEl = typeof document !== "undefined" && document.getElementById("root");
-if (rootEl) createRoot(rootEl).render(<App />);
+if (rootEl) { createRoot(rootEl).render(<App />); installFx(); }
