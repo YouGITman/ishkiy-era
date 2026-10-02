@@ -14,7 +14,7 @@
 <meta name="apple-mobile-web-app-title" content="iSHKiY" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Lora:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..700;1,9..144,300..600&family=Lora:wght@500;600;700&family=Inter:wght@400..700&display=swap" rel="stylesheet" />
 <style>
   :root{
     --ink:#0F1E3D; --bone:#F5F1E8; --gold:#D4A547;
@@ -50,7 +50,7 @@
   .welcome .wordmark{margin-bottom:26px}
   .welcome .kicker{margin-bottom:14px}
 
-  .btn{display:inline-block; padding:15px 26px; border-radius:12px; font-weight:600; font-size:16px; margin-top:18px; align-self:flex-start; transition:transform .12s ease, opacity .12s}
+  .btn{display:inline-block; padding:15px 26px; border-radius:12px; font-weight:600; font-size:16px; margin-top:18px; align-self:flex-start; transition:transform .19s ease, opacity .19s}
   .btn:active{transform:scale(.98)}
   .btn:disabled{opacity:.4; cursor:default}
   .btn.gold{background:var(--gold); color:#0F1E3D}
@@ -68,25 +68,25 @@
   .dot.done{background:var(--gold); border-color:var(--gold)}
   .dot.now{border-color:var(--gold)}
   .track{height:3px; background:var(--ink06); border-radius:2px; margin:14px 0 0; overflow:hidden}
-  .fill{height:100%; background:var(--gold); border-radius:2px; transition:width .3s ease}
+  .fill{height:100%; background:var(--gold); border-radius:2px; transition:width .48s ease}
 
   .intro{flex:1; display:flex; flex-direction:column; justify-content:center; padding:32px 0}
 
   /* questions */
-  .qwrap{flex:1; display:flex; flex-direction:column; justify-content:center; padding:28px 0; animation:rise .28s ease}
+  .qwrap{flex:1; display:flex; flex-direction:column; justify-content:center; padding:28px 0; animation:rise .45s ease}
   @keyframes rise{from{opacity:0; transform:translateY(8px)} to{opacity:1; transform:none}}
   @media (prefers-reduced-motion: reduce){ .qwrap{animation:none} .btn{transition:none} .fill{transition:none} }
   .question{font-family:Lora,serif; font-weight:600; font-size:24px; line-height:1.3; margin:0 0 24px}
   .qart{width:100%; max-width:320px; margin:0 auto 18px; display:block}
 
   .opts{display:flex; flex-direction:column; gap:10px}
-  .opt{display:flex; align-items:center; gap:12px; text-align:left; padding:14px 16px; border-radius:12px; border:1.5px solid var(--ink12); background:rgba(255,255,255,.5); font-size:16px; transition:border-color .12s, background .12s}
+  .opt{display:flex; align-items:center; gap:12px; text-align:left; padding:14px 16px; border-radius:12px; border:1.5px solid var(--ink12); background:rgba(255,255,255,.5); font-size:16px; transition:border-color .19s, background .19s}
   .opt.sel{border-color:var(--gold); background:rgba(212,165,71,.12)}
   .odot{flex:0 0 auto; width:10px; height:10px; border-radius:50%; border:1.5px solid var(--ink12)}
   .opt.sel .odot{background:var(--gold); border-color:var(--gold)}
 
   .fc{display:flex; flex-direction:column; gap:12px}
-  .fccard{text-align:left; padding:20px 18px; border-radius:14px; border:1.5px solid var(--ink12); background:rgba(255,255,255,.5); font-family:Lora,serif; font-size:18px; line-height:1.35; transition:border-color .12s, background .12s}
+  .fccard{text-align:left; padding:20px 18px; border-radius:14px; border:1.5px solid var(--ink12); background:rgba(255,255,255,.5); font-family:Lora,serif; font-size:18px; line-height:1.35; transition:border-color .19s, background .19s}
   .fccard.sel{border-color:var(--gold); background:rgba(212,165,71,.12)}
 
   .ft{display:flex; flex-direction:column}
@@ -99,7 +99,7 @@
   .count{font-size:13px; color:var(--ink60); font-variant-numeric:tabular-nums}
 
   /* glimmer */
-  .glimmer{flex:1; display:flex; flex-direction:column; justify-content:center; align-items:center; text-align:center; padding:32px 0; animation:rise .4s ease}
+  .glimmer{flex:1; display:flex; flex-direction:column; justify-content:center; align-items:center; text-align:center; padding:32px 0; animation:rise .64s ease}
   .gart{width:200px; margin-bottom:26px}
   .gline{font-family:Lora,serif; font-size:22px; line-height:1.45; max-width:420px; margin:0}
   .gsub{color:var(--bone70); font-size:15px; margin-top:14px}
@@ -139,7 +139,7 @@
 
   /* warm-up breathing dot */
   .breath{width:120px; height:120px; display:flex; align-items:center; justify-content:center; margin-bottom:26px}
-  .breath span{width:26px; height:26px; border-radius:50%; background:var(--gold); animation:breathe 4.6s ease-in-out infinite}
+  .breath span{width:26px; height:26px; border-radius:50%; background:var(--gold); animation:breathe 7.36s ease-in-out infinite}
   @keyframes breathe{0%,100%{transform:scale(1); opacity:.85} 50%{transform:scale(2.6); opacity:1}}
   @media (prefers-reduced-motion: reduce){ .breath span{animation:none; transform:scale(1.8)} }
 
@@ -156,7 +156,7 @@
   .mini{width:110px; height:auto; margin-bottom:4px}
   .tlabel{font-size:12px; font-weight:600; letter-spacing:.1em; text-transform:uppercase; color:var(--ink60)}
   .tstat{font-family:Lora,serif; font-weight:700; font-size:19px; color:var(--ink)}
-  .tbody{padding:2px 16px 16px; animation:rise .22s ease}
+  .tbody{padding:2px 16px 16px; animation:rise .35s ease}
   .trow{display:flex; justify-content:space-between; align-items:center; padding:7px 0; border-top:1px solid var(--ink06); font-size:15px}
   .tnum{font-variant-numeric:tabular-nums; color:var(--ink60)}
   .tnote{font-size:13.5px; color:var(--ink60); line-height:1.55; margin:12px 0 0}
@@ -203,7 +203,7 @@
   .hsub{margin-bottom:26px}
   .hgrid{display:grid; grid-template-columns:1fr; gap:14px}
   @media (min-width:560px){ .hgrid{grid-template-columns:1fr 1fr} }
-  .htile{display:flex; flex-direction:column; align-items:flex-start; gap:8px; text-align:left; padding:22px 20px; border-radius:18px; border:1.5px solid var(--ink06); background:rgba(255,255,255,.55); transition:border-color .15s}
+  .htile{display:flex; flex-direction:column; align-items:flex-start; gap:8px; text-align:left; padding:22px 20px; border-radius:18px; border:1.5px solid var(--ink06); background:rgba(255,255,255,.55); transition:border-color .24s}
   .htile:not(.locked):hover{border-color:var(--gold)}
   .htile.locked{opacity:.5; cursor:default}
   .hart{width:56px; height:auto}
@@ -212,7 +212,7 @@
   .hquote{margin-top:34px; text-align:center; font-family:Lora,serif; font-style:italic; font-size:15px; color:var(--ink60)}
 
   /* helper avatars */
-  .avatar .halo{transform-origin:center; animation:halo 4.6s ease-in-out infinite}
+  .avatar .halo{transform-origin:center; animation:halo 7.36s ease-in-out infinite}
   @keyframes halo{0%,100%{transform:scale(.92); opacity:.7} 50%{transform:scale(1.06); opacity:1}}
   @media (prefers-reduced-motion: reduce){ .avatar .halo{animation:none} }
   .modebtn{display:inline-flex; align-items:center; gap:7px}
@@ -230,7 +230,7 @@
 
 
   /* screen transitions */
-  .shell,.reportpage{animation:screenfade .65s ease both}
+  .shell,.reportpage{animation:screenfade 1.04s ease both}
   @keyframes screenfade{from{opacity:0; transform:translateY(8px)} to{opacity:1; transform:none}}
   @media (prefers-reduced-motion: reduce){ .shell,.reportpage{animation:none} }
 
@@ -268,7 +268,7 @@
   /* the constellation */
   .constgrid{display:grid; grid-template-columns:1fr; gap:14px; margin-top:26px}
   @media (min-width:560px){ .constgrid{grid-template-columns:1fr 1fr} }
-  .capp{position:relative; display:flex; flex-direction:column; align-items:flex-start; gap:6px; text-align:left; padding:20px 20px 18px; border-radius:18px; border:1.5px solid var(--ink06); background:rgba(255,255,255,.55); transition:border-color .15s, opacity .15s}
+  .capp{position:relative; display:flex; flex-direction:column; align-items:flex-start; gap:6px; text-align:left; padding:20px 20px 18px; border-radius:18px; border:1.5px solid var(--ink06); background:rgba(255,255,255,.55); transition:border-color .24s, opacity .24s}
   .capp.dim{opacity:.45; filter:grayscale(.9)}
   .capp:hover{border-color:var(--gold); opacity:1; filter:none}
   .cdot{width:11px; height:11px; border-radius:999px; border:1.6px solid; opacity:.85}
@@ -299,7 +299,7 @@
   .htile{position:relative}
   .htbadge{position:absolute; top:12px; right:12px; font-size:11px; font-weight:700; letter-spacing:.06em; color:#8a6d1f; background:rgba(212,165,71,.16); border:1px solid rgba(212,165,71,.4); border-radius:999px; padding:4px 10px}
   body.dm .htbadge{color:var(--gold)}
-  .rotwrap{animation:rotfade 1s ease both}
+  .rotwrap{animation:rotfade 1.6s ease both}
   @keyframes rotfade{from{opacity:0} to{opacity:1}}
   @media (prefers-reduced-motion: reduce){ .rotwrap{animation:none} }
 
@@ -362,45 +362,45 @@
 
 
   /* mindset routine */
-  .mindset{transition:opacity .85s ease, transform .85s ease}
+  .mindset{transition:opacity 1.36s ease, transform 1.36s ease}
   .mindset.leaving{opacity:0; transform:translateY(-10px)}
   .mindwrap{display:flex; flex-direction:column; align-items:center; text-align:center; margin:18px 0 6px}
   .mindart{width:150px; height:150px}
   .mindpulse{transform-origin:center; animation:mindbreathe 8s ease-in-out infinite}
   .breathcue{margin:4px 0 6px; font-family:Lora,serif; font-size:18px; color:var(--ink60); display:flex; gap:10px; justify-content:center; align-items:baseline}
-  .breathcue span{transition:color 1.2s ease, opacity 1.2s ease; opacity:.55}
+  .breathcue span{transition:color 1.92s ease, opacity 1.92s ease; opacity:.55}
   .breathcue span.on{color:#8a6d1f; opacity:1}
   body.dm .breathcue span.on{color:var(--gold)}
   .breathcue .breathsep{opacity:.4}
   @media (prefers-reduced-motion: reduce){ .breathcue span{opacity:1; transition:none} }
   @keyframes mindbreathe{0%,100%{transform:scale(.72); opacity:.8} 50%{transform:scale(1.24); opacity:1}}
-  .mindline{font-family:Lora,serif; font-size:17px; line-height:1.5; color:var(--ink60); max-width:340px; margin:8px 0 0; animation:rotfade 1.2s ease both}
+  .mindline{font-family:Lora,serif; font-size:17px; line-height:1.5; color:var(--ink60); max-width:340px; margin:8px 0 0; animation:rotfade 1.92s ease both}
   @media (prefers-reduced-motion: reduce){ .mindpulse{animation:none} .mindline{animation:none} .mindset{transition:none} }
 
   /* dotted question tracker */
   .qdotswrap{padding:12px 0 2px}
   .qdots{display:flex; gap:5px; flex-wrap:wrap; align-items:center}
-  .qdot{width:6px; height:6px; border-radius:50%; background:var(--ink12); transition:background .3s, transform .3s}
+  .qdot{width:6px; height:6px; border-radius:50%; background:var(--ink12); transition:background .48s, transform .48s}
   .qdot.done{background:var(--gold)}
   .qdot.now{background:var(--gold); transform:scale(1.9)}
-  .qpush{font-size:12.5px; color:var(--gold); margin:9px 0 0; font-style:italic; animation:rotfade .9s ease both}
+  .qpush{font-size:12.5px; color:var(--gold); margin:9px 0 0; font-style:italic; animation:rotfade 1.44s ease both}
 
   /* message subject lines */
   .msubj{font-style:normal; font-weight:500; opacity:.75; margin-left:2px; text-transform:none; letter-spacing:0}
   .usubj{align-self:flex-end; text-transform:none; letter-spacing:0; font-weight:500; opacity:.6}
 
   /* reveal again */
-  .revealveil{display:flex; flex-direction:column; align-items:center; gap:10px; padding:22px 0; animation:rotfade .6s ease both}
+  .revealveil{display:flex; flex-direction:column; align-items:center; gap:10px; padding:22px 0; animation:rotfade .96s ease both}
   .revealline{font-family:Lora,serif; font-style:italic; color:var(--ink60); margin:0}
 
   /* explainer */
-  .explainer .exwrap{margin-bottom:22px; animation:rotfade 1s ease both}
+  .explainer .exwrap{margin-bottom:22px; animation:rotfade 1.6s ease both}
   .exart{width:120px; height:auto}
-  .exline{animation:rotfade .8s ease both}
+  .exline{animation:rotfade 1.28s ease both}
   .exdots{display:flex; gap:8px; justify-content:center; margin:18px 0 6px}
   /* Dots are real buttons: big enough to hit, with the visual dot drawn inside. */
   .exdot{width:24px; height:24px; padding:0; border:none; background:none; position:relative; cursor:pointer}
-  .exdot::after{content:""; position:absolute; inset:8.5px; border-radius:50%; background:rgba(245,241,232,.25); transition:background .2s ease, transform .2s ease}
+  .exdot::after{content:""; position:absolute; inset:8.5px; border-radius:50%; background:rgba(245,241,232,.25); transition:background .32s ease, transform .32s ease}
   .exdot.on::after{background:var(--gold); transform:scale(1.25)}
   .exdot:focus-visible{outline:2px solid var(--gold); outline-offset:1px; border-radius:50%}
   .exskip{display:block; margin:12px auto 0; color:rgba(245,241,232,.5); font-size:13px}
@@ -417,7 +417,7 @@
 
   /* choose depth */
   .depthgrid{display:flex; flex-direction:column; gap:12px; margin:18px 0 8px}
-  .depthcard{text-align:left; padding:18px; border-radius:16px; border:1.5px solid var(--ink06); background:rgba(255,255,255,.5); display:flex; flex-direction:column; gap:5px; transition:border-color .15s}
+  .depthcard{text-align:left; padding:18px; border-radius:16px; border:1.5px solid var(--ink06); background:rgba(255,255,255,.5); display:flex; flex-direction:column; gap:5px; transition:border-color .24s}
   body.dm .depthcard{background:rgba(245,241,232,.05)}
   .depthcard:hover{border-color:var(--gold)}
   .depthtime{font-size:11px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:#8a6d1f}
@@ -494,7 +494,7 @@
 
 
   /* a tile that wants tapping: a report waiting to be written */
-  .htile.pulse{animation:tilepulse 2.4s ease-in-out infinite}
+  .htile.pulse{animation:tilepulse 3.84s ease-in-out infinite}
   @keyframes tilepulse{0%,100%{box-shadow:0 0 0 0 rgba(212,165,71,0)} 50%{box-shadow:0 0 0 7px rgba(212,165,71,.28); transform:scale(1.015)}}
   @media (prefers-reduced-motion: reduce){ .htile.pulse{animation:none; box-shadow:0 0 0 3px rgba(212,165,71,.45)} }
   .inkghost.rewrite{margin-right:10px}
@@ -590,7 +590,7 @@
   /* the orb */
   .orbwrap{margin-bottom:22px}
   .orb{overflow:visible}
-  .orb .orbhalo{transform-origin:48px 48px; transform-box:view-box; animation:orbhalo 4.6s ease-in-out infinite}
+  .orb .orbhalo{transform-origin:48px 48px; transform-box:view-box; animation:orbhalo 7.36s ease-in-out infinite}
   @keyframes orbhalo{0%,100%{transform:scale(.8); opacity:.75} 50%{transform:scale(1); opacity:1}}
   @media (prefers-reduced-motion: reduce){ .orb .orbhalo{animation:none} }
   .breath.orbwrap span{display:none}
@@ -678,6 +678,519 @@
   .prole{font-family:Inter,sans-serif; font-weight:500; font-size:13px; color:var(--ink60)}
   .pline{font-size:14px; line-height:1.5; margin:0}
   .pfit{font-size:13px; font-style:italic; color:var(--ink60); margin:0 0 4px}
+
+  /* =====================================================================
+     LUMINOUS — the visual layer. Night sky on the dark screens, drifting
+     light on the paper ones, editorial type, and motion that breathes.
+     Everything below overrides what's above; delete this block to roll back.
+     ===================================================================== */
+  :root{
+    --serif:"Fraunces", Lora, Georgia, serif;
+    --ease-out:cubic-bezier(.16,1,.3,1);
+    --ease-spring:cubic-bezier(.34,1.56,.64,1);
+    --gold-hi:#F2D58E; --gold-lo:#A87A26;
+    --card:linear-gradient(180deg, rgba(255,255,255,.82), rgba(255,255,255,.55));
+    --ring:rgba(15,30,61,.07);
+    --lift:0 1px 2px rgba(15,30,61,.04), 0 14px 34px -18px rgba(15,30,61,.28);
+    --lift-hi:0 2px 4px rgba(15,30,61,.05), 0 26px 50px -22px rgba(15,30,61,.36);
+    --spot:rgba(212,165,71,.14);
+  }
+  body.dm{
+    --card:linear-gradient(180deg, rgba(245,241,232,.075), rgba(245,241,232,.03));
+    --ring:rgba(245,241,232,.09);
+    --lift:inset 0 1px 0 rgba(245,241,232,.06), 0 18px 40px -22px rgba(0,0,0,.7);
+    --lift-hi:inset 0 1px 0 rgba(245,241,232,.08), 0 30px 60px -24px rgba(0,0,0,.85);
+    --spot:rgba(212,165,71,.16);
+  }
+  html{background:var(--bone)}
+  body, body.dm{background:transparent}
+  .qdots{justify-content:center}
+  body{color-scheme:light; -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale; text-rendering:optimizeLegibility; transition:background-color .96s ease, color .96s ease}
+  body.dm{color-scheme:dark}
+  html:has(body.dm){background:#0B1830}
+  ::selection{background:rgba(212,165,71,.35); color:inherit}
+
+  /* --- ambient light: four slow pools of colour under everything --- */
+  body::before{content:""; position:fixed; inset:-25vmax; z-index:-1; pointer-events:none;
+    background:
+      radial-gradient(38vmax 32vmax at 18% 14%, rgba(212,165,71,.32), transparent 70%),
+      radial-gradient(36vmax 30vmax at 86% 22%, rgba(92,124,163,.24), transparent 70%),
+      radial-gradient(42vmax 34vmax at 72% 90%, rgba(192,107,92,.2), transparent 70%),
+      radial-gradient(30vmax 26vmax at 14% 84%, rgba(111,143,94,.17), transparent 70%);
+    animation:ambient 73.6s ease-in-out infinite alternate; will-change:transform}
+  body.dm::before{background:
+      radial-gradient(38vmax 32vmax at 18% 14%, rgba(212,165,71,.13), transparent 70%),
+      radial-gradient(36vmax 30vmax at 86% 22%, rgba(92,124,163,.22), transparent 70%),
+      radial-gradient(42vmax 34vmax at 72% 90%, rgba(138,111,160,.16), transparent 70%),
+      radial-gradient(30vmax 26vmax at 14% 84%, rgba(111,143,94,.10), transparent 70%)}
+  @keyframes ambient{0%{transform:translate3d(0,0,0) rotate(0) scale(1)} 50%{transform:translate3d(4vmax,-3vmax,0) rotate(9deg) scale(1.06)} 100%{transform:translate3d(-3vmax,3vmax,0) rotate(-7deg) scale(1.02)}}
+  /* film grain, barely there */
+  body::after{content:""; position:fixed; inset:0; z-index:300; pointer-events:none; opacity:.05;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.06 0 0 0 0 0.12 0 0 0 0 0.24 0 0 0 .9 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
+  body.dm::after{filter:invert(1); opacity:.035}
+
+  /* pages float over the light rather than covering it */
+  .reportpage, body.dm .reportpage{background:transparent}
+  .tint-gold{background:linear-gradient(180deg, rgba(212,165,71,.14), transparent 480px)}
+  .tint-clay{background:linear-gradient(180deg, rgba(192,107,92,.13), transparent 480px)}
+  .tint-heather{background:linear-gradient(180deg, rgba(138,111,160,.13), transparent 480px)}
+  .tint-steel{background:linear-gradient(180deg, rgba(92,124,163,.13), transparent 480px)}
+  .tint-sage{background:linear-gradient(180deg, rgba(111,143,94,.13), transparent 480px)}
+  body.dm .tint-gold{background:linear-gradient(180deg, rgba(212,165,71,.12), transparent 480px)}
+  body.dm .tint-clay{background:linear-gradient(180deg, rgba(192,107,92,.14), transparent 480px)}
+  body.dm .tint-heather{background:linear-gradient(180deg, rgba(138,111,160,.16), transparent 480px)}
+  body.dm .tint-steel{background:linear-gradient(180deg, rgba(92,124,163,.16), transparent 480px)}
+  body.dm .tint-sage{background:linear-gradient(180deg, rgba(111,143,94,.15), transparent 480px)}
+
+  /* --- the night: dark screens get a deep sky with the starfield on top --- */
+  .shell.dark, body.dm .shell.dark{background:
+      radial-gradient(120% 70% at 50% -10%, rgba(92,124,163,.38), transparent 60%),
+      radial-gradient(90% 60% at 85% 110%, rgba(212,165,71,.14), transparent 60%),
+      radial-gradient(70% 50% at 0% 80%, rgba(138,111,160,.16), transparent 60%),
+      linear-gradient(180deg, #101F40 0%, #0A1530 60%, #070F22 100%)}
+  .sky{position:fixed; inset:0; width:100%; height:100%; z-index:0; pointer-events:none}
+  .shell .col{position:relative; z-index:1}
+  .foot{z-index:5}
+  .shell.dark .foot{background:linear-gradient(transparent, #070F22 40%)}
+
+  /* --- screens: opacity only on the frame (no transform, so fixed layers stay
+         fixed); the contents rise in, one after another --- */
+  @keyframes screenfade{from{opacity:0} to{opacity:1}}
+  :is(.welcome,.home,.intro,.glimmer,.report,.qwrap,.hgrid,.depthgrid,.voicehub,.steps) > *{animation:risein 1.52s var(--ease-out) both; animation-delay:calc(var(--n,0) * 104ms + 144ms)}
+  :is(.welcome,.home,.intro,.glimmer,.report,.qwrap,.hgrid,.depthgrid,.voicehub,.steps) > :nth-child(2){--n:1}
+  :is(.welcome,.home,.intro,.glimmer,.report,.qwrap,.hgrid,.depthgrid,.voicehub,.steps) > :nth-child(3){--n:2}
+  :is(.welcome,.home,.intro,.glimmer,.report,.qwrap,.hgrid,.depthgrid,.voicehub,.steps) > :nth-child(4){--n:3}
+  :is(.welcome,.home,.intro,.glimmer,.report,.qwrap,.hgrid,.depthgrid,.voicehub,.steps) > :nth-child(5){--n:4}
+  :is(.welcome,.home,.intro,.glimmer,.report,.qwrap,.hgrid,.depthgrid,.voicehub,.steps) > :nth-child(6){--n:5}
+  :is(.welcome,.home,.intro,.glimmer,.report,.qwrap,.hgrid,.depthgrid,.voicehub,.steps) > :nth-child(7){--n:6}
+  :is(.welcome,.home,.intro,.glimmer,.report,.qwrap,.hgrid,.depthgrid,.voicehub,.steps) > :nth-child(8){--n:7}
+  :is(.welcome,.home,.intro,.glimmer,.report,.qwrap,.hgrid,.depthgrid,.voicehub,.steps) > :nth-child(n+9){--n:8}
+  .hgrid > *{animation-delay:calc(var(--n,0) * 112ms + 608ms)}
+  .qwrap > *{animation-duration:1.12s; animation-delay:calc(var(--n,0) * 72ms)}
+  .opts > *, .fc > *{animation:risein .96s var(--ease-out) both; animation-delay:calc(var(--n,0) * 64ms + 192ms)}
+  .opts > :nth-child(2), .fc > :nth-child(2){--n:1} .opts > :nth-child(3){--n:2} .opts > :nth-child(4){--n:3} .opts > :nth-child(5){--n:4} .opts > :nth-child(n+6){--n:5}
+  @keyframes risein{from{opacity:0; translate:0 18px} to{opacity:1; translate:none}}
+  .qwrap, .glimmer{animation:none}
+  .fadein{animation:fadein 1.76s var(--ease-out) both .56s}
+  @keyframes fadein{from{opacity:0; translate:0 6px} to{opacity:1; translate:none}}
+
+  /* words out of soft focus */
+  .w{display:inline-block; animation:wordin 1.68s var(--ease-out) both; animation-delay:calc(var(--i) * var(--ws, 88ms) + var(--wd, 0ms))}
+  @keyframes wordin{from{opacity:0; translate:0 .38em; filter:blur(10px)} to{opacity:1; translate:none; filter:blur(0)}}
+
+  /* scroll reveal (screen only, so print is never blank) */
+  @media screen{
+    .rv:not(.rv-in){opacity:0; translate:0 26px}
+    .rv-in{animation:rvin 1.6s var(--ease-out) both; animation-delay:var(--rvd,0ms)}
+  }
+  @keyframes rvin{from{opacity:0; translate:0 26px} to{opacity:1; translate:none}}
+
+  /* view transitions between screens */
+  ::view-transition-old(root), ::view-transition-new(root){animation-duration:.96s; animation-timing-function:var(--ease-out); mix-blend-mode:normal}
+  ::view-transition-old(root){animation-name:vtout}
+  ::view-transition-new(root){animation-name:vtin}
+  @keyframes vtout{to{opacity:0; filter:blur(8px); transform:scale(.985)}}
+  @keyframes vtin{from{opacity:0}}
+  html[data-vt="theme"]::view-transition-old(root){animation:none}
+  html[data-vt="theme"]::view-transition-new(root){animation:vtcircle 1.6s var(--ease-out)}
+  @keyframes vtcircle{from{clip-path:circle(0 at var(--vx) var(--vy))} to{clip-path:circle(160vmax at var(--vx) var(--vy))}}
+
+  /* reading line */
+  .readbar{position:fixed; top:0; left:0; right:0; height:2px; z-index:250; transform-origin:0 50%; transform:scaleX(0); opacity:0; transition:opacity .64s; pointer-events:none;
+    background:linear-gradient(90deg, rgba(212,165,71,.2), #D4A547 40%, var(--gold-hi)); box-shadow:0 0 12px rgba(212,165,71,.7)}
+  .readbar.on{opacity:1}
+
+  /* --- type --- */
+  .display, .question, .gline, .ctitle, .httitle, .tstat, .depthname, .libname, .subjname, .cname, .vcname, .pname, .sosname, .resumet, .nextrungn, .rungn, .viewhead, .inshead, .libctat, .liblockt, .subjask, .hquote, .rbody h2, .rbody p.pull, .smetern, .csheethead, .fccard, .mindline, .breathcue, .revealline, .viewthen, .ctag{font-family:var(--serif)}
+  .display{font-weight:560; font-size:clamp(38px, 9.6vw, 66px); line-height:1.04; letter-spacing:-.018em; text-wrap:balance; font-variation-settings:"opsz" 144; margin-bottom:20px}
+  .display.sm{font-size:clamp(32px, 7.6vw, 48px)}
+  .report .display{font-size:clamp(38px, 9.6vw, 64px)}
+  .question{font-weight:460; font-size:clamp(25px, 6vw, 34px); line-height:1.2; letter-spacing:-.018em; text-wrap:balance; font-variation-settings:"opsz" 72}
+  .gline{font-weight:400; font-size:clamp(25px, 6vw, 36px); line-height:1.3; letter-spacing:-.008em; max-width:560px; text-wrap:balance; font-variation-settings:"opsz" 96}
+  .breathscreen .bquote{font-size:clamp(32px, 8vw, 54px); font-style:italic; font-weight:330; max-width:640px; line-height:1.15}
+  .gsub{font-size:16px; line-height:1.65; max-width:440px; margin-inline:auto; text-wrap:pretty}
+  .lede{font-size:18px; line-height:1.62; text-wrap:pretty}
+  .lede.inkdim, .lede.dim{font-size:17px}
+  .kicker{font-size:11.5px; letter-spacing:.24em; font-weight:600; display:inline-flex; align-items:center; gap:10px}
+  .kicker::before{content:""; width:20px; height:1px; background:currentColor; opacity:.75}
+  .glimmer .kicker::after{content:""; width:20px; height:1px; background:currentColor; opacity:.75}
+  .ctitle{font-weight:560; font-size:27px; letter-spacing:-.02em; line-height:1.15}
+  .httitle{font-weight:580; font-size:22px; letter-spacing:-.015em}
+  .tstat{font-weight:600; font-size:22px; letter-spacing:-.01em; text-transform:capitalize}
+  .depthname, .libname, .cname, .vcname{font-weight:580; letter-spacing:-.012em}
+  .subjname{font-weight:560; font-size:30px; letter-spacing:-.022em}
+  .hquote{font-style:italic; font-size:17px; font-weight:350; margin-top:48px}
+  .wordmark{font-family:Lora, serif}
+  .tittle{box-shadow:0 0 6px rgba(212,165,71,.9), 0 0 14px rgba(212,165,71,.5); animation:tittle 7.36s ease-in-out infinite}
+  .wm-i:nth-child(2) .tittle{animation-delay:-2.3s}
+  @keyframes tittle{0%,100%{opacity:.75; transform:translateX(-50%) scale(.85)} 50%{opacity:1; transform:translateX(-50%) scale(1.15)}}
+
+  /* --- buttons --- */
+  .btn{position:relative; overflow:hidden; isolation:isolate; border-radius:999px; padding:16px 30px; letter-spacing:.005em;
+    transition:transform .8s var(--ease-spring), box-shadow .64s var(--ease-out), opacity .32s, filter .48s}
+  .btn.gold{background:linear-gradient(140deg, var(--gold-hi) 0%, #D4A547 46%, #B98A33 100%); color:#0F1E3D;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.55), inset 0 -1px 0 rgba(120,80,10,.25), 0 10px 28px -10px rgba(212,165,71,.75), 0 2px 6px -2px rgba(120,80,10,.25)}
+  .btn.gold::after{content:""; position:absolute; inset:0; z-index:-1; background:linear-gradient(105deg, transparent 30%, rgba(255,255,255,.6) 48%, transparent 64%); transform:translateX(-130%); animation:sheen 9.6s ease-in-out 2.88s infinite}
+  @keyframes sheen{0%,70%{transform:translateX(-130%)} 88%,100%{transform:translateX(130%)}}
+  .btn.ink{background:linear-gradient(180deg, #213765, #0F1E3D); color:#F5F1E8; box-shadow:inset 0 1px 0 rgba(255,255,255,.14), 0 10px 26px -12px rgba(15,30,61,.7)}
+  body.dm .btn.ink{background:linear-gradient(140deg, var(--gold-hi), #D4A547 46%, #B98A33); color:#0F1E3D}
+  @media (hover:hover){
+    .btn:not(:disabled):hover{transform:translateY(-2px)}
+    .btn.gold:not(:disabled):hover{box-shadow:inset 0 1px 0 rgba(255,255,255,.6), inset 0 -1px 0 rgba(120,80,10,.25), 0 18px 40px -12px rgba(212,165,71,.9), 0 0 0 6px rgba(212,165,71,.12)}
+    .btn.ink:not(:disabled):hover{box-shadow:inset 0 1px 0 rgba(255,255,255,.16), 0 18px 36px -14px rgba(15,30,61,.8)}
+  }
+  .btn:not(:disabled):active{transform:scale(.965); transition-duration:.12s}
+  .btn:disabled{opacity:.38; filter:saturate(.4)}
+  .btn:disabled::after{display:none}
+  .ripple{position:absolute; border-radius:50%; pointer-events:none; background:radial-gradient(circle, currentColor 0%, transparent 62%); opacity:.22; transform:scale(0); animation:ripple 1.36s var(--ease-out) forwards; z-index:0}
+  @keyframes ripple{to{transform:scale(1); opacity:0}}
+  :is(.opt,.fccard,.depthcard,.htile,.vcard,.resumecard,.libcta,.deeperband,.setbtn,.rtbtn,.insbtn,.tilehead){position:relative; overflow:hidden}
+  .ghost, .inkghost, .thememini, .saveexit, .settingslink, .pulsebtn, .setmini, .exback{transition:color .4s, border-color .4s, background-color .4s, transform .64s var(--ease-spring)}
+  @media (hover:hover){ .inkghost:hover, .thememini:hover, .saveexit:hover, .settingslink:hover, .setmini:hover{border-color:rgba(212,165,71,.6); color:var(--ink); background:rgba(212,165,71,.08)} }
+  .inkghost, .thememini, .saveexit, .settingslink{border-radius:999px; backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px)}
+  .rtbtn{border-radius:999px; padding:8px 16px; transition:transform .64s var(--ease-spring), box-shadow .48s, background-color .48s}
+  @media (hover:hover){ .rtbtn:not([disabled]):hover{transform:translateY(-1px); box-shadow:0 8px 20px -10px rgba(212,165,71,.8)} }
+  :is(.btn,.opt,.fccard,.htile,.depthcard,.vcard,.ghost,.rtbtn,.setbtn,.code,.tin,.tarea,.codeinput,.exdot):focus-visible{outline:2px solid #D4A547; outline-offset:3px; box-shadow:0 0 0 7px rgba(212,165,71,.18)}
+
+  /* --- surfaces: one card language everywhere --- */
+  :is(.htile,.tile,.depthcard,.libtile,.capp,.vcard,.prac,.sostile,.companion,.pracs,.tierbox,.rtlist,.opt,.fccard,.minihelp,.consent,.vgrow,.setbtn,.subjchip,.modebtn,.tierbtn),
+  body.dm :is(.htile,.tile,.depthcard,.libtile,.capp,.vcard,.prac,.sostile,.companion,.pracs,.tierbox,.rtlist,.opt,.fccard,.minihelp,.consent,.vgrow,.setbtn,.subjchip,.modebtn,.tierbtn){
+    background:var(--card); border-color:transparent; box-shadow:0 0 0 1px var(--ring), var(--lift)}
+  :is(.htile,.tile,.depthcard,.libtile,.capp,.vcard,.prac,.sostile,.companion,.pracs){border-radius:24px}
+  :is(.htile,.depthcard,.vcard,.capp,.libtile,.prac,.sostile,.tile,.resumecard){transition:transform .96s var(--ease-spring), box-shadow .8s var(--ease-out), opacity .48s, filter .48s}
+  @media (hover:hover){
+    :is(.htile:not(.locked),.depthcard,.vcard,.capp,.libtile,.prac,.sostile,.tile,.resumecard):hover{transform:translateY(-4px); box-shadow:0 0 0 1px rgba(212,165,71,.35), var(--lift-hi)}
+  }
+  /* the cursor's own light, on desktop */
+  :is(.htile,.depthcard,.vcard,.libtile,.capp,.tile,.prac,.sostile,.resumecard,.libcta,.deeperband)::before{content:""; position:absolute; inset:0; border-radius:inherit; pointer-events:none; opacity:0; transition:opacity .8s;
+    background:radial-gradient(380px circle at var(--mx,50%) var(--my,50%), var(--spot), transparent 45%)}
+  .lit::before{opacity:1}
+  .tile, .libtile, .capp, .prac, .sostile{position:relative}
+
+  /* accents: a lit hairline across the top and a wash of colour in the corner */
+  :is(.htile,.tile,.vcard,.room)[style*="--acc"], body.dm :is(.htile,.tile,.vcard,.room)[style*="--acc"]{
+    background:
+      linear-gradient(90deg, transparent 6%, var(--acc) 50%, transparent 94%) top / 100% 2px no-repeat,
+      radial-gradient(130% 90% at 0% 0%, color-mix(in srgb, var(--acc) 16%, transparent), transparent 62%),
+      var(--card)}
+  .room{border-top:none}
+
+  /* home */
+  .home{padding-top:28px}
+  .hgreet{margin-top:30px}
+  .hgrid{gap:16px}
+  .htile{padding:24px 22px 22px; gap:10px}
+  .htile .hart{width:60px; transition:transform 1.12s var(--ease-spring)}
+  @media (hover:hover){ .htile:not(.locked):hover .hart{transform:translateY(-3px) scale(1.08) rotate(-3deg)} }
+  .htile.locked{opacity:.55; filter:saturate(.6)}
+  .htbadge{border-radius:999px; backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px); background:rgba(212,165,71,.14); border-color:rgba(212,165,71,.35)}
+  /* the report that's waiting to be written: a slow lit ring travels round it */
+  @property --ang{syntax:"<angle>"; inherits:false; initial-value:0deg}
+  .htile.pulse{animation:risein 1.52s var(--ease-out) both; animation-delay:calc(var(--n,0) * 112ms + 608ms)}
+  .htile.pulse::after{content:""; position:absolute; inset:0; border-radius:inherit; padding:1.5px; pointer-events:none;
+    background:conic-gradient(from var(--ang), transparent 0 55%, rgba(212,165,71,.25) 70%, #F2D58E 88%, transparent 100%);
+    -webkit-mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite:xor; mask-composite:exclude;
+    animation:spin 5.76s linear infinite}
+  .htile.pulse{box-shadow:0 0 0 1px rgba(212,165,71,.3), 0 18px 46px -18px rgba(212,165,71,.65)}
+  @keyframes spin{to{--ang:360deg}}
+  .resumecard{border-radius:20px; border:none; background:radial-gradient(120% 140% at 0% 0%, rgba(212,165,71,.26), rgba(212,165,71,.08) 60%); box-shadow:0 0 0 1px rgba(212,165,71,.42), 0 16px 40px -20px rgba(212,165,71,.7)}
+  .settingslink{background:var(--card); border-color:transparent; box-shadow:0 0 0 1px var(--ring)}
+  .privline{max-width:460px; margin-inline:auto}
+
+  /* callouts: gold washes for the moments that matter */
+  :is(.viewintro,.nextrung,.liblock,.libcta,.deeperband,.pulse,.badgestrip,.previewnote,.cbridge){border:none; border-radius:22px;
+    background:radial-gradient(130% 120% at 0% 0%, rgba(212,165,71,.2), rgba(212,165,71,.05) 62%); box-shadow:0 0 0 1px rgba(212,165,71,.32), 0 14px 38px -24px rgba(212,165,71,.7)}
+  .cbridge{padding:14px 16px; border-left:none}
+  .deeperband{background:radial-gradient(130% 120% at 0% 0%, rgba(92,124,163,.22), rgba(92,124,163,.05) 62%); box-shadow:0 0 0 1px rgba(92,124,163,.38), 0 14px 38px -24px rgba(92,124,163,.7)}
+  .libcta, .deeperband{transition:transform .96s var(--ease-spring), box-shadow .8s}
+  @media (hover:hover){ .libcta:hover, .deeperband:hover{transform:translateY(-3px)} }
+  .libctat::after{content:""; display:inline-block}
+  .humansignal{border:none; border-radius:18px; box-shadow:0 0 0 1px rgba(192,107,92,.4)}
+
+  /* --- the breath, the orb, the wordmark under them --- */
+  .breath{position:relative; width:180px; height:180px}
+  .breath span{position:relative; z-index:1; background:radial-gradient(circle at 36% 30%, #FFF0C2, #E2B556 45%, #A87A26 100%);
+    box-shadow:0 0 18px rgba(232,194,106,.8), 0 0 60px rgba(212,165,71,.45)}
+  .breath::before, .breath::after{content:""; position:absolute; left:50%; top:50%; width:60px; height:60px; margin:-30px 0 0 -30px; border-radius:50%;
+    border:1.5px solid rgba(232,194,106,.75); box-shadow:0 0 12px rgba(212,165,71,.35), inset 0 0 12px rgba(212,165,71,.2); animation:ringout 7.36s cubic-bezier(.2,.6,.3,1) infinite}
+  .breath::after{animation-delay:3.68s}
+  .breath.orbwrap::before, .breath.orbwrap::after{display:none}
+  @keyframes ringout{0%{transform:scale(.6); opacity:0} 15%{opacity:.9} 100%{transform:scale(3); opacity:0}}
+  .bfoot{margin-top:56px; opacity:1}
+  .bfoot .wordmark{font-size:26px; opacity:.72; letter-spacing:2px}
+  .breathscreen .btn{margin-top:30px; padding:17px 44px}
+
+  .orb{filter:drop-shadow(0 0 18px rgba(212,165,71,.45)); overflow:visible}
+  .orb .orbit{transform-origin:48px 48px; transform-box:view-box; animation:orbit 38.4s linear infinite}
+  @keyframes orbit{to{transform:rotate(360deg)}}
+  .orbwrap, .badgeorb{animation:float 11.2s ease-in-out infinite}
+  @keyframes float{0%,100%{translate:0 0} 50%{translate:0 -7px}}
+  .genorb{position:relative; display:grid; place-items:center; width:170px; height:170px; margin-bottom:30px}
+  .genorb > *{grid-area:1/1}
+  .genring{width:170px; height:170px; overflow:visible}
+  .genrtrack{fill:none; stroke:rgba(245,241,232,.1); stroke-width:1.5}
+  .genrfill{fill:none; stroke:#E2B556; stroke-width:2; stroke-linecap:round; transition:stroke-dasharray 2.24s var(--ease-out); filter:drop-shadow(0 0 6px rgba(212,165,71,.8))}
+
+  /* glimmers: a pool of light behind the art, which then draws itself */
+  .gartwrap{position:relative; display:grid; place-items:center; margin-bottom:26px}
+  .gartwrap::before{content:""; position:absolute; width:260px; height:200px; border-radius:50%; background:radial-gradient(closest-side, rgba(212,165,71,.24), transparent); animation:bloom 2.56s var(--ease-out) both}
+  .gartwrap .gart{position:relative; margin:0}
+  @keyframes bloom{from{opacity:0; transform:scale(.5)} to{opacity:1; transform:none}}
+  :is(.gart,.exart,.constel,.mini,.hart) :is(path,line,circle,ellipse,rect,polyline):not([stroke-dasharray]):not([stroke="none"]){stroke-dasharray:420; stroke-dashoffset:420; animation:draw 2.88s var(--ease-out) forwards; animation-delay:.4s}
+  :is(.gart,.exart) :is(path,circle,ellipse,rect)[fill]:not([fill="none"]):not([fill="transparent"]){animation:draw 2.88s var(--ease-out) forwards .4s, fillin 1.6s ease both 1.44s}
+  .mini :is(path,line,circle,ellipse,rect), .hart :is(path,line,circle,ellipse,rect){animation-duration:2.24s}
+  @keyframes draw{to{stroke-dashoffset:0}}
+  @keyframes fillin{from{fill-opacity:0}}
+  .gart, .exart{filter:drop-shadow(0 0 14px rgba(212,165,71,.35))}
+
+  /* bursts */
+  .burst{position:absolute; left:50%; top:50%; width:0; height:0; pointer-events:none; z-index:0}
+  .burst i{position:absolute; left:0; top:0; width:var(--s); height:var(--s); margin:calc(var(--s) / -2); border-radius:50%;
+    background:radial-gradient(circle, #FFF0C2, #D4A547 60%, transparent 70%); box-shadow:0 0 8px rgba(232,194,106,.9);
+    opacity:0; animation:spark 3.04s var(--ease-out) both; animation-delay:calc(var(--d) + 720ms)}
+  @keyframes spark{0%{opacity:0; transform:rotate(var(--a)) translateX(0) scale(.4)} 12%{opacity:1} 100%{opacity:0; transform:rotate(var(--a)) translateX(var(--r)) scale(1)}}
+  .badgeorb{display:grid; place-items:center}
+  /* The gold is painted per word: painted across the line, it broke apart while
+     the words animated in separately, piling them on top of each other. */
+  .badgename{font-size:clamp(34px, 8.5vw, 56px); font-weight:500; font-style:italic; letter-spacing:-.01em; line-height:1.15;
+    color:#E8C26A; text-align:center; align-self:stretch; max-width:none; text-shadow:0 0 28px rgba(212,165,71,.35)}
+  .badgename .w{padding:0 .06em .12em; margin:0 -.06em;
+    background:linear-gradient(180deg, #FFF3CF, #E2B556 70%, #C49236); -webkit-background-clip:text; background-clip:text; color:transparent; -webkit-text-fill-color:transparent}
+  .badgestrength strong{font-family:var(--serif); font-size:22px; font-variant-numeric:tabular-nums}
+
+  /* --- progress: a constellation of parts, a breathing current question --- */
+  .dots{gap:12px; position:relative}
+  .dot{width:9px; height:9px; transition:all .96s var(--ease-out)}
+  .dot.done{box-shadow:0 0 8px rgba(212,165,71,.7)}
+  .dot.now{border-color:#D4A547; animation:nowpulse 3.84s ease-in-out infinite}
+  @keyframes nowpulse{0%,100%{box-shadow:0 0 0 0 rgba(212,165,71,.45)} 50%{box-shadow:0 0 0 6px rgba(212,165,71,0)}}
+  .qdot{transition:background .8s, transform .96s var(--ease-spring), box-shadow .8s}
+  .qdot.done{box-shadow:0 0 5px rgba(212,165,71,.5)}
+  .qdot.now{box-shadow:0 0 0 3px rgba(212,165,71,.2), 0 0 10px rgba(212,165,71,.8)}
+  .track{height:4px; border-radius:99px; background:var(--ink06)}
+  .fill{position:relative; overflow:hidden; border-radius:99px; background:linear-gradient(90deg, #C49236, #D4A547 60%, var(--gold-hi)); transition:width 1.44s var(--ease-out); transform-origin:0 50%; animation:growx 2.4s var(--ease-out) both .48s}
+  .fill::after{content:""; position:absolute; inset:0; background:linear-gradient(90deg, transparent, rgba(255,255,255,.7), transparent); transform:translateX(-100%); animation:shimmer 5.12s ease-in-out 2.56s infinite}
+  @keyframes growx{from{transform:scaleX(0)}}
+  @keyframes shimmer{0%,60%{transform:translateX(-100%)} 100%{transform:translateX(100%)}}
+
+  /* --- questions --- */
+  .opts{gap:11px}
+  .opt{padding:16px 18px; border-radius:18px; gap:14px; transition:box-shadow .56s var(--ease-out), transform .72s var(--ease-spring), color .48s}
+  .opt::before, .fccard::before{content:""; position:absolute; inset:0; border-radius:inherit; z-index:0; pointer-events:none; transform:scaleX(0); transform-origin:0 50%;
+    background:linear-gradient(90deg, rgba(212,165,71,.24), rgba(212,165,71,.1)); transition:transform .61s var(--ease-out)}
+  .opt > *, .fccard > *{position:relative; z-index:1}
+  .opt.sel::before, .fccard.sel::before{transform:scaleX(1)}
+  .opt.sel, .fccard.sel, body.dm .opt.sel, body.dm .fccard.sel{background:var(--card); box-shadow:0 0 0 1.5px #D4A547, 0 12px 28px -14px rgba(212,165,71,.7)}
+  @media (hover:hover){ .opt:hover, .fccard:hover{transform:translateX(4px); box-shadow:0 0 0 1px rgba(212,165,71,.45), var(--lift)} }
+  .opt:active, .fccard:active{transform:scale(.985)}
+  .odot{width:14px; height:14px; position:relative; transition:all .56s var(--ease-spring)}
+  .opt.sel .odot{transform:scale(1.15); box-shadow:0 0 10px rgba(212,165,71,.9)}
+  .opt.sel .odot::after{content:""; position:absolute; inset:-6px; border-radius:50%; border:1.5px solid #D4A547; animation:pop .96s var(--ease-out) forwards}
+  @keyframes pop{from{transform:scale(.4); opacity:1} to{transform:scale(1.6); opacity:0}}
+  .fccard{padding:24px 22px; border-radius:22px; font-size:20px; line-height:1.35; font-weight:420; transition:box-shadow .56s, transform .72s var(--ease-spring)}
+  .tin, .tarea, .code, .codeinput{border-radius:16px; transition:box-shadow .48s, border-color .48s, background-color .48s}
+  .tin, .tarea{background:var(--card); border-color:transparent; box-shadow:0 0 0 1px var(--ring), var(--lift)}
+  body.dm .tin, body.dm .tarea{background:var(--card)}
+  .tin:focus, .tarea:focus, .code:focus, .codeinput:focus{outline:none; border-color:transparent; box-shadow:0 0 0 1.5px #D4A547, 0 0 0 7px rgba(212,165,71,.15)}
+  .code{background:rgba(245,241,232,.06); border-color:rgba(245,241,232,.16); backdrop-filter:blur(8px)}
+  .foot{backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); -webkit-mask:linear-gradient(transparent, #000 30%); mask:linear-gradient(transparent, #000 30%)}
+
+  /* --- part intro breath --- */
+  .mindart{width:170px; height:170px; filter:drop-shadow(0 0 16px rgba(212,165,71,.35))}
+  .mindpulse{fill:rgba(212,165,71,.14)}
+  .breathcue span.on{text-shadow:0 0 18px rgba(212,165,71,.45)}
+
+  /* --- explainer --- */
+  .explainer .exwrap{animation:artin 1.76s var(--ease-out) both}
+  @keyframes artin{from{opacity:0; transform:scale(.82); filter:blur(10px)} to{opacity:1; transform:none; filter:none}}
+  .exart{width:140px}
+  .exdot::after{transition:background .64s, transform .8s var(--ease-spring), box-shadow .64s}
+  .exdot.on::after{transform:scale(1.5); box-shadow:0 0 10px rgba(212,165,71,.9)}
+
+  /* welcome steps */
+  .stepn{background:radial-gradient(circle at 35% 30%, rgba(242,213,142,.4), rgba(212,165,71,.15)); box-shadow:0 0 14px rgba(212,165,71,.35)}
+
+  /* --- report --- */
+  @media (min-width:640px){
+    .rhead{position:sticky; top:0; z-index:40; max-width:none; padding:14px max(20px, calc((100% - 680px) / 2 + 20px)); margin:0;
+      background:color-mix(in srgb, var(--bone) 72%, transparent); backdrop-filter:blur(16px) saturate(1.3); -webkit-backdrop-filter:blur(16px) saturate(1.3);
+      border-bottom:1px solid var(--ink06)}
+  }
+  .rhead .wordmark{font-size:24px}
+  .report{padding-top:34px}
+  .rbody p{font-size:17.5px; line-height:1.78}
+  .rbody h2{font-weight:560; font-size:clamp(28px, 6vw, 36px); letter-spacing:-.022em; line-height:1.1; margin-top:64px}
+  .rbody h2::before{width:40px; height:3px; margin-bottom:16px; transform-origin:0 50%; box-shadow:0 0 12px currentColor}
+  .rbody h2.rv-in::before{animation:growx 1.92s var(--ease-out) both .32s}
+  .rbody p.pull{font-weight:380; font-size:clamp(22px, 5vw, 27px); line-height:1.3; letter-spacing:-.012em; padding-left:18px; border-left:2px solid currentColor; margin:10px 0 22px}
+  .rbody > p.pull:first-child{font-size:clamp(26px, 6vw, 34px); border-left:none; padding-left:0; color:var(--ink)}
+  .rbody > p.pull:first-child + p::first-letter, .rbody h2:first-child + p.pull + p::first-letter{float:left; font-size:4.1em; line-height:.86; font-weight:600; padding:6px 10px 0 0; color:#C49236}
+  .tiles{gap:14px}
+  .tile.open{box-shadow:0 0 0 1.5px #D4A547, var(--lift-hi)}
+  .tilehead{padding:20px 20px 18px}
+  .mini{width:120px}
+  .bchip{border-radius:999px; transition:all .64s}
+  .bchip.earned{box-shadow:0 0 14px -2px rgba(212,165,71,.6)}
+  .integrity{border-top:1px solid var(--ink06); padding-top:22px}
+
+  /* strength */
+  .smeter{width:190px; height:190px; filter:drop-shadow(0 0 22px rgba(212,165,71,.35))}
+  .smetern{font-weight:600; font-size:38px; font-variant-numeric:tabular-nums}
+  .rung.got .rungdot{box-shadow:0 0 10px rgba(212,165,71,.8)}
+  .rung.here .rungdot{animation:nowpulse 3.84s ease-in-out infinite}
+
+  /* library */
+  .constel{max-width:420px; filter:drop-shadow(0 0 16px rgba(212,165,71,.3))}
+  .constel circle{transform-box:fill-box; transform-origin:center; animation:draw 2.88s var(--ease-out) forwards .4s, twinkle 6.4s ease-in-out infinite 3.2s}
+  .constel circle:nth-of-type(2n){animation-delay:.4s, 4.48s} .constel circle:nth-of-type(3n){animation-delay:.4s, 5.6s}
+  @keyframes twinkle{0%,100%{opacity:1; transform:scale(1)} 50%{opacity:.6; transform:scale(.8)}}
+  .subjbadge{border-radius:14px; box-shadow:inset 0 0 0 1px rgba(255,255,255,.4)}
+  .subjchip{transition:transform .64s var(--ease-spring), box-shadow .48s}
+  @media (hover:hover){ .subjchip:hover{transform:translateY(-2px); box-shadow:0 0 0 1px rgba(212,165,71,.5), var(--lift)} }
+  .libtier{border-radius:999px}
+  .subject.sos{border:none; border-radius:26px; box-shadow:0 0 0 1px rgba(192,80,77,.35)}
+  .sosjump, .sosbtn{box-shadow:0 6px 18px -8px rgba(184,69,63,.9)}
+
+  /* companion */
+  .vcard{padding:20px; border-top:none; gap:8px}
+  .vcard .avatar{transition:transform 1.12s var(--ease-spring)}
+  @media (hover:hover){ .vcard:hover .avatar{transform:scale(1.12) rotate(-6deg)} }
+  .avatar{overflow:visible}
+  .teamrow .avatar{width:54px; height:54px; filter:drop-shadow(0 0 10px rgba(212,165,71,.4))}
+  .roomhead{border-radius:18px}
+  .msg{animation:msgin .96s var(--ease-out) both}
+  @keyframes msgin{from{opacity:0; translate:0 10px; transform:scale(.97)} to{opacity:1; translate:none; transform:none}}
+  .bubble{border-radius:20px; padding:13px 16px}
+  .msg.user .bubble{background:linear-gradient(160deg, #213765, #0F1E3D); box-shadow:0 10px 24px -14px rgba(15,30,61,.7)}
+  body.dm .msg.user .bubble{background:linear-gradient(160deg, rgba(245,241,232,.16), rgba(245,241,232,.08))}
+  .msg.assistant .bubble{background:radial-gradient(120% 140% at 0% 0%, rgba(212,165,71,.18), rgba(212,165,71,.06)); border:none; box-shadow:0 0 0 1px rgba(212,165,71,.3)}
+  .typing{display:inline-flex; gap:4px; margin-left:8px; vertical-align:middle}
+  .typing i{width:5px; height:5px; border-radius:50%; background:#D4A547; animation:typing 2.08s ease-in-out infinite}
+  .typing i:nth-child(2){animation-delay:.29s} .typing i:nth-child(3){animation-delay:.58s}
+  @keyframes typing{0%,100%{opacity:.3; transform:translateY(0)} 40%{opacity:1; transform:translateY(-4px)}}
+  .modebtn.sel, .tierbtn.sel, .vgrow.sel{box-shadow:0 0 0 1.5px #D4A547, var(--lift)}
+
+  /* depth & sheets */
+  .depthcard{padding:22px 22px 20px; border-radius:22px}
+  .depthtime{display:inline-flex; align-items:center; gap:8px}
+  .depthtime::before{content:""; width:6px; height:6px; border-radius:50%; background:#D4A547; box-shadow:0 0 8px rgba(212,165,71,.9)}
+  .csheetwrap{background:rgba(7,15,34,.5); backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px); animation:fadein .64s ease both}
+  .csheet{animation:sheetup 1.12s var(--ease-out) both; box-shadow:0 -20px 60px -20px rgba(0,0,0,.5)}
+  @keyframes sheetup{from{transform:translateY(40px); opacity:0}}
+
+  /* little screens don't need a 2-line sticky header, or a wider gutter */
+  @media (max-width:420px){ .shell{padding-left:18px; padding-right:18px} .report{padding-left:18px; padding-right:18px} }
+
+
+  /* --- the intro's symbols take their time: a long fade out of focus, then a
+         slow draw, then the fills settle in --- */
+  .explainer .exwrap{animation:artin 3.2s cubic-bezier(.22,.8,.2,1) both}
+  .exart :is(path,line,circle,ellipse,rect,polyline):not([stroke-dasharray]):not([stroke="none"]){animation:draw 5.2s cubic-bezier(.45,0,.2,1) forwards .7s}
+  .exart :is(path,circle,ellipse,rect)[fill]:not([fill="none"]):not([fill="transparent"]){animation:draw 5.2s cubic-bezier(.45,0,.2,1) forwards .7s, fillin 2.6s ease both 2.8s}
+  .exart g[stroke] :is(path,circle,ellipse){animation-delay:calc(.7s + var(--gi, 0s))}
+  .exart g:nth-of-type(2) > *{--gi:.5s} .exart g:nth-of-type(3) > *{--gi:1s} .exart g:nth-of-type(4) > *{--gi:1.5s} .exart g:nth-of-type(5) > *{--gi:2s}
+
+  /* --- light to dark, and back, as a slow tide rather than a switch --- */
+  html[data-vt="theme"]::view-transition-new(root){animation:vtcircle 3s cubic-bezier(.45,0,.15,1)}
+  body{transition:background-color 2.6s ease, color 2.6s ease}
+
+  /* --- small print, bigger and firmer everywhere --- */
+  :root{--ink60:rgba(15,30,61,.72)}
+  body.dm{--ink60:rgba(245,241,232,.76)}
+  .kicker{font-size:12.5px; font-weight:700}
+  .tnote, .tabout, .sbnote, .rungb, .badgeexplain, .cfoot, .integrity, .privline, .sosregion, .modedesc, .pwhy, .pfit, .resumes, .subjline, .depthsub, .htsub, .vcslogan, .ctag, .libline, .cexplain, .soswhat, .pline{font-size:15px; font-weight:500; line-height:1.6}
+  .tlabel, .setlabel, .viewmeta, .libtally, .libfrom, .resumek, .libctak, .liblockk, .instag, .depthtime, .nextrungk{font-size:12.5px; font-weight:700}
+  .htbadge, .libtier, .demobadge, .pmatch, .subjdone{font-size:12px; font-weight:700}
+  .libstatus, .soshours, .cstate, .vclast, .routed, .qpush, .exhint, .mlabel, .topicdiv span, .subjcount, .exstep{font-size:13px; font-weight:600}
+  .count, .bchip, .exskip, .saveexit, .thememini, .pulsebtn, .setmini, .showold, .prole, .rungyou, .hsdismiss{font-size:14px; font-weight:600}
+  .smeterl{font-size:11.5px; font-weight:600}
+  .mcount{font-size:11.5px; font-weight:700}
+  .hquote{font-size:18px; font-weight:420}
+  .gsub, .lede.dim{font-weight:450}
+  .exhint{color:rgba(245,241,232,.55)} .exstep{color:rgba(245,241,232,.62)} .exskip{color:rgba(245,241,232,.68)}
+
+  /* --- the clipped layer a ripple lives in, so it keeps to round corners --- */
+  .ripwrap{position:absolute; inset:0; border-radius:inherit; overflow:hidden; pointer-events:none; z-index:0;
+    -webkit-mask-image:-webkit-radial-gradient(white, black); mask-image:radial-gradient(white, black); transform:translateZ(0)}
+
+  /* --- locked: a padlock in the corner; a tap answers calmly --- */
+  .htlock{position:absolute; top:16px; right:16px; color:var(--ink60); opacity:.8; transition:color .8s, transform .8s var(--ease-spring)}
+  .htile.locked, .libtile.liblocked{cursor:pointer}
+  .htile.locked{transition:opacity 1s ease, filter 1s ease, box-shadow .6s}
+  .htile.denied, .libtile.denied{opacity:1; filter:none}
+  .htile.denied{animation:deny 3.4s ease-in-out both}
+  .libtile.denied{animation:deny 3.4s ease-in-out both}
+  @keyframes deny{
+    0%{box-shadow:0 0 0 1px var(--ring), var(--lift)}
+    16%{box-shadow:0 0 0 2px rgba(192,107,92,.8), 0 0 0 10px rgba(192,107,92,.16), 0 0 40px -6px rgba(192,107,92,.5)}
+    38%{box-shadow:0 0 0 1.5px rgba(192,107,92,.45), 0 0 0 4px rgba(192,107,92,.06), var(--lift)}
+    58%{box-shadow:0 0 0 2px rgba(192,107,92,.7), 0 0 0 9px rgba(192,107,92,.13), 0 0 36px -6px rgba(192,107,92,.42)}
+    100%{box-shadow:0 0 0 1px var(--ring), var(--lift)}}
+  .denied .htlock{color:#C06B5C; opacity:1; animation:locknod 1.6s ease-in-out .2s 2}
+  @keyframes locknod{0%,100%{transform:rotate(0)} 30%{transform:rotate(-9deg)} 65%{transform:rotate(6deg)}}
+  /* the line that says how to open it lights up like a highlighter stroke */
+  .locknote{transition:color .8s ease}
+  .denied .locknote{color:var(--ink); font-weight:650; -webkit-box-decoration-break:clone; box-decoration-break:clone; padding:1px 3px; margin:0 -3px; border-radius:4px;
+    background:linear-gradient(100deg, rgba(212,165,71,.42), rgba(242,213,142,.5)) no-repeat 0 0 / 0% 100%; animation:marker 1.6s cubic-bezier(.45,0,.2,1) .35s forwards}
+  @keyframes marker{to{background-size:100% 100%}}
+  body.dm .denied .locknote{background-image:linear-gradient(100deg, rgba(212,165,71,.38), rgba(212,165,71,.24))}
+  .lockpill{display:inline-flex; align-items:center; gap:6px; cursor:pointer; opacity:.9}
+  .lockpill .lockic{flex:none}
+  .denied .lockpill{border-color:rgba(192,107,92,.6); color:var(--ink); opacity:1}
+
+  /* --- newly open: the padlock lifts, light spills out, then it settles --- */
+  .htile.fresh{animation:risein 1.52s var(--ease-out) both, freshring 3.6s ease-in-out 3 both;
+    animation-delay:calc(var(--n,0) * 112ms + 608ms), calc(var(--n,0) * 112ms + 1.9s);
+    box-shadow:0 0 0 1.5px rgba(212,165,71,.65), 0 18px 46px -18px rgba(212,165,71,.7)}
+  @keyframes freshring{
+    0%,100%{box-shadow:0 0 0 1.5px rgba(212,165,71,.65), 0 18px 46px -18px rgba(212,165,71,.7)}
+    45%{box-shadow:0 0 0 2px #E8C26A, 0 0 0 12px rgba(212,165,71,.16), 0 0 54px -4px rgba(212,165,71,.7)}}
+  .opened{position:absolute; inset:0; border-radius:inherit; pointer-events:none; z-index:0;
+    background:radial-gradient(90% 70% at 50% 45%, rgba(242,213,142,.42), transparent 70%); opacity:0; animation:openglow 3.6s ease-in-out 3 both; animation-delay:calc(var(--n,0) * 112ms + 1.9s)}
+  @keyframes openglow{0%,100%{opacity:.15} 45%{opacity:1}}
+  .opened .burst i{animation-delay:calc(var(--d) + 2.1s)}
+  .htile.fresh > :not(.opened){position:relative; z-index:1}
+  .htile.fresh > .htbadge{position:absolute}
+  .openbadge{display:inline-flex; align-items:center; gap:6px; color:#8a6d1f; background:linear-gradient(140deg, rgba(242,213,142,.6), rgba(212,165,71,.3)); border-color:rgba(212,165,71,.7);
+    box-shadow:0 0 16px -2px rgba(212,165,71,.7); animation:fadein 1.4s var(--ease-out) both 1.4s}
+  body.dm .openbadge{color:#F6DE9C}
+  .lockic .shackle{transform-box:view-box; transform-origin:11px 7.5px}
+  .lockic.open .shackle{animation:unlatch 1.6s cubic-bezier(.34,1.56,.64,1) both 2.2s}
+  @keyframes unlatch{to{transform:translateY(-1.6px) rotate(32deg)}}
+  .htile.fresh > .ripwrap{position:absolute}
+
+  /* --- detail that unfolds slowly: height first, then the words settle in --- */
+  .unfold{display:grid; grid-template-rows:0fr; opacity:0; visibility:hidden;
+    transition:grid-template-rows 2s cubic-bezier(.45,0,.25,1), opacity 1.6s ease, visibility 0s linear 2s}
+  .unfold.open{grid-template-rows:1fr; opacity:1; visibility:visible;
+    transition:grid-template-rows 2.6s cubic-bezier(.45,0,.25,1), opacity 2.2s ease .3s, visibility 0s}
+  .unfoldin{overflow:hidden; min-height:0}
+  .unfold .tbody, .unfold .resbody, .unfold .insfold{animation:none}
+  .unfold.open :is(.resbody, .tbody, .insights, .insacts) > *{animation:unfoldin 2.2s cubic-bezier(.45,0,.25,1) both; animation-delay:.5s}
+  .unfold.open :is(.resbody, .tbody, .insights, .insacts) > :nth-child(2){animation-delay:1.1s}
+  .unfold.open :is(.resbody, .tbody, .insights, .insacts) > :nth-child(3){animation-delay:1.6s}
+  .unfold.open :is(.resbody, .tbody, .insights, .insacts) > :nth-child(4){animation-delay:2s}
+  .unfold.open :is(.resbody, .tbody, .insights, .insacts) > :nth-child(n+5){animation-delay:2.4s}
+  @keyframes unfoldin{from{opacity:0; translate:0 10px} to{opacity:1; translate:none}}
+  .resi{transition:transform 2s cubic-bezier(.45,0,.25,1), background-color 1.6s}
+  .resbtn[aria-expanded="true"] .resi{transform:rotate(180deg); background:rgba(212,165,71,.18)}
+  .tilehead + .unfold .tbody{padding-top:2px}
+
+  /* --- quieter when asked for --- */
+  @media (prefers-reduced-motion: reduce){
+    *, *::before, *::after{animation-duration:.01ms !important; animation-iteration-count:1 !important; animation-delay:0ms !important; transition-duration:.01ms !important}
+    body::before{animation:none}
+    .sky{display:block}
+  }
+  @media print{
+    body::before, body::after, .readbar, .sky, .burst{display:none !important}
+    .w{animation:none !important}
+    .rhead{position:static}
+    :is(.tile,.companion,.pracs){box-shadow:none; border:1px solid #ddd}
+    .display, .rbody h2, .rbody p.pull{color:#0F1E3D}
+    .unfold{grid-template-rows:1fr !important; opacity:1 !important; visibility:visible !important}
+    .rbody h2::before{box-shadow:none; -webkit-print-color-adjust:exact; print-color-adjust:exact}
+  }
 </style>
 </head>
 <body>

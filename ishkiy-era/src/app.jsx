@@ -1,9 +1,10 @@
 // iSHKiY — ERA v1. Single-component app, Haven pattern.
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { PARTS, L5, E5, RIASEC_PHRASES } from "./items.js";
 import { MINIS, scoreMini, readMini } from "./mini.js";
 import { createClient } from "@supabase/supabase-js";
+import { Sky, Words, Burst, LockIcon, useCountUp, transition, installFx, TEMPO } from "./fx.jsx";
 
 /* ---------------- backend (Supabase, connect-only v1) ----------------
    Paste your project URL and anon public key below (Settings -> API).
@@ -273,7 +274,9 @@ function md(text) {
   const esc = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   const ACCENTS = { "How you think": "acc-think", "How you carry yourself": "acc-heart", "What pulls you": "acc-pull", "What you're for": "acc-values", "How you work": "acc-work", "The tensions": "acc-tension", "What this suggests": "acc-gold" };
   let cur = "";
-  return esc(text).split(/\n{2,}/).map((block) => {
+  /* Headings get their own block even when the writer only left one line break
+     after them; otherwise a whole section renders as one giant heading. */
+  return esc(text).replace(/^(#{2,3} [^\n]*)$/gm, "\n$1\n").split(/\n{2,}/).map((block) => {
     const b = block.trim(); if (!b) return "";
     if (b.startsWith("## ")) { const title = b.slice(3).trim(); cur = ACCENTS[title] || ""; return `<h2 class="${cur}">${inline(title)}</h2>`; }
     if (b.startsWith("### ")) return `<p class="pull ${cur}">${inline(b.slice(4))}</p>`;
@@ -309,11 +312,18 @@ function FramesSvg() {
 /* ---------------- app ---------------- */
 function App() {
   const [state, setState] = useState(() => ({ part: 0, item: 0, answers: {}, unlocked: false, report: null, ...load(), phase: "breath" }));
-  const update = (patch) => setState((s) => { const n = { ...s, ...patch }; save(n); return n; });
+  const apply = (patch) => setState((s) => { const n = { ...s, ...patch }; save(n); return n; });
+  /* A new screen, or a new theme, arrives through a view transition. Everything
+     else (an answer, a seed) applies straight away. */
+  const update = (patch) => {
+    if ("dark" in patch && !!patch.dark !== !!state.dark) return transition(() => apply(patch), "theme");
+    if (patch.phase && patch.phase !== state.phase) return transition(() => apply(patch));
+    apply(patch);
+  };
   const answers = state.answers;
   const scores = useMemo(() => (["glimmer", "generating", "report", "companion", "humans", "library", "account", "settings", "constellation"].includes(state.phase) && Object.keys(answers).length) ? computeScores(answers) : null, [state.phase, answers]);
 
-  useEffect(() => { window.scrollTo(0, 0); }, [state.phase, state.part, state.item]);
+  useLayoutEffect(() => { window.scrollTo(0, 0); }, [state.phase, state.part, state.item]);
   useEffect(() => { document.body.classList.toggle("dm", !!state.dark); }, [state.dark]);
 
   if (state.phase === "breath") return <Breath onEnter={() => update({ phase: state.seenExplainer ? "home" : "explainer" })} />;
@@ -363,7 +373,7 @@ function App() {
 }
 
 function Shell({ dark, children, footer }) {
-  return (<div className={"shell" + (dark ? " dark" : "")}><div className="col">{children}</div>{footer}</div>);
+  return (<div className={"shell" + (dark ? " dark" : "")}>{dark && <Sky />}<div className="col">{children}</div>{footer}</div>);
 }
 
 const WARMUP = [
@@ -383,8 +393,8 @@ function Warmup({ onDone, onExit }) {
       <div className="exitrow"><SaveExit onExit={onExit} light /></div>
       <div className="glimmer">
         <div className="breath" aria-hidden="true"><span /></div>
-        <p className="gline" key={i}>{WARMUP[i].line}</p>
-        <p className="gsub">{WARMUP[i].sub}</p>
+        <p className="gline" key={i}><Words text={WARMUP[i].line} delay={150} /></p>
+        <p className="gsub fadein" key={"s" + i}>{WARMUP[i].sub}</p>
         <button className="btn gold" onClick={() => (last ? onDone() : setI(i + 1))}>{last ? "I'm ready" : "Go on"}</button>
       </div>
     </Shell>
@@ -403,7 +413,7 @@ function Welcome({ onStart, resumable }) {
       <div className="welcome">
         <Wordmark light />
         <p className="kicker">Essence Recovery Assessment</p>
-        <h1 className="display">You weren't built for a box.</h1>
+        <h1 className="display"><Words text="You weren't built for a box." delay={200} /></h1>
         <p className="lede">This app helps you understand yourself — and use what you learn.</p>
         <div className="steps">
           <div className="step"><span className="stepn">1</span><span>Answer questions about yourself. Ten to fifteen minutes for your first profile, and you can go deeper whenever you want. It saves as you go.</span></div>
@@ -470,14 +480,14 @@ function PartIntro({ part, n, onGo, onExit }) {
   const [ready, setReady] = useState(false);
   const [line, setLine] = useState(0);
   useEffect(() => { const t = setInterval(() => setLine((v) => (v + 1) % MINDSET.length), 9000); return () => clearInterval(t); }, []);
-  const go = () => { setReady(true); setTimeout(onGo, 900); };
+  const go = () => { setReady(true); setTimeout(onGo, 900 * TEMPO); };
   return (
     <Shell>
       <div className="exitrow"><SaveExit onExit={onExit} /></div>
       <Dots n={n} />
       <div className={"intro mindset" + (ready ? " leaving" : "")}>
         <p className="kicker gold">{part.kicker}</p>
-        <h1 className="display ink">{part.title}</h1>
+        <h1 className="display ink"><Words text={part.title} delay={150} /></h1>
         <p className="lede inkdim">{part.intro}</p>
         <div className="mindwrap">
           <BreathDiagram />
@@ -615,8 +625,8 @@ function Glimmer({ part, answers, scores, onNext }) {
   return (
     <Shell dark>
       <div className="glimmer">
-        <GlimmerArt kind={part.glimmer.visual} scores={scores} />
-        <p className="gline">{line}</p>
+        <div className="gartwrap"><Burst n={14} spread={110} /><GlimmerArt kind={part.glimmer.visual} scores={scores} /></div>
+        <p className="gline"><Words text={line} delay={700} step={40} /></p>
         <button className="btn gold" onClick={onNext}>Carry on</button>
       </div>
     </Shell>
@@ -653,9 +663,15 @@ function Generating({ answers, scores, onDone }) {
   return (
     <Shell dark>
       <div className="glimmer">
-        <div className="orbwrap"><Orb size={100} /></div>
-        <p className="gline">That's everything. Most people never sit with themselves this long.</p>
-        <p className="gsub">{lines[Math.min(step, lines.length - 1)]}…</p>
+        <div className="orbwrap genorb">
+          <svg viewBox="0 0 140 140" className="genring" aria-hidden="true">
+            <circle cx="70" cy="70" r="64" className="genrtrack" />
+            <circle cx="70" cy="70" r="64" className="genrfill" pathLength="100" strokeDasharray={`${Math.max(4, ((step + 0.5) / calls.length) * 100)} 100`} transform="rotate(-90 70 70)" />
+          </svg>
+          <Orb size={100} />
+        </div>
+        <p className="gline"><Words text="That's everything. Most people never sit with themselves this long." delay={300} step={45} /></p>
+        <p className="gsub fadein" key={step}>{lines[Math.min(step, lines.length - 1)]}…</p>
       </div>
     </Shell>
   );
@@ -666,7 +682,7 @@ const GOLD = "#D4A547", INK = "var(--ink)", INK18 = "var(--ink12)";
 
 function MiniBars({ pairs, max = 100 }) {
   return (<svg viewBox={`0 0 120 ${pairs.length * 16}`} className="mini">{pairs.map(([label, v], i) => (
-    <g key={label} transform={`translate(0 ${i * 16})`}>
+    <g key={label + i} transform={`translate(0 ${i * 16})`}>
       <rect x="0" y="4" width="120" height="6" rx="3" fill={INK18} />
       <rect x="0" y="4" width={Math.max(6, (v / max) * 120)} height="6" rx="3" fill={i === 0 ? GOLD : INK} opacity={i === 0 ? 1 : 0.55} />
     </g>))}</svg>);
@@ -722,17 +738,17 @@ function Tiles({ scores }) {
   return (
     <div className="tiles">
       {shown.map((tile) => (
-        <div key={tile.id} className={"tile" + (open === tile.id ? " open" : "")} style={{ borderTopColor: tile.acc, borderTopWidth: "4px" }}>
+        <div key={tile.id} className={"tile" + (open === tile.id ? " open" : "")} style={{ "--acc": tile.acc }}>
           <button className="tilehead" onClick={() => setOpen(open === tile.id ? null : tile.id)} aria-expanded={open === tile.id}>
             {tile.art}
             <span className="tlabel">{tile.label}</span>
             <span className="tstat" style={{ color: tile.acc }}>{tile.stat}</span>
           </button>
-          <div className={"tbody" + (open === tile.id ? "" : " closed")}>
+          <Unfold open={open === tile.id}><div className="tbody">
               {tile.detail.map(([k, v]) => (<div key={k} className="trow"><span>{k}</span><span className="tnum">{v}</span></div>))}
               <p className="tnote">{tile.note}</p>
               <p className="tabout"><strong>About this framework.</strong> {tile.about}</p>
-          </div>
+          </div></Unfold>
         </div>
       ))}
     </div>
@@ -850,17 +866,26 @@ function Orb({ size = 96 }) {
           <stop offset="50%" stopColor="#D4A547" stopOpacity="0.32" />
           <stop offset="100%" stopColor="#D4A547" stopOpacity="0" />
         </radialGradient>
+        <radialGradient id={gid + "b"} cx="38%" cy="32%" r="75%">
+          <stop offset="0%" stopColor="#FBE7AE" />
+          <stop offset="45%" stopColor="#E2B556" />
+          <stop offset="100%" stopColor="#B07F27" />
+        </radialGradient>
       </defs>
       <circle cx="48" cy="48" r="46" fill={`url(#${gid})`} className="orbhalo" />
-      <circle cx="48" cy="48" r="27" fill="#D4A547" />
+      <g className="orbit"><circle cx="48" cy="48" r="38" fill="none" stroke="#D4A547" strokeOpacity=".35" strokeWidth=".8" strokeDasharray="1 4.2" /><circle cx="86" cy="48" r="1.8" fill="#F6DE9C" /></g>
+      <circle cx="48" cy="48" r="27" fill={`url(#${gid}b)`} />
+      <ellipse cx="40" cy="36" rx="9" ry="5" fill="#FFF6DA" opacity=".35" transform="rotate(-25 40 36)" />
       <path d="M38 46 q4 -4 8 0" fill="none" stroke="#0F1E3D" strokeWidth="2.6" strokeLinecap="round" />
       <path d="M52 46 q4 -4 8 0" fill="none" stroke="#0F1E3D" strokeWidth="2.6" strokeLinecap="round" />
       <path d={still ? SMILE_TO : SMILE_FROM} fill="none" stroke="#0F1E3D" strokeWidth="2.6" strokeLinecap="round">
-        {!still && <animate attributeName="d" from={SMILE_FROM} to={SMILE_TO} dur="4s" begin="0.3s" fill="freeze" calcMode="spline" keyTimes="0;1" keySplines="0.45 0 0.2 1" />}
+        {!still && <animate attributeName="d" from={SMILE_FROM} to={SMILE_TO} dur={4 * TEMPO + "s"} begin={0.3 * TEMPO + "s"} fill="freeze" calcMode="spline" keyTimes="0;1" keySplines="0.45 0 0.2 1" />}
       </path>
     </svg>
   );
 }
+
+function Count({ to }) { return useCountUp(to, 1600, 600); }
 
 function Breath({ onEnter }) {
   const quote = useMemo(qNext, []);
@@ -868,7 +893,7 @@ function Breath({ onEnter }) {
     <Shell dark>
       <div className="glimmer breathscreen">
         <div className="breath" aria-hidden="true"><span /></div>
-        <p className="gline bquote">{quote}</p>
+        <p className="gline bquote"><Words text={quote} delay={350} step={110} /></p>
         <button className="btn gold" onClick={() => { track("enter"); onEnter(); }}>Enter</button>
         <div className="bfoot"><Wordmark light /></div>
       </div>
@@ -982,6 +1007,13 @@ function SOSSection() {
   );
 }
 
+/* Folded-away detail that opens slowly, like a page turning, and closes the same
+   way. It stays in the page while closed (hidden from screen readers and taps)
+   so the closing can be seen, not just the opening. */
+function Unfold({ open, children }) {
+  return <div className={"unfold" + (open ? " open" : "")} aria-hidden={!open} inert={!open}><div className="unfoldin">{children}</div></div>;
+}
+
 /* The "Grounded in…" line, which opens to say what that grounding actually is. */
 function ResearchNote({ from, research }) {
   const [open, setOpen] = useState(false);
@@ -989,7 +1021,7 @@ function ResearchNote({ from, research }) {
   return (
     <div className="research">
       <button className="libfrom resbtn" aria-expanded={open} onClick={() => setOpen(!open)}>{from}<span className="resi" aria-hidden="true">{open ? "−" : "i"}</span></button>
-      {open && <div className="resbody"><p>{research.what}</p><p><strong>What it can't claim.</strong> {research.limits}</p></div>}
+      <Unfold open={open}><div className="resbody"><p>{research.what}</p><p><strong>What it can't claim.</strong> {research.limits}</p></div></Unfold>
     </div>
   );
 }
@@ -1015,9 +1047,11 @@ function LensInsights({ id, result }) {
 
 function LensTile({ e, done, open, onMini, onRetake, mailto }) {
   const [showIns, setShowIns] = useState(false);
+  const [denied, deny] = useDenied();
+  const locked = e.mini && !open && !done;
   const status = done ? "Taken" : !e.mini ? e.status : !open ? "Opens at Full Portrait" : e.tier === "MEMBERSHIP" ? "Open to founders" : "Ready";
   return (
-    <div className={"libtile" + (e.mini ? " libready" : "") + (done ? " libdone" : "") + (e.mini && !open && !done ? " liblocked" : "")}>
+    <div className={"libtile" + (e.mini ? " libready" : "") + (done ? " libdone" : "") + (locked ? " liblocked" : "") + (denied ? " denied" : "")} onClick={locked ? () => { track("locked_tap", e.mini); deny(); } : undefined}>
       <div className="librow"><span className={"libtier t" + e.tier}>{e.tier}</span><span className={"libstatus" + (done ? " done" : "")}>{done ? "✓ " : ""}{status}</span></div>
       <p className="libname">{e.name}</p>
       <ResearchNote from={e.from} research={e.research} />
@@ -1025,11 +1059,11 @@ function LensTile({ e, done, open, onMini, onRetake, mailto }) {
       {done ? (
         <>
           <button className="insbtn" aria-expanded={showIns} onClick={() => { if (!showIns) track("view_insights", e.mini); setShowIns(!showIns); }}>Your insights <span aria-hidden="true">{showIns ? "▴" : "▾"}</span></button>
-          {showIns && <div className="insfold"><LensInsights id={e.mini} result={done} /><div className="insacts"><button className="rtbtn" onClick={() => onMini(e.mini)}>Open the full read</button><button className="rtbtn ghostbtn" onClick={() => onRetake(e.mini)}>Take it again</button></div></div>}
+          <Unfold open={showIns}><div className="insfold"><LensInsights id={e.mini} result={done} /><div className="insacts"><button className="rtbtn" onClick={() => onMini(e.mini)}>Open the full read</button><button className="rtbtn ghostbtn" onClick={() => onRetake(e.mini)}>Take it again</button></div></div></Unfold>
         </>
       ) : e.mini ? (
         open ? <button className="rtbtn" onClick={() => onMini(e.mini)}>Take this lens</button>
-          : <button className="rtbtn ghostbtn" disabled aria-disabled="true">🔒 Opens at Full Portrait</button>
+          : <button className="rtbtn ghostbtn lockpill" aria-disabled="true" onClick={(ev) => { ev.stopPropagation(); deny(); }}><LockIcon size={13} /> <span className="locknote" key={denied}>Opens at Full Portrait — finish all nine parts</span></button>
       ) : <a className="rtbtn ghostbtn" href={mailto(e.name)}>Build this one first</a>}
     </div>
   );
@@ -1054,7 +1088,7 @@ function LibraryScreen({ state, onBack, onMini, onRetake, onAssessment }) {
       </div>
       <article className="report">
         <p className="kicker gold">The Library of You</p>
-        <h1 className="display ink">One profile. Deepening for life.</h1>
+        <h1 className="display ink"><Words text="One profile. Deepening for life." delay={150} /></h1>
         <Constellation />
         <p className="libnarr">Your report was the first light, the centre of the constellation. The Library is where the rest arrive: {built.length} lenses across five parts of life — how you attach and how you fight, what drives you and what stops you, how you carry pressure, what money means to you, and whether the life you're building is the one you meant. Each is ground from research psychologists actually use. Each one you complete adds a star to the same map: your Companion answers with more of you in the room, and what you choose to share with a human arrives richer.</p>
         {!st.allParts && (
@@ -1109,15 +1143,49 @@ function LibraryScreen({ state, onBack, onMini, onRetake, onAssessment }) {
 }
 
 /* ---------------- the cockpit ---------------- */
-function HomeTile({ title, sub, locked, lockNote, onClick, art, badge, acc, pulse }) {
+/* A tap on something not open yet shouldn't feel like nothing happened. The
+   tile answers with a calm flash of clay round its edge and lights up the line
+   that says how to open it. Tapping again plays it again. */
+function useDenied() {
+  const [at, setAt] = useState(0);
+  useEffect(() => { if (!at) return; const t = setTimeout(() => setAt(0), 2700 * TEMPO); return () => clearTimeout(t); }, [at]);
+  const deny = () => { setAt(0); requestAnimationFrame(() => setAt(Date.now())); };
+  return [at, deny];
+}
+function HomeTile({ title, sub, locked, lockNote, onClick, art, badge, acc, pulse, fresh }) {
+  const [denied, deny] = useDenied();
+  const opened = fresh && !locked;
   return (
-    <button className={"htile" + (locked ? " locked" : "") + (pulse ? " pulse" : "")} style={acc ? { borderTopColor: acc, borderTopWidth: "4px", background: `linear-gradient(180deg, ${acc}14, transparent 55%)` } : undefined} onClick={locked ? undefined : onClick} aria-disabled={locked}>
-      {badge != null && <span className="htbadge">{badge}</span>}
+    <button className={"htile" + (locked ? " locked" : "") + (pulse ? " pulse" : "") + (denied ? " denied" : "") + (opened ? " fresh" : "")} style={acc ? { "--acc": acc } : undefined}
+      onClick={locked ? () => { track("locked_tap", title); deny(); } : onClick} aria-disabled={locked}>
+      {opened && <span className="opened" aria-hidden="true"><Burst n={18} spread={130} /></span>}
+      {opened
+        ? <span className="htbadge openbadge"><LockIcon open /> Now open</span>
+        : locked ? <span className="htlock" aria-hidden="true"><LockIcon size={15} /></span>
+        : badge != null && <span className="htbadge">{badge}</span>}
       {art}
       <span className="httitle">{title}</span>
-      <span className="htsub">{locked ? lockNote : sub}</span>
+      <span className="htsub" aria-live="polite">{locked ? <span className="locknote" key={denied}>{lockNote}</span> : sub}</span>
     </button>
   );
+}
+
+/* Which tiles have already announced they're open. A tile that opens says so
+   once; if it locks again (a reset, say) it forgets, so it says so again the
+   next time it opens. */
+const OPEN_KEY = "era-opened";
+function useFreshlyOpened(unlocks) {
+  const [fresh] = useState(() => {
+    let seen = {}; try { seen = JSON.parse(localStorage.getItem(OPEN_KEY)) || {}; } catch {}
+    return Object.fromEntries(Object.entries(unlocks).filter(([k, open]) => open && !seen[k]).map(([k]) => [k, true]));
+  });
+  const sig = JSON.stringify(unlocks);
+  useEffect(() => {
+    let seen = {}; try { seen = JSON.parse(localStorage.getItem(OPEN_KEY)) || {}; } catch {}
+    Object.entries(unlocks).forEach(([k, open]) => { if (open) seen[k] = true; else delete seen[k]; });
+    try { localStorage.setItem(OPEN_KEY, JSON.stringify(seen)); } catch {}
+  }, [sig]);
+  return fresh;
 }
 
 function Rotator({ items, every = 3800 }) {
@@ -1145,8 +1213,8 @@ const GLYPHS = [
   // the thinker — head with a star inside
   (<svg key="g3" viewBox="0 0 60 40" className="hart"><path d="M24 34 L24 29 Q16 25 18 16 Q20 7 30 7 Q40 7 42 16 L44 21 L41 22 L41 27 Q41 30 36 30 L36 34" fill="none" stroke="currentColor" strokeWidth="1.8" opacity=".55" strokeLinejoin="round"/><circle cx="29" cy="17" r="2.6" fill={FACE_GOLD}/></svg>),
 ];
-function RotatingFaces() { return <Rotator items={FACES} every={3600} />; }
-function RotatingGlyphs() { return <Rotator items={GLYPHS} every={4200} />; }
+function RotatingFaces() { return <Rotator items={FACES} every={3600 * TEMPO} />; }
+function RotatingGlyphs() { return <Rotator items={GLYPHS} every={4200 * TEMPO} />; }
 function Home({ state, go, startAssessment, onTheme, onResume }) {
   const name = (state.answers["AR-1"] || "").trim();
   let compLeft = null;
@@ -1159,12 +1227,13 @@ function Home({ state, go, startAssessment, onTheme, onResume }) {
   const midway = !hasReport && !reportDue && Object.keys(state.answers).length > 0;
   const strength = profileStrength(state);
   const strengthStep = nextStep(strength);
+  const fresh = useFreshlyOpened({ companion: hasReport, humans: hasReport, library: strength.allParts });
   const gold = "#D4A547", faint = "rgba(15,30,61,0.18)";
   return (
     <Shell>
       <div className="home">
         <div className="hrow"><Wordmark /><button className="thememini" onClick={onTheme}>{state.dark ? "Light mode" : "Dark mode"}</button></div>
-        <h1 className="display ink hgreet">{name ? `Welcome back, ${name}.` : "Welcome."}</h1>
+        <h1 className="display ink hgreet"><Words text={name ? `Welcome back, ${name}.` : "Welcome."} delay={150} /></h1>
         <p className="lede inkdim hsub">{hasReport ? "Your profile is waiting. So is the team." : reportDue ? "You've done the first look. Your report is ready to be written — the Companion and the rest open once it is." : midway ? "You're partway through. Pick up where you left off — your answers kept your place." : "Everything here begins with ten honest minutes. Start when you're ready."}</p>
         {state.paused && PARTS[state.paused.part] && (
           <button className="resumecard" onClick={() => { track("resume"); onResume(); }}>
@@ -1196,6 +1265,7 @@ function Home({ state, go, startAssessment, onTheme, onResume }) {
             title="Your companion"
             sub="Talk about your life and work with three AI voices that know your report and share one memory. Ten questions a day."
             locked={!hasReport} lockNote="Opens after your report is written."
+            fresh={fresh.companion}
             onClick={() => go("companion")}
             badge={hasReport && compLeft != null ? `${compLeft} left today` : null}
             art={<svg viewBox="0 0 60 40" className="hart"><circle cx="22" cy="20" r="9" fill="none" stroke={gold} strokeWidth="2"/><circle cx="38" cy="20" r="9" fill="none" stroke={faint} strokeWidth="2"/></svg>}
@@ -1205,6 +1275,7 @@ function Home({ state, go, startAssessment, onTheme, onResume }) {
             title="A human, when ready"
             sub="Real people to talk to, later. You choose what they see of you."
             locked={!hasReport} lockNote="Opens after your report is written."
+            fresh={fresh.humans}
             onClick={() => { track("view_humans"); go("humans"); }}
             art={<RotatingFaces />}
           />
@@ -1213,6 +1284,7 @@ function Home({ state, go, startAssessment, onTheme, onResume }) {
             title="The Library of You"
             sub={strength.allParts ? `Twelve lenses on relationships, drive, mind, money and purpose. ${strength.lenses} of ${strength.totalLenses} taken.` : "Twelve lenses on relationships, drive, mind, money and purpose. Browse now; they open at Full Portrait."}
             badge={strength.allParts ? `${strength.lenses}/${strength.totalLenses} taken` : "Opens at Full Portrait"}
+            fresh={fresh.library}
             onClick={() => { track("view_library"); go("library"); }}
             art={<RotatingGlyphs />}
           />
@@ -1529,7 +1601,7 @@ NEW is yes if the question opens a subject unrelated to that voice's current top
   const enterRoom = (k) => { if (k !== "auto") pick(k); setChoice(null); setRoom(k); track("voice_open", k); };
 
   if (room === "auto") return (
-    <section className="companion noprint room autoroom" style={{ borderTopColor: "#D4A547" }}>
+    <section className="companion noprint room autoroom" style={{ "--acc": "#D4A547" }}>
       <button className="ghost inkghost" onClick={() => setRoom(null)}>← All voices</button>
       <div className="roomhead" style={{ background: "linear-gradient(180deg, #D4A5471f, transparent)" }}>
         <Avatar kind="auto" size={46} />
@@ -1557,14 +1629,14 @@ NEW is yes if the question opens a subject unrelated to that voice's current top
       <h2 className="ctitle">Three voices. One memory between them.</h2>
       <p className="cexplain">Each voice keeps its own conversation, but all three remember everything you've said to any of them. They share {Q_CAP} questions a day between them — {left} left today. Day {dayNum} of your 7. No one can read these conversations, iSHKiY included.</p>
       <div className="voicehub">
-        <button className="vcard vcauto" style={{ borderTopColor: "#D4A547" }} onClick={() => enterRoom("auto")}>
+        <button className="vcard vcauto" style={{ "--acc": "#D4A547" }} onClick={() => enterRoom("auto")}>
           <Avatar kind="auto" size={40} />
           <span className="vcname" style={{ color: "#D4A547" }}>Let iSHKiY choose</span>
           <span className="vcslogan">Not sure who you need? Just ask.</span>
           <span className="vclast dimtext">We'll pick the voice and the moment</span>
         </button>
         {Object.entries(MODES).map(([k, m]) => (
-          <button key={k} className="vcard" style={{ borderTopColor: m.colour }} onClick={() => enterRoom(k)}>
+          <button key={k} className="vcard" style={{ "--acc": m.colour }} onClick={() => enterRoom(k)}>
             <Avatar kind={k} size={40} />
             <span className="vcname" style={{ color: m.colour }}>{m.label}</span>
             <span className="vcslogan">{m.slogan}</span>
@@ -1577,7 +1649,7 @@ NEW is yes if the question opens a subject unrelated to that voice's current top
 
   const M = MODES[mode];
   return (
-    <section className="companion noprint room" style={{ borderTopColor: M.colour }}>
+    <section className="companion noprint room" style={{ "--acc": M.colour }}>
       <button className="ghost inkghost" onClick={() => setRoom(null)}>← All voices</button>
       <div className="roomhead" style={{ background: `linear-gradient(180deg, ${M.colour}1f, transparent)` }}>
         <Avatar kind={mode} size={46} />
@@ -1607,7 +1679,7 @@ NEW is yes if the question opens a subject unrelated to that voice's current top
           {m.role === "user" && m.subj && <span className="mlabel usubj">{m.subj}</span>}
           <div className={"bubble" + (m.err ? " errb" : "")} dangerouslySetInnerHTML={{ __html: md(m.content) }} />
         </div>))}
-        {busy && <div className="msg assistant"><div className="bubble thinking">Reading you back…</div></div>}
+        {busy && <div className="msg assistant"><div className="bubble thinking">Reading you back<span className="typing" aria-hidden="true"><i /><i /><i /></span></div></div>}
         <div ref={endRef} />
       </div>
       {left > 0 ? (
@@ -1754,7 +1826,7 @@ function CompanionScreen({ state, scores, onBack, onRegenerate, onHuman }) {
       </div>
       <article className="report">
         <p className="kicker gold">The Companion</p>
-        <h1 className="display ink">Three voices that read you.</h1>
+        <h1 className="display ink"><Words text="Three voices that read you." delay={150} /></h1>
         <p className="lede inkdim">Sounding, Coach, Mentor — ten questions a day, answered by voices that know your report line by line and remember everything you've told any of them.</p>
         <div className="teamrow">
           <Avatar kind="companion" /><Avatar kind="coach" /><Avatar kind="mentor" />
@@ -1960,7 +2032,7 @@ function SettingsScreen({ state, update, onBack }) {
       <div className="rhead noprint"><button className="ghost inkghost" onClick={onBack}>← Home</button><Wordmark /><span /></div>
       <article className="report">
         <p className="kicker gold">Settings</p>
-        <h1 className="display ink">Your space, your say.</h1>
+        <h1 className="display ink"><Words text="Your space, your say." delay={150} /></h1>
 
         <div className="setgroup">
           <p className="setlabel">Your assessment</p>
@@ -2153,7 +2225,7 @@ function HumansScreen({ scores, state, onBack, onApply }) {
       </div>
       <article className="report">
         <p className="kicker gold">A human, when ready</p>
-        <h1 className="display ink">Real people, on your terms.</h1>
+        <h1 className="display ink"><Words text="Real people, on your terms." delay={150} /></h1>
         <p className="lede inkdim">Counsellors, mentors and coaches — because human connection brings what AI never can. You choose who sees what, and when. Or no one, and that's fine too.</p>
         <Directory state={state} scores={scores} />
         <Practitioners scores={scores} />
@@ -2276,8 +2348,8 @@ function Explainer({ onDone, done = "Begin" }) {
           <div className="exwrap" key={i}><ExplainArt kind={s.art} /></div>
           <div aria-live="polite" aria-atomic="true">
             <p className="exstep">{i + 1} of {n}</p>
-            <p className="gline exline" key={"l" + i}>{s.line}</p>
-            <p className="gsub" key={"s" + i}>{s.sub}</p>
+            <p className="gline exline" key={"l" + i}><Words text={s.line} delay={120} step={45} /></p>
+            <p className="gsub fadein" key={"s" + i}>{s.sub}</p>
           </div>
         </div>
         <div className="exdots" role="tablist" aria-label="Slides">
@@ -2306,7 +2378,7 @@ function ChooseDepth({ state, onPick, onBack }) {
       <div className="intro">
         <button className="ghost inkghost" onClick={onBack}>← Home</button>
         <p className="kicker gold">How deep, today?</p>
-        <h1 className="display ink">Start small. Go deeper when you want.</h1>
+        <h1 className="display ink"><Words text="Start small. Go deeper when you want." delay={150} /></h1>
         <p className="lede inkdim">You don't have to do it all at once. Every part you finish makes your report truer — and you can always come back.</p>
         <div className="depthgrid">
           <button className="depthcard" onClick={() => onPick("starter")}>
@@ -2337,12 +2409,14 @@ function ChooseDepth({ state, onPick, onBack }) {
    what it's called — a level nobody can cash in is just a sticker. */
 function StrengthMeter({ score }) {
   const r = 54, c = 2 * Math.PI * r;
+  const shown = useCountUp(score, 1700, 350);
   return (
     <svg viewBox="0 0 130 130" className="smeter" role="img" aria-label={`Profile strength ${score} out of 100`}>
+      <defs><linearGradient id="smgrad" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor="#F2D58E" /><stop offset=".55" stopColor="#D4A547" /><stop offset="1" stopColor="#A87A26" /></linearGradient></defs>
       <circle cx="65" cy="65" r={r} fill="none" stroke="var(--ink12)" strokeWidth="9" />
-      <circle cx="65" cy="65" r={r} fill="none" stroke="#D4A547" strokeWidth="9" strokeLinecap="round"
-        strokeDasharray={`${(score / 100) * c} ${c}`} transform="rotate(-90 65 65)" />
-      <text x="65" y="62" textAnchor="middle" className="smetern">{score}</text>
+      <circle cx="65" cy="65" r={r} fill="none" stroke="url(#smgrad)" strokeWidth="9" strokeLinecap="round" className="smarc"
+        strokeDasharray={`${(shown / 100) * c} ${c}`} transform="rotate(-90 65 65)" />
+      <text x="65" y="62" textAnchor="middle" className="smetern">{shown}</text>
       <text x="65" y="82" textAnchor="middle" className="smeterl">of 100</text>
     </svg>
   );
@@ -2358,7 +2432,7 @@ function StrengthScreen({ state, onBack, onAssessment, onLibrary }) {
       <div className="rhead noprint"><button className="ghost inkghost" onClick={onBack}>← Home</button><Wordmark /><span /></div>
       <article className="report">
         <p className="kicker gold">Profile strength</p>
-        <h1 className="display ink">{level ? level.name : "Not started yet"}</h1>
+        <h1 className="display ink"><Words text={level ? level.name : "Not started yet"} delay={150} step={90} /></h1>
         <StrengthMeter score={st.score} />
         <p className="lede inkdim">{level ? level.blurb : "Answer your first part and the picture begins."}</p>
 
@@ -2415,11 +2489,11 @@ function BadgeScreen({ state, onDone }) {
   return (
     <Shell dark>
       <div className="glimmer">
-        <div className="badgeorb"><Orb size={92} /><span className="badgestars" aria-hidden="true">{LEVELS.map((_, k) => <i key={k} className={"bstar" + (k < lit ? " lit" : "")} />)}</span></div>
+        <div className="badgeorb"><Burst n={22} spread={150} /><Orb size={92} /><span className="badgestars" aria-hidden="true">{LEVELS.map((_, k) => <i key={k} className={"bstar" + (k < lit ? " lit" : "")} />)}</span></div>
         <p className="kicker gold">Badge earned</p>
-        <p className="gline">{level ? level.name : "First steps"}</p>
+        <p className="gline badgename"><Words text={level ? level.name : "First steps"} delay={500} step={120} /></p>
         <p className="gsub">{level ? level.blurb : "You've begun."}</p>
-        <p className="badgestrength">Profile strength <strong>{st.score}</strong> / 100</p>
+        <p className="badgestrength">Profile strength <strong><Count to={st.score} /></strong> / 100</p>
         {step && <p className="badgenext">{step.what} to earn <strong>{step.level.name}</strong> — {step.level.accuracy}.</p>}
         <button className="btn gold" onClick={onDone}>See my report</button>
       </div>
@@ -2458,7 +2532,7 @@ function MiniRunner({ miniId, answers, onDone, onBack }) {
 }
 function MiniResult({ miniId, result, onBack, onRetake }) {
   const [revealing, setRevealing] = useState(false);
-  const again = () => { setRevealing(true); setTimeout(() => setRevealing(false), 1600); };
+  const again = () => { setRevealing(true); setTimeout(() => setRevealing(false), 1600 * TEMPO); };
   const m = MINIS[miniId];
   if (!m || !result) return null;
   return (
@@ -2536,7 +2610,7 @@ function Report({ report, name, answers, scores, companionStart, completedAt, st
           </div>
         ); })()}
         <p className="kicker gold noprint">Essence Recovery Assessment</p>
-        <h1 className="display ink">{name ? `${name}, this is you.` : "This is you."}</h1>
+        <h1 className="display ink"><Words text={name ? `${name}, this is you.` : "This is you."} delay={200} step={80} /></h1>
         <p className="lede inkdim noprint">Your report, your dimension tiles, your share card — the centre everything else here orbits.</p>
         {report.preview && <div className="previewnote"><p>Your real report didn't finish writing — usually just a connection blip. Your answers are safe on this phone. One tap tries again.</p><button className="btn gold" onClick={onRegenerate}>Write my real report</button></div>}
         {partial && <ViewIntro strength={strength} completedAt={completedAt} onDeeper={onDeeper} />}
@@ -2563,4 +2637,4 @@ function Report({ report, name, answers, scores, companionStart, completedAt, st
 }
 
 const rootEl = typeof document !== "undefined" && document.getElementById("root");
-if (rootEl) createRoot(rootEl).render(<App />);
+if (rootEl) { createRoot(rootEl).render(<App />); installFx(); }
