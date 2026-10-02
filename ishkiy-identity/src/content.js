@@ -279,4 +279,37 @@ export const TOPUPS = [
     ],
   },
 ];
+/* Task-switching primers. Same shape as the top-ups above, so they show in the
+   top-up list and log the same way; "prime" also puts them in the Transition
+   Timer (a short break, then the primer starts on its own). Creativity is
+   eyes shut over the alpha bed; focus is eyes open with no beat. */
+TOPUPS.push(
+  {
+    id: "primeCreate", name: "Prime for creativity", when: "Before writing, designing, ideas", mins: 2, bed: "alpha", prime: true, eyes: "shut",
+    line: "Put the last task down. Open the door to the next.",
+    steps: [
+      { id: "pc01", line: "You're changing gear.", sub: "Close your eyes.", say: "You're changing gear. Before the next thing starts, let's put the last one down. Close your eyes.", gap: 4 },
+      { id: "pc02", line: "Notice what's still running.", sub: "The half-finished thought. Just notice it.", say: "Notice what's still running from the last task. The half-finished thought. The thing you meant to check. Just notice it.", gap: 8 },
+      { id: "pc03", line: "Put each one on a shelf.", sub: "It will be there when you come back.", say: "Picture a shelf. Put each loose thought on it, one at a time. It will still be there when you come back for it.", gap: 12 },
+      { id: "pc04", line: "Breathe out, long and slow.", sub: "Let your forehead soften.", say: "Now breathe out, long and slow. Let your forehead soften. Let your jaw go.", gap: 9 },
+      { id: "pc05", line: "Let your attention go wide.", sub: "No edges. Nothing to solve yet.", say: "Let your attention go wide, like looking at the horizon with your eyes shut. No edges. Nothing to solve yet.", gap: 12 },
+      { id: "pc06", line: "What wants to be made?", sub: "Don't answer it. Let it sit.", say: "Ask yourself, quietly: what wants to be made next? Don't answer it. Let the question sit.", gap: 14 },
+      { id: "pc07", line: "Begin with the smallest step.", sub: "", say: "When you're ready, open your eyes. Begin with the smallest step, and let the rest come to you.", gap: 2 },
+    ],
+  },
+  {
+    id: "primeFocus", name: "Prime for focus", when: "Before spreadsheets, admin, detail", mins: 2, bed: "still", prime: true, eyes: "open",
+    line: "Eyes open. Clear the desk, square the breath, start one thing.",
+    steps: [
+      { id: "pf01", line: "Eyes open. You're changing gear.", sub: "Sit up. Feet flat on the floor.", say: "Keep your eyes open. You're changing gear into focused work. Sit up, and put your feet flat on the floor.", gap: 4 },
+      { id: "pf02", line: "Close what you don't need.", sub: "Tabs, messages, the last task.", say: "Close what you don't need for the next task. Tabs, messages, the last thing you were doing. Do it now.", gap: 12 },
+      { id: "pf03", line: "In for four. Hold for four.", sub: "Out for four. Hold for four.", say: "Now a square breath. Breathe in for four. Hold for four. Out for four. Hold for four.", gap: 18 },
+      { id: "pf04", line: "Again.", sub: "In, hold, out, hold.", say: "Again. In for four. Hold. Out for four. Hold.", gap: 18 },
+      { id: "pf05", line: "Rest your eyes on one point.", sub: "Let everything else blur.", say: "Pick one point on your screen, or on the page. Rest your eyes on it. Let everything else blur.", gap: 8 },
+      { id: "pf06", line: "Name the first step.", sub: "Out loud, in a few words.", say: "Name the very first step, out loud, in a few words. Only the first one.", gap: 8 },
+      { id: "pf07", line: "Begin.", sub: "One thing, until it's done.", say: "Good. Begin now. One thing, until it's done.", gap: 2 },
+    ],
+  },
+);
+export const PRIMES = TOPUPS.filter((t) => t.prime);
 export const topupOf = (id) => TOPUPS.find((t) => t.id === id);

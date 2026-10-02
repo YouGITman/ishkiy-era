@@ -9,7 +9,7 @@ import { getVoice } from "./store.js";
 const mmss = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
 
 /* Keep the screen awake during a practice, where the phone allows it. */
-function useWakeLock(on = true) {
+export function useWakeLock(on = true) {
   useEffect(() => {
     if (!on || !("wakeLock" in navigator)) return;
     let lock = null, dead = false;
@@ -39,7 +39,7 @@ function useElapsed(running) {
    load (offline on first use), the phone's own voice reads the same words.
    A { lines: true } step pauses the voice while the person says their own
    lines out loud, then the voice carries on. */
-export function GuideSession({ steps, dir, bed = "alpha", bedVolume = 0.45, kicker, title, lede, lines = [], autoNext = false, finishLabel = "I'm here", onDone, onExit }) {
+export function GuideSession({ steps, dir, bed = "alpha", bedVolume = 0.45, kicker, title, lede, lines = [], autoNext = false, autoStart = false, finishLabel = "I'm here", onDone, onExit }) {
   const [on, setOn] = useState(false);
   const [loading, setLoading] = useState(false);
   const [idx, setIdx] = useState(0);
@@ -94,6 +94,8 @@ export function GuideSession({ steps, dir, bed = "alpha", bedVolume = 0.45, kick
     setLoading(false); setOn(true);
     runSeg(0);
   };
+  // started by a timer or another session, so there is no button to find
+  useEffect(() => { if (autoStart) begin(); }, []);
 
   if (!on) return (
     <div className="session center">

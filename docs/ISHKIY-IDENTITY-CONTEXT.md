@@ -55,7 +55,7 @@ All the app's words live in **`src/content.js`**. Edit voice there, not in compo
 | Build | `npm run build` bundles to `site/dist/app.js` and **copies only the real files** into `site/` (`index.html`, `manifest.json`, `sw.js`, icons, `audio/`). **Netlify publishes `site/`, never the project folder** |
 | Hosting | Netlify, project **`stately-pika-8b9efc`** (not renamed yet). Branch to deploy: **`claude/upbeat-knuth-s0xvxv`**. Base directory: **`ishkiy-identity`**. Build command and publish directory are left blank; `netlify.toml` supplies them |
 | AI | `netlify/functions/claude.js`, a copy of ERA's proxy at `/api/claude`. Needs `ANTHROPIC_API_KEY` in Netlify. Used for exactly two things (section 6) |
-| Offline | `sw.js` caches the shell and every audio clip. **Bump the `CACHE` name (now `identity-v4`) whenever audio or app files change**, or installed phones keep the old ones |
+| Offline | `sw.js` caches the shell and every audio clip. **Bump the `CACHE` name (now `identity-v5`) whenever audio or app files change**, or installed phones keep the old ones |
 | Package type | `"type": "module"`. The ElevenLabs build plugin dynamically imports `src/content.js` |
 
 ### Traps (each one has already cost time)
@@ -92,6 +92,7 @@ All the app's words live in **`src/content.js`**. Edit voice there, not in compo
 - **Through the day**: a power question that rotates by the hour; **I caught the old voice** (pick the old line, say the new one to swap it); **Log evidence** (a list of votes for the new self); **Top-up sessions** (below).
 - **Night**: a check-in (0 to 10 "how much did I feel like the new me", what went in today: clean, mixed or noise, one vote), a three-and-a-half-minute spoken calm, then the recording, which **starts automatically** (eyes still shut). The screen dims after 20 seconds and the bed plays on for ten minutes after the words end.
 - **Daytime top-ups (optional)**: six spoken sessions of one to two minutes: *Two-minute reset*, *Before it matters*, *After the noise*, *Power questions*, *Two minutes of thank you*, *Your lines, out loud* (the voice hands over to the mic for the person's own lines, then carries on). The list highlights the one that fits the hour.
+- **The transition timer (task switching)**: reached from the top of the top-ups list. Pick *Prime for creativity* (eyes shut, alpha bed) or *Prime for focus* (eyes open, square breathing, no-beat bed), take a one-, two- or three-minute break, then the primer starts on its own through `GuideSession`'s `autoStart`. The countdown runs from an end time, so a throttled page still lands on time. The last choice is remembered in `transition`. The primers are entries in `TOPUPS` marked `prime: true` (exported as `PRIMES`), so they also play directly from the list and log to `days[...].topups`.
 - **Weekly check-in** (days 7, 14, 21): self-image 0 to 10, where the old self pulled back ("the rubber band"), what the new self did, the line they need next week, and a short reflection.
 - **Day 21 review**: old lines struck through beside the new, counts of mornings, nights, lines said aloud, top-ups, evidence; the nightly trend; then *Begin another 21 days*, *Rewrite my lines first*, or *Let go of something new*.
 
@@ -138,7 +139,7 @@ Rules for any new AI feature: use the `VOICE` prompt, send only the words needed
 - `playSession` plays the person's recording over a bed with a short generated reverb and a configurable tail. `renderMix` bakes it into a 24 kHz WAV (a five-minute recording plus a three-minute tail is about 45 MB).
 - `listenLevel` reads mic loudness only. `speakScript` is the phone's own voice, used as the fallback.
 
-### Recorded guides (`audio/calm/`, `audio/topup/`: 17 + 38 clips, about 2.4 MB)
+### Recorded guides (`audio/calm/`, `audio/topup/`: 17 + 52 clips, about 3 MB)
 - The *calm* session and the six top-ups are **pre-recorded voice clips** scheduled on the audio clock (`scheduleGuide`, `loadClip`), so timing holds even if the phone throttles the page. `GuideSession` plays any list of steps; a step with `lines: true` pauses the voice for the person to say their own lines, then carries on.
 - A step is `{ id, line, sub, say, gap, mantra? }`: `say` is the spoken text, `gap` the silence after it in seconds. The evening version drops steps marked `longOnly` and shortens gaps to 40%.
 - If the clips fail to load (offline on first use), the phone's own voice reads the same `say` text with the same timings.
@@ -152,7 +153,7 @@ Rules for any new AI feature: use the `VOICE` prompt, send only the words needed
 | **The person's own voice** for their personal script | **Live** (Recorder) |
 | A human voice artist for the calm and top-up scripts | Suggested as the best long-term route, not started |
 
-Changing a voice means: edit `CALM_SCRIPT` / `TOPUPS` in `content.js`, run `node tools/calm-lines.mjs` to export the text, run a `make-voice*.py` script, bump the service-worker cache, build, push. There are 55 clip files in total (17 in `audio/calm/`, 38 in `audio/topup/`). Inside a folder, a step id that repeats (like `c11`, "Calm body.") is one clip played several times.
+Changing a voice means: edit `CALM_SCRIPT` / `TOPUPS` in `content.js`, run `node tools/calm-lines.mjs` to export the text, run a `make-voice*.py` script, bump the service-worker cache, build, push. There are 69 clip files in total (17 in `audio/calm/`, 52 in `audio/topup/`). Inside a folder, a step id that repeats (like `c11`, "Calm body.") is one clip played several times.
 
 ---
 
@@ -173,6 +174,7 @@ Changing a voice means: edit `CALM_SCRIPT` / `TOPUPS` in `content.js`, run `node
 | `evidence` | `[{ id, at, text }]` |
 | `weekly` | `[{ week, era, at, self, pull, did, need, reflection }]` |
 | `reminders` | `{ morning, evening, midday? }` |
+| `transition` | `{ prime, mins }`: the last primer and break length chosen |
 | `calmCount` | How many calm sessions completed |
 
 **IndexedDB** `ishkiy-identity` / store `voice` / key `induction`: the person's recording as a Blob.

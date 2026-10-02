@@ -2,11 +2,11 @@
 // the ERA pattern: everything on the phone, one optional AI proxy.
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { TOPUPS, topupOf, EXPLAIN, PATH, AREAS, areaOf, ORIGIN_AGES, REWRITES, tenseCheck, SENSES, POWER_QUESTIONS, INPUT_CHOICES, QUOTES, SAFETY, SOS_LINES, MORNING_LINES, EVENING_LINES, buildScript } from "./content.js";
+import { TOPUPS, PRIMES, topupOf, EXPLAIN, PATH, AREAS, areaOf, ORIGIN_AGES, REWRITES, tenseCheck, SENSES, POWER_QUESTIONS, INPUT_CHOICES, QUOTES, SAFETY, SOS_LINES, MORNING_LINES, EVENING_LINES, buildScript } from "./content.js";
 import { load, save, wipe, putVoice, getVoice, delVoice, dayKey, daysBetween, uid, reminderICS, download } from "./store.js";
 import { BEDS, startBed, stopBed, liveBed, releaseSound, bowl, renderMix, getCtx } from "./audio.js";
 import { Field, Orb, Dissolve, ExplainArt, Spark } from "./visuals.jsx";
-import { CalmSession, GuideSession, ListenSession, SayAloud, Mirror, Recorder } from "./sessions.jsx";
+import { useWakeLock, CalmSession, GuideSession, ListenSession, SayAloud, Mirror, Recorder } from "./sessions.jsx";
 
 const ERA_DAYS = 21;
 
@@ -66,6 +66,7 @@ function App() {
   if (view === "evening") return <Evening st={st} day={day} setDay={setDay} update={update} go={go} onDone={() => go("today")} />;
   if (view === "topups") return <TopUps st={st} day={day} go={go} back={() => go(arg || (inEra ? "today" : "path"))} />;
   if (view === "topup") return <TopUp st={st} id={arg} onDone={(r) => { setDay({ topups: [...(day.topups || []), arg], spoken: (day.spoken || 0) + ((r && r.spoken) || 0) }); go("topups"); }} onExit={() => go("topups")} />;
+  if (view === "transition") return <Transition st={st} update={update} onExit={() => go("topups")} onDone={(id, r) => { setDay({ topups: [...(day.topups || []), id], spoken: (day.spoken || 0) + ((r && r.spoken) || 0) }); go("topups"); }} />;
   if (view === "caught") return <Caught st={st} day={day} setDay={setDay} onDone={() => go("today")} />;
   if (view === "weekly") return <Weekly st={st} update={update} week={arg} onDone={() => go("today")} />;
   if (view === "review") return <Review st={st} update={update} go={go} />;
@@ -659,6 +660,11 @@ function TopUps({ st, day, go, back }) {
         <h1 className="display sm">Two minutes, whenever you need them.</h1>
         <p className="lede dim">Morning and night do the deep work. These keep it topped up in between: before something that matters, after the noise gets in, or just because. Eyes open or shut.</p>
         <div className="topups">
+          <button className="topup switch" onClick={() => go("transition")}>
+            <span className="tuhead"><span className="tuname">Switching tasks?</span><span className="tumins">3 to 5 min</span></span>
+            <span className="tuwhen">The transition timer</span>
+            <span className="tuline">A short break to clear the last task, then a primer for the next one. Creativity or focus.</span>
+          </button>
           {TOPUPS.map((t) => { const n = done.filter((x) => x === t.id).length; return (
             <button key={t.id} className={"topup" + (t.id === pick ? " suggest" : "")} onClick={() => go("topup", t.id)}>
               <span className="tuhead"><span className="tuname">{t.name}</span><span className="tumins">{t.mins} min</span></span>
@@ -671,6 +677,87 @@ function TopUps({ st, day, go, back }) {
     </Shell>
   );
 }
+/* The transition timer: a short break to drop the last task, then a primer
+   for the next kind of work, which starts on its own when the break ends. The
+   timer runs from an end time rather than counting ticks, so a throttled or
+   backgrounded page still lands on time. */
+const BREAKS = [1, 2, 3];
+const mmss = (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+function Transition({ st, update, onDone, onExit }) {
+  const saved = st.transition || {};
+  const [pick, setPick] = useState(PRIMES.some((p) => p.id === saved.prime) ? saved.prime : PRIMES[0].id);
+  const [mins, setMins] = useState(BREAKS.includes(saved.mins) ? saved.mins : 1);
+  const [stage, setStage] = useState("choose"); // choose | break | prime
+  const [left, setLeft] = useState(0);
+  const end = useRef(0), fired = useRef(false);
+  const t = PRIMES.find((p) => p.id === pick);
+  useWakeLock(stage === "break");
+  useEffect(() => {
+    if (stage !== "break") return;
+    const tick = () => {
+      const secs = Math.max(0, Math.ceil((end.current - Date.now()) / 1000));
+      setLeft(secs);
+      if (secs <= 0 && !fired.current) { fired.current = true; bowl(329.6, 0.1); setStage("prime"); }
+    };
+    tick();
+    const timer = setInterval(tick, 500);
+    document.addEventListener("visibilitychange", tick);
+    return () => { clearInterval(timer); document.removeEventListener("visibilitychange", tick); };
+  }, [stage]);
+  const start = () => {
+    getCtx(); bowl(174.6, 0.1); // this tap also unlocks audio for the primer
+    update({ transition: { prime: pick, mins } });
+    fired.current = false; end.current = Date.now() + mins * 60000;
+    setStage("break");
+  };
+
+  if (stage === "prime") return (
+    <Shell className="practice">
+      <div className="toprow"><Back onClick={onExit} label="Top-ups" /></div>
+      <GuideSession steps={t.steps} dir="topup" bed={t.bed} bedVolume={0.35} autoStart kicker={`Primer · eyes ${t.eyes}`} title={t.name}
+        lede={t.line} finishLabel="Back to work" onExit={onExit} onDone={(r) => onDone(t.id, r)} />
+    </Shell>
+  );
+  if (stage === "break") return (
+    <Shell className="practice">
+      <div className="toprow"><Back onClick={onExit} label="Top-ups" /></div>
+      <div className="session center">
+        <Orb size={170} />
+        <p className="kicker">Short break</p>
+        <p className="gline">Step away from the last task.</p>
+        <p className="gsub">Stand up. Stretch. Get some water. Look at something far away. Leave the screen alone.</p>
+        <p className="countdown" role="timer" aria-label={`${left} seconds left`}>{mmss(left)}</p>
+        <p className="tnote light">Then {t.name.toLowerCase()} starts on its own.</p>
+        <button className="btn ink2" onClick={() => { fired.current = true; setStage("prime"); }}>Skip the break</button>
+      </div>
+    </Shell>
+  );
+  return (
+    <Shell>
+      <div className="toprow"><Back onClick={onExit} label="Top-ups" /></div>
+      <div className="flow">
+        <p className="kicker">The transition timer</p>
+        <h1 className="display sm">Leave the last task behind.</h1>
+        <p className="lede dim">Switching between different kinds of work leaves a bit of the last one running. A short break clears it, then two minutes set your state for what's next.</p>
+        <label className="q">What's next?</label>
+        <div className="topups">
+          {PRIMES.map((p) => (
+            <button key={p.id} className={"topup" + (pick === p.id ? " suggest" : "")} aria-pressed={pick === p.id} onClick={() => setPick(p.id)}>
+              <span className="tuhead"><span className="tuname">{p.name}</span><span className="tumins">eyes {p.eyes}</span></span>
+              <span className="tuwhen">{p.when}</span>
+              <span className="tuline">{p.line}</span>
+            </button>
+          ))}
+        </div>
+        <label className="q">How long a break?</label>
+        <div className="chips">{BREAKS.map((m) => <button key={m} className={"chip" + (mins === m ? " on" : "")} aria-pressed={mins === m} onClick={() => setMins(m)}>{m} min</button>)}</div>
+        <button className="btn gold" onClick={start}>Start the break</button>
+        <p className="tnote light">Everything runs on this phone. Headphones help with the creativity primer.</p>
+      </div>
+    </Shell>
+  );
+}
+
 function TopUp({ st, id, onDone, onExit }) {
   const t = topupOf(id) || TOPUPS[0];
   const lines = ((st.newSelf || {}).statements || []).map((x) => x.text).filter(Boolean);
