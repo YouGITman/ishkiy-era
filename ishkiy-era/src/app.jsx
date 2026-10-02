@@ -744,11 +744,11 @@ function Tiles({ scores }) {
             <span className="tlabel">{tile.label}</span>
             <span className="tstat" style={{ color: tile.acc }}>{tile.stat}</span>
           </button>
-          <div className={"tbody" + (open === tile.id ? "" : " closed")}>
+          <Unfold open={open === tile.id}><div className="tbody">
               {tile.detail.map(([k, v]) => (<div key={k} className="trow"><span>{k}</span><span className="tnum">{v}</span></div>))}
               <p className="tnote">{tile.note}</p>
               <p className="tabout"><strong>About this framework.</strong> {tile.about}</p>
-          </div>
+          </div></Unfold>
         </div>
       ))}
     </div>
@@ -1007,6 +1007,13 @@ function SOSSection() {
   );
 }
 
+/* Folded-away detail that opens slowly, like a page turning, and closes the same
+   way. It stays in the page while closed (hidden from screen readers and taps)
+   so the closing can be seen, not just the opening. */
+function Unfold({ open, children }) {
+  return <div className={"unfold" + (open ? " open" : "")} aria-hidden={!open} inert={!open}><div className="unfoldin">{children}</div></div>;
+}
+
 /* The "Grounded in…" line, which opens to say what that grounding actually is. */
 function ResearchNote({ from, research }) {
   const [open, setOpen] = useState(false);
@@ -1014,7 +1021,7 @@ function ResearchNote({ from, research }) {
   return (
     <div className="research">
       <button className="libfrom resbtn" aria-expanded={open} onClick={() => setOpen(!open)}>{from}<span className="resi" aria-hidden="true">{open ? "−" : "i"}</span></button>
-      {open && <div className="resbody"><p>{research.what}</p><p><strong>What it can't claim.</strong> {research.limits}</p></div>}
+      <Unfold open={open}><div className="resbody"><p>{research.what}</p><p><strong>What it can't claim.</strong> {research.limits}</p></div></Unfold>
     </div>
   );
 }
@@ -1052,7 +1059,7 @@ function LensTile({ e, done, open, onMini, onRetake, mailto }) {
       {done ? (
         <>
           <button className="insbtn" aria-expanded={showIns} onClick={() => { if (!showIns) track("view_insights", e.mini); setShowIns(!showIns); }}>Your insights <span aria-hidden="true">{showIns ? "▴" : "▾"}</span></button>
-          {showIns && <div className="insfold"><LensInsights id={e.mini} result={done} /><div className="insacts"><button className="rtbtn" onClick={() => onMini(e.mini)}>Open the full read</button><button className="rtbtn ghostbtn" onClick={() => onRetake(e.mini)}>Take it again</button></div></div>}
+          <Unfold open={showIns}><div className="insfold"><LensInsights id={e.mini} result={done} /><div className="insacts"><button className="rtbtn" onClick={() => onMini(e.mini)}>Open the full read</button><button className="rtbtn ghostbtn" onClick={() => onRetake(e.mini)}>Take it again</button></div></div></Unfold>
         </>
       ) : e.mini ? (
         open ? <button className="rtbtn" onClick={() => onMini(e.mini)}>Take this lens</button>
