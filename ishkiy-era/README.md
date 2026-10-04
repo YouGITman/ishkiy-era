@@ -51,6 +51,7 @@ The `PREVIEW` code is not in `CODE_HASHES` and needs no removing before launch �
 | `src/items.js` | The item bank — mirrors `ERA-v1-item-bank.md` exactly; edit wording here |
 | `src/app.jsx` | Flow, scoring, glimmers, unlock, report generation, companion chat, account and practitioner screens |
 | `src/mini.js` | Mini-assessments and their scoring |
+| `VOICE.md` | How iSHKiY talks: the Sharp and Quiet registers, and what to avoid. The AI follows the same rules (`VOICE` in `src/app.jsx`) |
 | `src/fx.jsx` | Motion and light: the starfield, word reveals, screen transitions, scroll reveals, sparks, count-ups. Decoration only; reduced-motion users get a still version |
 | `netlify/functions/claude.js` | The shared iSHKiY AI proxy (key server-side; the model is pinned here) |
 | `supabase/schema.sql` | Tables and row-level security — paste into the Supabase SQL editor |
