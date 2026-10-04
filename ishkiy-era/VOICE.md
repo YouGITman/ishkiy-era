@@ -36,6 +36,8 @@ The opening breath, warm-ups and part intros, the "writing your report" screen, 
 ## Where the AI gets it
 `VOICE` in `src/app.jsx` holds the same rules for the report writer, the Companion and the conversation summaries. Change one, change both.
 
+The Library lens write-ups in `src/mini.js` follow the same voice: Sharp for most results, Quiet for the heavy ones and any note that points to help.
+
 ## Kept as they are
 - The question bank in `src/items.js`. Item wording is part of what the assessment measures.
 - Brand lines: "The box was never you." and "The future is not artificial; it's authentically human."
