@@ -19,6 +19,13 @@ export default async (req) => {
     system: typeof body.system === "string" ? body.system.slice(0, 32000) : undefined,
     messages: Array.isArray(body.messages) ? body.messages.slice(0, 8) : [],
   };
+  // Structured outputs, for callers that need an answer the app can parse
+  // without guessing (the Companion's voice router). Only a JSON schema
+  // format is passed through; nothing else in output_config is accepted.
+  const fmt = body.output_config && body.output_config.format;
+  if (fmt && fmt.type === "json_schema" && fmt.schema && typeof fmt.schema === "object") {
+    payload.output_config = { format: { type: "json_schema", schema: fmt.schema } };
+  }
 
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",

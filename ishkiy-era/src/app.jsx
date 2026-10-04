@@ -1152,11 +1152,11 @@ function useDenied() {
   const deny = () => { setAt(0); requestAnimationFrame(() => setAt(Date.now())); };
   return [at, deny];
 }
-function HomeTile({ title, sub, locked, lockNote, onClick, art, badge, acc, pulse, fresh }) {
+function HomeTile({ title, sub, locked, lockNote, onClick, art, badge, acc, pulse, fresh, cls }) {
   const [denied, deny] = useDenied();
   const opened = fresh && !locked;
   return (
-    <button className={"htile" + (locked ? " locked" : "") + (pulse ? " pulse" : "") + (denied ? " denied" : "") + (opened ? " fresh" : "")} style={acc ? { "--acc": acc } : undefined}
+    <button className={"htile" + (cls ? " " + cls : "") + (locked ? " locked" : "") + (pulse ? " pulse" : "") + (denied ? " denied" : "") + (opened ? " fresh" : "")} style={acc ? { "--acc": acc } : undefined}
       onClick={locked ? () => { track("locked_tap", title); deny(); } : onClick} aria-disabled={locked}>
       {opened && <span className="opened" aria-hidden="true"><Burst n={18} spread={130} /></span>}
       {opened
@@ -1166,6 +1166,19 @@ function HomeTile({ title, sub, locked, lockNote, onClick, art, badge, acc, puls
       {art}
       <span className="httitle">{title}</span>
       <span className="htsub" aria-live="polite">{locked ? <span className="locknote" key={denied}>{lockNote}</span> : sub}</span>
+    </button>
+  );
+}
+
+/* A slim row for the quieter corners of Home: present, one tap away, but not
+   asking for attention the way the cards above do. */
+function QuietRow({ title, sub, onClick, art, badge }) {
+  return (
+    <button className="qrow" onClick={onClick}>
+      <span className="qicon" aria-hidden="true">{art}</span>
+      <span className="qtext"><span className="qtitle">{title}</span><span className="qsub">{sub}</span></span>
+      {badge && <span className="qbadge">{badge}</span>}
+      <span className="qchev" aria-hidden="true">›</span>
     </button>
   );
 }
@@ -1242,72 +1255,88 @@ function Home({ state, go, startAssessment, onTheme, onResume }) {
             <span className="resumes">{PARTS[state.paused.part].title}{state.paused.at === "run" ? ` · question ${state.paused.item + 1}` : ""} →</span>
           </button>
         )}
-        <div className="hgrid">
-          <HomeTile
-            acc="#5C7CA3"
-            title={hasReport ? "Your profile" : reportDue ? "Write my report" : midway ? "Continue the assessment" : "Take the assessment"}
-            badge={hasReport ? (levelFor(strength) || {}).name : reportDue ? "Ready" : null}
-            pulse={reportDue}
-            sub={hasReport ? "Read your report. Save it, share it, retake parts." : reportDue ? "Your answers are in. Tap and it's written for you in about a minute. You can go deeper afterwards." : "Answer questions about yourself. Your first profile takes 10–15 minutes."}
-            onClick={hasReport || reportDue ? () => { track(reportDue ? "report_recover" : "view_report"); go("report"); } : state.paused ? () => { track("resume"); onResume(); } : () => { track("assessment_start"); startAssessment(); }}
-            art={<svg viewBox="0 0 60 40" className="hart"><circle cx="30" cy="20" r="12" fill="none" stroke={gold} strokeWidth="2"/><circle cx="30" cy="20" r="4" fill={gold}/></svg>}
-          />
-          <HomeTile
-            acc="#D4A547"
-            title="Profile strength"
-            badge={`${strength.score} / 100`}
-            sub={strengthStep ? `${strengthStep.what} to reach ${strengthStep.level.name}.` : "Everything iSHKiY can ask, you've answered."}
-            onClick={() => { track("view_strength"); go("strength"); }}
-            art={<svg viewBox="0 0 60 40" className="hart"><circle cx="30" cy="20" r="13" fill="none" stroke="currentColor" strokeWidth="3" opacity=".22"/><circle cx="30" cy="20" r="13" fill="none" stroke={gold} strokeWidth="3" strokeLinecap="round" strokeDasharray={`${(strength.score / 100) * 81.7} 81.7`} transform="rotate(-90 30 20)"/></svg>}
-          />
-          <HomeTile
-            acc="#D4A547"
-            title="Your companion"
-            sub="Talk about your life and work with three AI voices that know your report and share one memory. Ten questions a day."
-            locked={!hasReport} lockNote="Opens after your report is written."
-            fresh={fresh.companion}
-            onClick={() => go("companion")}
-            badge={hasReport && compLeft != null ? `${compLeft} left today` : null}
-            art={<svg viewBox="0 0 60 40" className="hart"><circle cx="22" cy="20" r="9" fill="none" stroke={gold} strokeWidth="2"/><circle cx="38" cy="20" r="9" fill="none" stroke={faint} strokeWidth="2"/></svg>}
-          />
-          <HomeTile
-            acc="#C06B5C"
-            title="A human, when ready"
-            sub="Real people to talk to, later. You choose what they see of you."
-            locked={!hasReport} lockNote="Opens after your report is written."
-            fresh={fresh.humans}
-            onClick={() => { track("view_humans"); go("humans"); }}
-            art={<RotatingFaces />}
-          />
-          <HomeTile
-            acc="#8A6FA0"
-            title="The Library of You"
-            sub={strength.allParts ? `Twelve lenses on relationships, drive, mind, money and purpose. ${strength.lenses} of ${strength.totalLenses} taken.` : "Twelve lenses on relationships, drive, mind, money and purpose. Browse now; they open at Full Portrait."}
-            badge={strength.allParts ? `${strength.lenses}/${strength.totalLenses} taken` : "Opens at Full Portrait"}
-            fresh={fresh.library}
-            onClick={() => { track("view_library"); go("library"); }}
-            art={<RotatingGlyphs />}
-          />
-          <HomeTile
-            acc="#D4A547"
-            title="The Constellation"
-            sub="Your other iSHKiY apps, connected here. Only if you choose."
-            onClick={() => go("constellation")}
-            badge={(() => { if (!state.constellationInvite) return "Invite only"; const c = state.constellation || {}; const n = Object.values(c).filter((x) => x && x.linked).length; return n ? `${n} connected` : null; })()}
-            art={<svg viewBox="0 0 60 40" className="hart"><circle cx="30" cy="20" r="4" fill={gold}/><circle cx="13" cy="12" r="2.5" fill="none" stroke={gold} strokeWidth="1.6"/><circle cx="47" cy="10" r="2.5" fill="none" stroke="currentColor" strokeWidth="1.6" opacity=".4"/><circle cx="46" cy="31" r="2.5" fill="none" stroke={gold} strokeWidth="1.6"/><circle cx="12" cy="30" r="2.5" fill="none" stroke="currentColor" strokeWidth="1.6" opacity=".4"/><line x1="26.5" y1="18" x2="15.3" y2="13" stroke={gold} strokeWidth="1.2" opacity=".6"/><line x1="33.5" y1="22" x2="43.8" y2="30" stroke={gold} strokeWidth="1.2" opacity=".6"/></svg>}
-          />
-          <HomeTile
-            acc="#6F8F5E"
-            title="Your account"
-            sub="Back up your profile online. Optional. Delete it any time."
-            onClick={() => go("account")}
-            art={<svg viewBox="0 0 60 40" className="hart"><circle cx="30" cy="13" r="6.5" fill="none" stroke={gold} strokeWidth="2"/><path d="M17 34 Q30 24 43 34" fill="none" stroke="currentColor" strokeWidth="2" opacity=".4"/></svg>}
-          />
-        </div>
-        <div className="hlinks">
-          <button className="settingslink" onClick={() => { track("view_explainer"); go("explainerAgain"); }}>How iSHKiY works</button>
-          <button className="settingslink" onClick={() => go("settings")}>Settings & your data</button>
-        </div>
+        {(() => {
+          /* Home leads with what can be done now. One lead card for the main next
+             step, then the other open tiles by how much they offer to do; tiles
+             that aren't open yet sit below, smaller; and the quieter corners of
+             the app (connections, account, settings) are a slim list at the end. */
+          const tiles = [
+            { id: "profile", rank: hasReport ? (compLeft === 0 ? 0 : 2) : 0, node: (cls) => <HomeTile key="profile" cls={cls}
+              acc="#5C7CA3"
+              title={hasReport ? "Your profile" : reportDue ? "Write my report" : midway ? "Continue the assessment" : "Take the assessment"}
+              badge={hasReport ? (levelFor(strength) || {}).name : reportDue ? "Ready" : null}
+              pulse={reportDue}
+              sub={hasReport ? "Read your report. Save it, share it, retake parts." : reportDue ? "Your answers are in. Tap and it's written for you in about a minute. You can go deeper afterwards." : "Answer questions about yourself. Your first profile takes 10–15 minutes."}
+              onClick={hasReport || reportDue ? () => { track(reportDue ? "report_recover" : "view_report"); go("report"); } : state.paused ? () => { track("resume"); onResume(); } : () => { track("assessment_start"); startAssessment(); }}
+              art={<svg viewBox="0 0 60 40" className="hart"><circle cx="30" cy="20" r="12" fill="none" stroke={gold} strokeWidth="2"/><circle cx="30" cy="20" r="4" fill={gold}/></svg>}
+            /> },
+            { id: "companion", locked: !hasReport, rank: compLeft === 0 ? 3 : 0.5, node: (cls) => <HomeTile key="companion" cls={cls}
+              acc="#D4A547"
+              title="Your companion"
+              sub="Talk about your life and work with three AI voices that know your report and share one memory. Ten questions a day."
+              locked={!hasReport} lockNote="Opens after your report is written."
+              fresh={fresh.companion}
+              onClick={() => go("companion")}
+              badge={hasReport && compLeft != null ? `${compLeft} left today` : null}
+              art={<svg viewBox="0 0 60 40" className="hart"><circle cx="22" cy="20" r="9" fill="none" stroke={gold} strokeWidth="2"/><circle cx="38" cy="20" r="9" fill="none" stroke={faint} strokeWidth="2"/></svg>}
+            /> },
+            { id: "library", rank: strength.allParts ? 1 : 6, node: (cls) => <HomeTile key="library" cls={cls}
+              acc="#8A6FA0"
+              title="The Library of You"
+              sub={strength.allParts ? `Twelve lenses on relationships, drive, mind, money and purpose. ${strength.lenses} of ${strength.totalLenses} taken.` : "Twelve lenses on relationships, drive, mind, money and purpose. Browse now; they open at Full Portrait."}
+              badge={strength.allParts ? `${strength.lenses}/${strength.totalLenses} taken` : "Opens at Full Portrait"}
+              fresh={fresh.library}
+              onClick={() => { track("view_library"); go("library"); }}
+              art={<RotatingGlyphs />}
+            /> },
+            { id: "humans", locked: !hasReport, rank: 4, node: (cls) => <HomeTile key="humans" cls={cls}
+              acc="#C06B5C"
+              title="A human, when ready"
+              sub="Real people to talk to, later. You choose what they see of you."
+              locked={!hasReport} lockNote="Opens after your report is written."
+              fresh={fresh.humans}
+              onClick={() => { track("view_humans"); go("humans"); }}
+              art={<RotatingFaces />}
+            /> },
+            { id: "strength", rank: hasReport ? 5 : 1, node: (cls) => <HomeTile key="strength" cls={cls}
+              acc="#D4A547"
+              title="Profile strength"
+              badge={`${strength.score} / 100`}
+              sub={strengthStep ? `${strengthStep.what} to reach ${strengthStep.level.name}.` : "Everything iSHKiY can ask, you've answered."}
+              onClick={() => { track("view_strength"); go("strength"); }}
+              art={<svg viewBox="0 0 60 40" className="hart"><circle cx="30" cy="20" r="13" fill="none" stroke="currentColor" strokeWidth="3" opacity=".22"/><circle cx="30" cy="20" r="13" fill="none" stroke={gold} strokeWidth="3" strokeLinecap="round" strokeDasharray={`${(strength.score / 100) * 81.7} 81.7`} transform="rotate(-90 30 20)"/></svg>}
+            /> },
+          ];
+          const open = tiles.filter((t) => !t.locked).sort((x, y) => x.rank - y.rank);
+          const soon = tiles.filter((t) => t.locked);
+          const linked = (() => { const c = state.constellation || {}; return Object.values(c).filter((x) => x && x.linked).length; })();
+          return (<>
+            <div className="hgrid">{open.map((t, k) => t.node(k === 0 ? "lead" : ""))}</div>
+            {soon.length > 0 && (
+              <section className="hsoon">
+                <p className="hgroupk">Opens soon</p>
+                <div className="hgrid soon">{soon.map((t) => t.node("compact"))}</div>
+              </section>
+            )}
+            <section className="quiet">
+              <p className="hgroupk">Also here</p>
+              <div className="qlist">
+                <QuietRow title="The Constellation" sub="Your other iSHKiY apps, connected here. Only if you choose." badge={!state.constellationInvite ? "Invite only" : linked ? `${linked} connected` : null}
+                  onClick={() => go("constellation")}
+                  art={<svg viewBox="0 0 60 40" className="qart"><circle cx="30" cy="20" r="4" fill={gold}/><circle cx="13" cy="12" r="2.5" fill="none" stroke={gold} strokeWidth="1.6"/><circle cx="47" cy="10" r="2.5" fill="none" stroke="currentColor" strokeWidth="1.6" opacity=".4"/><circle cx="46" cy="31" r="2.5" fill="none" stroke={gold} strokeWidth="1.6"/><circle cx="12" cy="30" r="2.5" fill="none" stroke="currentColor" strokeWidth="1.6" opacity=".4"/><line x1="26.5" y1="18" x2="15.3" y2="13" stroke={gold} strokeWidth="1.2" opacity=".6"/><line x1="33.5" y1="22" x2="43.8" y2="30" stroke={gold} strokeWidth="1.2" opacity=".6"/></svg>} />
+                <QuietRow title="Your account" sub="Back up your profile online. Optional. Delete it any time."
+                  onClick={() => go("account")}
+                  art={<svg viewBox="0 0 60 40" className="qart"><circle cx="30" cy="13" r="6.5" fill="none" stroke={gold} strokeWidth="2"/><path d="M17 34 Q30 24 43 34" fill="none" stroke="currentColor" strokeWidth="2" opacity=".4"/></svg>} />
+                <QuietRow title="How iSHKiY works" sub="The short tour, any time you want it again."
+                  onClick={() => { track("view_explainer"); go("explainerAgain"); }}
+                  art={<svg viewBox="0 0 60 40" className="qart"><circle cx="30" cy="20" r="12" fill="none" stroke={gold} strokeWidth="2"/><path d="M30 17 V26" stroke="currentColor" strokeWidth="2" strokeLinecap="round" opacity=".55"/><circle cx="30" cy="13" r="1.6" fill={gold}/></svg>} />
+                <QuietRow title="Settings & your data" sub="Appearance, export, resets."
+                  onClick={() => go("settings")}
+                  art={<svg viewBox="0 0 60 40" className="qart"><circle cx="30" cy="20" r="5" fill="none" stroke={gold} strokeWidth="2"/><path d="M30 8 V11 M30 29 V32 M18 20 H21 M39 20 H42 M21.5 11.5 L23.6 13.6 M36.4 26.4 L38.5 28.5 M21.5 28.5 L23.6 26.4 M36.4 13.6 L38.5 11.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" opacity=".5"/></svg>} />
+              </div>
+            </section>
+          </>);
+        })()}
         <p className="hquote">The future is not artificial; it's authentically human.</p>
         <p className="privline">Everything here lives on your device. No one — iSHKiY included — sees your answers or conversations without your explicit say-so. We count anonymous taps (like “assessment started”) to improve the app — never your words.</p>
       </div>
@@ -1414,6 +1443,34 @@ const centralMemory = (c, mode) => {
   if (!bits.length) return "";
   return `\n\nSHARED MEMORY — everything this person has talked about with any voice:\n${bits.join("\n")}\n\nAll three voices share one memory. If something they raised elsewhere is relevant, use it as naturally as if they had told you directly — never announce that you are reading another conversation, never say "you mentioned to Coach". If they are picking up a thread from another voice, just continue it.`;
 };
+
+/* Read the router's reply. The API is asked for JSON, but this accepts any
+   reasonable shape: JSON (even wrapped in prose or a code fence), or plain
+   "VOICE: coach" lines with bold, display names or a sentence in front. */
+const VOICE_WORDS = { companion: "companion", sounding: "companion", coach: "coach", mentor: "mentor" };
+export function readRoute(raw) {
+  const text = String(raw || "");
+  if (!text.trim()) return null;
+  const j = text.match(/\{[\s\S]*\}/);
+  if (j) {
+    try {
+      const o = JSON.parse(j[0]);
+      const to = VOICE_WORDS[String(o.voice || "").toLowerCase().trim()];
+      if (to) return { to, fresh: o.new !== false && !/^(no|false)$/i.test(String(o.new)), why: typeof o.why === "string" && o.why.trim() ? o.why.trim().slice(0, 60) : null };
+    } catch {}
+  }
+  const v = text.match(/voice\W{0,6}(companion|sounding|coach|mentor)/i) || text.match(/\b(coach|mentor|sounding|companion)\b/i);
+  if (!v) return null;
+  return { to: VOICE_WORDS[v[1].toLowerCase()], fresh: !/new\W{0,6}(no|false)/i.test(text), why: null };
+}
+/* If the router can't be reached at all, read the question itself rather than
+   sending everything to one voice. A rough read, only ever a fallback. */
+export function guessVoice(q) {
+  const t = " " + String(q || "").toLowerCase() + " ";
+  if (/\b(career|years?|long[- ]term|future|in (five|ten|5|10)|path|where (will|does|is) (this|it|that) (go|lead|end)|usually|regret|retire|legacy|eventually|people like me)\b/.test(t)) return "mentor";
+  if (/\b(should i|how (do|can|should) i|what (do|should) i do|next step|decide|decision|choose|plan|stuck|start|stop (putting|procrastinating)|motivat|accountab|this week|today|tomorrow)\b/.test(t)) return "coach";
+  return "companion";
+}
 
 function Pulse({ mode, pulse, busy, onRefresh, canRefresh }) {
   return (
@@ -1549,47 +1606,65 @@ const pick = (m) => { setMode(m); commit((prev) => ({ ...prev, mode: m })); };
 
   /* The router. One cheap call decides which voice suits the question and whether
      it belongs to a conversation already running. It does not spend one of the
-     ten — routing is plumbing, not an answer. If it fails for any reason we fall
-     through to Sounding on a fresh topic, which is the safe default. */
+     ten; routing is plumbing, not an answer.
+
+     It used to land on Sounding nearly every time, for two reasons. The prompt
+     told the model Sounding was the default whenever it wasn't sure, so anything
+     mixed went there. And the reply was read with a strict pattern, so a reply
+     in a slightly different shape (bold, a sentence first, a display name) read
+     as a failure, and every failure also fell to Sounding. Now the voices are
+     weighed evenly, the API returns a fixed JSON shape, the reply is read
+     leniently, and if the call fails altogether the fallback reads the question
+     itself rather than defaulting. */
   const routeQuestion = async (q) => {
     const running = VOICES.map((k) => {
       const real = ((cRef.current.streams || {})[k] || []).filter((m) => m.content && !m.divider);
       const lastDiv = ((cRef.current.streams || {})[k] || []).map((m, i) => (m.divider ? i : -1)).reduce((a, b) => Math.max(a, b), -1);
       const live = ((cRef.current.streams || {})[k] || []).slice(lastDiv + 1).filter((m) => m.content);
       const subj = [...live].reverse().find((m) => m.subj)?.subj;
-      return real.length ? `${k} (${MODES[k].label}) — current topic: ${subj || "unnamed"}; ${live.length} messages in it` : `${k} (${MODES[k].label}) — no conversation yet`;
+      return real.length ? `${k} (${MODES[k].label}): current topic "${subj || "unnamed"}", ${live.length} messages in it` : `${k} (${MODES[k].label}): no conversation yet`;
     }).join("\n");
     const raw = await fetchAI({
-      system: `You route a question to one of three voices inside iSHKiY, then decide whether it continues a conversation already running or deserves a fresh one.
+      system: `You choose which of three voices inside iSHKiY should answer a person's message, and whether it continues a conversation already running with that voice.
 
-THE VOICES
-companion (Sounding) — listening and untangling. Choose for feelings, confusion, "I don't know what I think", anything heavy, anything they need to hear themselves say. This is the default when it is not clearly one of the others.
-coach (Coach) — pushes toward action. Choose when they want a decision made, a next step, accountability, or they are stuck in circles and need moving.
-mentor (Mentor) — the long view. Choose for career shape, "where does this lead", patterns over years, questions about what usually happens to people like them.
+THE VOICES, equally weighted. None is the default; pick the one whose job best matches what the message is asking for.
+companion (Sounding): they want to be heard or to untangle something. Feelings, confusion, "I don't know what I think", something heavy they need to say out loud.
+coach (Coach): they want to move. A decision to make, a next step, how to do something, accountability, being stuck and wanting a push. Questions like "should I", "how do I", "what do I do about".
+mentor (Mentor): they want perspective over time. Career shape, where a path leads, what usually happens to people like them, the long view on a choice, patterns over years.
+
+Examples:
+"I feel flat every Sunday night and I can't say why" -> companion
+"Should I ask my manager for the project lead role this week?" -> coach
+"How do I stop putting off the application?" -> coach
+"Is staying in finance for another five years going to box me in?" -> mentor
+"What do people like me usually regret at fifty?" -> mentor
+"Everything at work feels pointless lately" -> companion
+
+When a message mixes things, choose by what it asks for most directly: a question about what to do now is coach; a question about where things lead is mentor; a feeling with no question is companion.
 
 CONVERSATIONS CURRENTLY RUNNING
 ${running}
 
-Reply with exactly two lines and nothing else:
-VOICE: <companion|coach|mentor>
-NEW: <yes|no>
-
-NEW is yes if the question opens a subject unrelated to that voice's current topic, or that voice has no conversation yet. NEW is no if it clearly continues the topic named above.`,
-      messages: [{ role: "user", content: q }], max_tokens: 24,
+new is true if the message opens a subject unrelated to that voice's current topic, or that voice has no conversation yet; false if it clearly continues the topic named above.
+why is at most eight plain words, addressed to them, saying what you heard them ask for (e.g. "you asked what to do next").`,
+      messages: [{ role: "user", content: q }], max_tokens: 120,
+      output_config: { format: { type: "json_schema", schema: {
+        type: "object", additionalProperties: false, required: ["voice", "new", "why"],
+        properties: { voice: { type: "string", enum: ["companion", "coach", "mentor"] }, new: { type: "boolean" }, why: { type: "string" } },
+      } } },
     });
-    const to = (String(raw || "").match(/VOICE:\s*(companion|coach|mentor)/i) || [])[1];
-    const fresh = /NEW:\s*yes/i.test(String(raw || ""));
-    const picked = to ? to.toLowerCase() : "companion";
-    return { to: picked, fresh: to ? fresh : true, guessed: !to };
+    const read = readRoute(raw);
+    if (read) return { ...read, guessed: false };
+    return { to: guessVoice(q), fresh: true, why: null, guessed: true };
   };
 
   const askAuto = async () => {
     const q = input.trim(); if (!q || busy || left === 0) return;
     setInput(""); setRouting(true);
-    const { to, fresh, guessed } = await routeQuestion(q);
+    const { to, fresh, why, guessed } = await routeQuestion(q);
     setRouting(false);
-    track("auto_route", guessed ? "fallback" : to);
-    setChoice({ to, fresh });
+    track("auto_route", guessed ? "fallback_" + to : to);
+    setChoice({ to, fresh, why });
     pick(to); setRoom(to);
     await ask({ q, to, fresh });
   };
@@ -1659,7 +1734,7 @@ NEW is yes if the question opens a subject unrelated to that voice's current top
         </div>
       </div>
       {choice && choice.to === mode && (
-        <p className="routed"><Avatar kind="auto" size={14} /> iSHKiY sent this to {M.label}{choice.fresh ? ", on a new page" : ", carrying on where you left off"}.</p>
+        <p className="routed"><Avatar kind="auto" size={14} /> iSHKiY sent this to {M.label}{choice.why ? ` (${choice.why.replace(/[.\s]+$/, "")})` : ""}{choice.fresh ? ", on a new page" : ", carrying on where you left off"}.</p>
       )}
       <Pulse mode={mode} pulse={(c.pulses || {})[mode]} busy={busyPulse} onRefresh={() => refreshPulse()} canRefresh={stream.length >= 2} />
       {mode === "companion" && stream.length >= 8 && !dismissHuman && (

@@ -1176,6 +1176,57 @@
   .resbtn[aria-expanded="true"] .resi{transform:rotate(180deg); background:rgba(212,165,71,.18)}
   .tilehead + .unfold .tbody{padding-top:2px}
 
+  /* --- Home, in order of what can be done now --- */
+  /* the lead: the one thing to do next, full width and a size up */
+  .hgrid > .htile.lead{grid-column:1 / -1; padding:30px 26px 28px; gap:12px}
+  .htile.lead .httitle{font-size:clamp(26px, 6.4vw, 32px); letter-spacing:-.02em}
+  .htile.lead .htsub{font-size:16.5px; max-width:480px}
+  .htile.lead .hart{width:78px}
+  .htile.lead:not(.pulse):not(.fresh){box-shadow:0 0 0 1px rgba(212,165,71,.28), 0 22px 50px -24px rgba(15,30,61,.4)}
+  body.dm .htile.lead:not(.pulse):not(.fresh){box-shadow:0 0 0 1px rgba(212,165,71,.28), 0 24px 54px -24px rgba(0,0,0,.85)}
+  .htile.lead::after{content:"\2192"; position:absolute; right:24px; bottom:22px; width:38px; height:38px; border-radius:50%; pointer-events:none;
+    display:grid; place-items:center; font:600 18px/1 Inter, sans-serif; color:#0F1E3D;
+    background:linear-gradient(140deg, var(--gold-hi), #D4A547 50%, #B98A33); box-shadow:inset 0 1px 0 rgba(255,255,255,.5), 0 8px 22px -8px rgba(212,165,71,.9);
+    transition:transform 1s var(--ease-spring)}
+  @media (hover:hover){ .htile.lead:hover::after{transform:translateX(4px)} }
+  .htile.lead.pulse::after, .htile.lead.locked::after{display:none}
+  .htile.lead > .htsub{padding-right:46px}
+  @media (hover:hover){ .htile.lead:hover{transform:translateY(-5px)} }
+
+  /* group labels */
+  .hgroupk{font-size:12.5px; font-weight:700; letter-spacing:.2em; text-transform:uppercase; color:var(--ink60); margin:0 0 12px; display:flex; align-items:center; gap:12px}
+  .hgroupk::after{content:""; flex:1; height:1px; background:var(--ink06)}
+  .hsoon{margin-top:34px}
+  .quiet{margin-top:38px}
+
+  /* not open yet: smaller, quieter, still answering a tap */
+  .hgrid.soon{gap:12px}
+  .htile.compact{padding:16px 18px; gap:6px; border-radius:20px}
+  .htile.compact .hart{width:42px}
+  .htile.compact .httitle{font-size:18px}
+  .htile.compact .htsub{font-size:14px}
+  .htile.compact .htlock{top:14px; right:14px}
+
+  /* also here: a slim list, one tap away */
+  .qlist{border-radius:22px; background:var(--card); box-shadow:0 0 0 1px var(--ring); overflow:hidden}
+  .qrow{position:relative; overflow:hidden; display:flex; align-items:center; gap:14px; width:100%; text-align:left; padding:14px 18px; background:transparent;
+    transition:background-color .8s ease}
+  .qrow + .qrow{border-top:1px solid var(--ink06)}
+  .qrow::before{content:""; position:absolute; inset:0; pointer-events:none; opacity:0; transition:opacity .8s;
+    background:radial-gradient(300px circle at var(--mx,50%) var(--my,50%), var(--spot), transparent 50%)}
+  .qrow.lit::before{opacity:1}
+  .qicon{flex:none; width:38px; display:flex; justify-content:center; opacity:.85}
+  .qart{width:38px; height:auto}
+  .qtext{flex:1; min-width:0; display:flex; flex-direction:column; gap:2px}
+  .qtitle{font-family:var(--serif); font-weight:560; font-size:16.5px; color:var(--ink); letter-spacing:-.008em}
+  .qsub{font-size:14px; font-weight:500; line-height:1.45; color:var(--ink60)}
+  .qbadge{flex:none; font-size:12px; font-weight:700; color:#8a6d1f; background:rgba(212,165,71,.14); border:1px solid rgba(212,165,71,.35); border-radius:999px; padding:3px 10px}
+  body.dm .qbadge{color:var(--gold)}
+  .qchev{flex:none; font-size:22px; line-height:1; color:var(--ink60); transition:transform 1s var(--ease-spring), color .8s}
+  @media (hover:hover){ .qrow:hover{background:rgba(212,165,71,.06)} .qrow:hover .qchev{transform:translateX(4px); color:#C49236} }
+  .qrow:focus-visible{outline:2px solid #D4A547; outline-offset:-3px; border-radius:18px}
+  .quiet + .hquote{margin-top:40px}
+
   /* --- quieter when asked for --- */
   @media (prefers-reduced-motion: reduce){
     *, *::before, *::after{animation-duration:.01ms !important; animation-iteration-count:1 !important; animation-delay:0ms !important; transition-duration:.01ms !important}

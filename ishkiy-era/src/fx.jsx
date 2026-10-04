@@ -160,11 +160,11 @@ export function useCountUp(target, dur = 1500, delay = 250) {
 }
 
 /* ---------------- page-wide behaviour, installed once ---------------- */
-const SPOT = ".htile,.depthcard,.vcard,.libtile,.capp,.tile,.prac,.sostile,.resumecard,.libcta,.deeperband";
+const SPOT = ".qrow,.htile,.depthcard,.vcard,.libtile,.capp,.tile,.prac,.sostile,.resumecard,.libcta,.deeperband";
 /* Answers aren't here: they fill with gold instead, and a ripple on them showed
    as a square block on phones that don't clip a moving layer to round corners. */
-const PRESS = ".btn,.depthcard,.htile,.vcard,.resumecard,.libcta,.deeperband,.setbtn,.rtbtn,.insbtn,.tilehead";
-const REVEAL = ".rbody > *,.tile,.libtile,.subject,.sostile,.rung,.prac,.capp,.vcard,.sbrow,.nextrung,.integrity,.libcta,.deeperband,.retakes,.subjask,.libnarr,.constel,.setgroup,.pracs,.tierbox,.badgestrip,.voicehub,.hquote,.privline,.hlinks,.liblock,.libtally,.subjnav";
+const PRESS = ".qrow,.btn,.depthcard,.htile,.vcard,.resumecard,.libcta,.deeperband,.setbtn,.rtbtn,.insbtn,.tilehead";
+const REVEAL = ".hsoon,.quiet,.rbody > *,.tile,.libtile,.subject,.sostile,.rung,.prac,.capp,.vcard,.sbrow,.nextrung,.integrity,.libcta,.deeperband,.retakes,.subjask,.libnarr,.constel,.setgroup,.pracs,.tierbox,.badgestrip,.voicehub,.hquote,.privline,.hlinks,.liblock,.libtally,.subjnav";
 
 let installed = false;
 export function installFx() {
