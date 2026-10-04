@@ -26,44 +26,65 @@ const sid = (() => { try { let x = localStorage.getItem("era-sid"); if (!x) { x 
 const track = (e, d) => { try { const sp = getSupa(); if (!sp) return; sp.from("era_events").insert({ e, d: d == null ? null : String(d).slice(0, 40), sid, v: "1.10" }).then(() => {}, () => {}); } catch {} };
 
 /* ---------------- profile strength, levels & badges ----------------
-   Strength is one number out of 100, and it is deliberately not reachable by
-   the assessment alone: the nine parts carry 70 of it, the Library lenses the
-   other 30. Finishing the assessment is a real summit (Full Portrait) with
-   somewhere further to go, which is the point — the profile is meant to deepen
-   for life, not be finished in an hour.
-   Levels above Full Portrait are gated on all nine parts as well as the score,
-   so a stack of lenses can never buy a name that claims a complete portrait. */
+   One ladder, five stages, used everywhere: the depth you choose, the badge
+   you earn, the strength page and the report. The first three are the three
+   depths of the assessment (a first look, a fuller picture, the whole
+   portrait); the last two come from the Library. Each stage is reached by
+   finishing a named set of parts or a number of lenses, never by points, so
+   what a stage says it opens is always true.
+
+   Strength stays one number out of 100 (the nine parts carry 70, the lenses
+   30); it measures how much of yourself you've put in, and the stages sit on
+   the same road. */
 const STARTER_PARTS = ["values", "big5", "think1"];   // ~12 min: what you're for, how you work, a thinking taste
 const CORE_ADDED = ["riasec", "ei1", "ei2"];          // rounds the picture
 // everything else (arrival, think2, mirror) completes the full ERA
 const PARTS_WEIGHT = 70, LENS_WEIGHT = 30;
 const LEVELS = [
-  { id: "starter", name: "First Light", need: 6, blurb: "You've met yourself. The first honest look — your values and how you work.", accuracy: "a clear sketch", next: "Keep going. Each part you finish sharpens the picture." },
-  { id: "core", name: "In Focus", need: 38, blurb: "The picture sharpens. Thinking, feeling, and what pulls you now sit alongside the rest.", accuracy: "a rounded read", next: "Finish the remaining parts and the portrait is complete." },
-  { id: "full", name: "Full Portrait", need: 70, allParts: true, blurb: "Every part complete. The deepest, truest mirror the assessment alone can hold up.", accuracy: "the fullest picture", next: "The Library is where it goes further. Each lens adds a colour the assessment can't reach." },
-  { id: "colour", name: "In Colour", need: 85, allParts: true, blurb: "The portrait has depth now. The lenses you've taken shade in what the nine parts could only outline.", accuracy: "a portrait with shading", next: "One or two more lenses and the picture is as full as iSHKiY can draw it today." },
-  { id: "lifesize", name: "Life Size", need: 100, allParts: true, blurb: "Everything iSHKiY can ask, you've answered. Your Companion knows you as well as it is able to, and your report has every chapter open to it.", accuracy: "the whole of you, so far", next: "New lenses arrive in the Library. Your profile grows when they do." },
+  { id: "starter", name: "First Light", parts: STARTER_PARTS, depth: "A first look", time: "10–15 min", how: "3 parts of the assessment",
+    blurb: "You've met yourself. The first honest look: your values and how you work.", accuracy: "a clear sketch", next: "Keep going. Each part you finish sharpens the picture.",
+    unlocks: ["Your written report, yours to keep", "Your Companion: three voices for seven days", "A human, when you're ready", "Your share card"] },
+  { id: "core", name: "In Focus", parts: [...STARTER_PARTS, ...CORE_ADDED], depth: "A fuller picture", time: "+15 min", how: "3 more parts",
+    blurb: "The picture sharpens. Thinking, feeling, and what pulls you now sit alongside the rest.", accuracy: "a rounded read", next: "Finish the remaining parts and the portrait is complete.",
+    unlocks: ["Your report adds how you think, how you carry yourself and what pulls you", "The Tensions: where you pull against yourself", "Sharper answers from your Companion, closer human matches"] },
+  { id: "full", name: "Full Portrait", parts: "all", depth: "The whole portrait", time: "+15–20 min", how: "the last 3 parts",
+    blurb: "Every part complete. The deepest, truest mirror the assessment alone can hold up.", accuracy: "the fullest picture", next: "The Library is where it goes further. Each lens adds a colour the assessment can't reach.",
+    unlocks: ["The whole report, with your own words woven through it", "The Library of You: twelve lenses open"] },
+  { id: "colour", name: "In Colour", parts: "all", lenses: 6, depth: "In the Library", time: "about 6 min a lens", how: "6 Library lenses",
+    blurb: "The portrait has depth now. The lenses you've taken shade in what the nine parts could only outline.", accuracy: "a portrait with shading", next: "A few more lenses and the picture is as full as iSHKiY can draw it today.",
+    unlocks: ["Your Companion draws on your relationships, drive, mind and money", "Shading the nine parts couldn't reach"] },
+  { id: "lifesize", name: "Life Size", parts: "all", lenses: "all", depth: "In the Library", time: "all twelve lenses", how: "all 12 Library lenses",
+    blurb: "Everything iSHKiY can ask, you've answered. Your Companion knows you as well as it is able to, and your report has every chapter open to it.", accuracy: "the whole of you, so far", next: "New lenses arrive in the Library. Your profile grows when they do.",
+    unlocks: ["Everything iSHKiY can ask, answered", "Your Companion knows you as fully as it can"] },
 ];
 const partsDone = (completedAt) => Object.keys(completedAt || {}).length;
 const LENS_IDS = Object.keys(MINIS);
 /* One place that answers "how complete is this person's profile". */
 const profileStrength = (state) => {
-  const parts = partsDone(state && state.completedAt);
+  const completedAt = (state && state.completedAt) || {};
+  const parts = partsDone(completedAt);
   const totalParts = PARTS.length;
   const totalLenses = LENS_IDS.length;
   const lenses = LENS_IDS.filter((id) => (state && state.miniResults || {})[id]).length;
   const score = Math.round((parts / totalParts) * PARTS_WEIGHT + (totalLenses ? (lenses / totalLenses) * LENS_WEIGHT : 0));
-  return { score, parts, totalParts, lenses, totalLenses, allParts: parts >= totalParts };
+  return { score, parts, totalParts, lenses, totalLenses, allParts: parts >= totalParts, completedAt };
 };
-const meets = (l, st) => st.score >= l.need && (!l.allParts || st.allParts);
+const levelParts = (l) => (l.parts === "all" ? PARTS.map((p) => p.id) : l.parts);
+const levelLenses = (l, st) => (l.lenses === "all" ? st.totalLenses : l.lenses || 0);
+const partsShortFor = (l, st) => levelParts(l).filter((id) => !(st.completedAt || {})[id]).length;
+const meets = (l, st) => partsShortFor(l, st) === 0 && st.lenses >= levelLenses(l, st);
 const PART_IX = Object.fromEntries(PARTS.map((p, i) => [p.id, i]));
-// Which part-indices a given arc walks, in order. "starter" walks a short set; anything else walks all.
+/* Every route walks the ladder in the same order: arrival (who you are), then
+   the first look, then the fuller picture, then the rest. So whichever depth
+   someone picks, First Light, In Focus and Full Portrait land at the same
+   points on the way. */
+const LADDER = ["arrival", ...STARTER_PARTS, ...CORE_ADDED, ...PARTS.map((p) => p.id).filter((id) => id !== "arrival" && !STARTER_PARTS.includes(id) && !CORE_ADDED.includes(id))];
 const arcParts = (arc, completedAt) => {
   const done = completedAt || {};
-  if (arc === "starter") return STARTER_PARTS.map((id) => PART_IX[id]);
+  if (arc === "starter") return STARTER_PARTS.filter((id) => !done[id]).map((id) => PART_IX[id]);
   if (arc === "core") return [...STARTER_PARTS, ...CORE_ADDED].filter((id) => !done[id]).map((id) => PART_IX[id]);
-  if (arc === "more") return PARTS.map((_, i) => i).filter((i) => !done[PARTS[i].id]); // remaining, for "go deeper"
-  return PARTS.map((_, i) => i); // full
+  if (arc === "more") return LADDER.filter((id) => !done[id]).map((id) => PART_IX[id]); // remaining, for "go deeper"
+  return LADDER.map((id) => PART_IX[id]); // full
 };
 const levelFor = (st) => LEVELS.slice().reverse().find((l) => meets(l, st)) || null;
 const nextLevel = (st) => LEVELS.find((l) => !meets(l, st)) || null;
@@ -71,10 +92,9 @@ const nextLevel = (st) => LEVELS.find((l) => !meets(l, st)) || null;
 const nextStep = (st) => {
   const nx = nextLevel(st);
   if (!nx) return null;
-  const partsShort = nx.allParts ? st.totalParts - st.parts : Math.max(0, Math.ceil(((nx.need - st.score) / PARTS_WEIGHT) * st.totalParts));
+  const partsShort = partsShortFor(nx, st);
   if (partsShort > 0) return { level: nx, what: `Finish ${partsShort} more part${partsShort === 1 ? "" : "s"} of the assessment`, kind: "parts" };
-  const per = st.totalLenses ? LENS_WEIGHT / st.totalLenses : 0;
-  const lensShort = per ? Math.max(1, Math.ceil((nx.need - st.score) / per)) : 0;
+  const lensShort = levelLenses(nx, st) - st.lenses;
   const canTake = st.totalLenses - st.lenses;
   if (lensShort > 0 && canTake > 0) return { level: nx, what: `Take ${Math.min(lensShort, canTake)} more lens${Math.min(lensShort, canTake) === 1 ? "" : "es"} in the Library`, kind: "lens" };
   return { level: nx, what: "More lenses are being written. This one opens when they land.", kind: "wait" };
@@ -324,18 +344,28 @@ function App() {
   const scores = useMemo(() => (["glimmer", "generating", "report", "companion", "humans", "library", "account", "settings", "constellation"].includes(state.phase) && Object.keys(answers).length) ? computeScores(answers) : null, [state.phase, answers]);
 
   useLayoutEffect(() => { window.scrollTo(0, 0); }, [state.phase, state.part, state.item]);
+  useEffect(() => {
+    if (!state.jump) return;
+    const t = setTimeout(() => { const el = document.getElementById(state.jump); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); apply({ jump: null }); }, 900);
+    return () => clearTimeout(t);
+  }, [state.jump, state.phase]);
   useEffect(() => { document.body.classList.toggle("dm", !!state.dark); }, [state.dark]);
+
+  /* SOS from anywhere: the Companion's support section once it's open, its own
+     page before then. `jump` scrolls to it once the screen has arrived. */
+  const toSOS = () => { track("sos_open"); update({ phase: state.report ? "companion" : "sos", jump: "sos" }); };
 
   if (state.phase === "breath") return <Breath onEnter={() => update({ phase: state.seenExplainer ? "home" : "explainer" })} />;
   if (state.phase === "home") return <Home state={state} onResume={() => { const p = state.paused; update({ part: p.part, item: p.item, arc: p.arc, paused: null, phase: p.at === "run" ? "run" : "intro" }); }} onTheme={() => update({ dark: !state.dark })} go={(p) => update({ phase: p })} startAssessment={() => update({ phase: Object.keys(answers).length ? "chooseDepth" : "chooseDepth" })} />;
   if (state.phase === "companion") return <CompanionScreen state={state} scores={scores} onBack={() => update({ phase: "home" })} onRegenerate={() => update({ phase: "generating" })} onHuman={() => update({ phase: "humans" })} />;
+  if (state.phase === "sos") return <SOSScreen onBack={() => update({ phase: "home" })} />;
   if (state.phase === "constellation") return <ConstellationScreen state={state} update={update} onBack={() => update({ phase: "home" })} />;
   if (state.phase === "humans") return <HumansScreen scores={scores} state={state} onBack={() => update({ phase: "home" })} onApply={() => update({ phase: "apply" })} />;
   if (state.phase === "account") return <AccountScreen state={state} scores={scores} onBack={() => update({ phase: "home" })} />;
   if (state.phase === "settings") return <SettingsScreen state={state} update={update} onBack={() => update({ phase: "home" })} />;
   if (state.phase === "apply") return <ApplyScreen onBack={() => update({ phase: "humans" })} />;
   if (state.phase === "strength") return <StrengthScreen state={state} onBack={() => update({ phase: "home" })} onAssessment={() => update({ phase: "chooseDepth" })} onLibrary={() => update({ phase: "library" })} />;
-  if (state.phase === "library") return <LibraryScreen state={state} onBack={() => update({ phase: "home" })} onAssessment={() => update({ phase: "chooseDepth" })} onMini={(id) => update({ miniId: id, phase: (state.miniResults || {})[id] ? "miniResult" : "miniRun" })} onRetake={(id) => update({ miniId: id, phase: "miniRun" })} />;
+  if (state.phase === "library") return <LibraryScreen state={state} onSOS={toSOS} onBack={() => update({ phase: "home" })} onAssessment={() => update({ phase: "chooseDepth" })} onMini={(id) => update({ miniId: id, phase: (state.miniResults || {})[id] ? "miniResult" : "miniRun" })} onRetake={(id) => update({ miniId: id, phase: "miniRun" })} />;
   if (state.phase === "miniRun") return <MiniRunner miniId={state.miniId} answers={(state.miniAnswers || {})[state.miniId]} onBack={() => update({ phase: "library" })} onDone={(a) => { const res = scoreMini(state.miniId, a); track("mini_done", state.miniId); update({ miniAnswers: { ...(state.miniAnswers || {}), [state.miniId]: a }, miniResults: { ...(state.miniResults || {}), [state.miniId]: res }, phase: "miniResult" }); }} />;
   if (state.phase === "miniResult") return <MiniResult miniId={state.miniId} result={(state.miniResults || {})[state.miniId]} onBack={() => update({ phase: "library" })} onRetake={() => update({ phase: "miniRun" })} />;
   if (state.phase === "welcome") return <Welcome onStart={() => update({ phase: state.unlocked ? (Object.keys(answers).length ? "intro" : "warmup") : "unlock" })} resumable={state.part > 0 || state.item > 0} />;
@@ -1028,7 +1058,7 @@ function ResearchNote({ from, research }) {
 
 /* A lens's read: the words, the bars, one thing to try. Used inline in the
    Library and on the lens's own page. */
-function LensInsights({ id, result }) {
+function LensInsights({ id, result, onSOS }) {
   const r = readMini(id, result);
   if (!r) return <p className="libline">This result was saved in an older format. Take the lens again to see your insights.</p>;
   return (
@@ -1040,12 +1070,12 @@ function LensInsights({ id, result }) {
       ))}</div>
       {r.paras.map((t, k) => <p key={k} className="insp">{t}</p>)}
       {r.tryThis && <p className="instry"><strong>Try this.</strong> {r.tryThis}</p>}
-      {r.care && <a className="rtbtn soscta" href="#sos">Talk to someone now →</a>}
+      {r.care && (onSOS ? <button className="rtbtn soscta" onClick={onSOS}>Talk to someone now →</button> : <a className="rtbtn soscta" href="#sos">Talk to someone now →</a>)}
     </div>
   );
 }
 
-function LensTile({ e, done, open, onMini, onRetake, mailto }) {
+function LensTile({ e, done, open, onMini, onRetake, mailto, onSOS }) {
   const [showIns, setShowIns] = useState(false);
   const [denied, deny] = useDenied();
   const locked = e.mini && !open && !done;
@@ -1059,7 +1089,7 @@ function LensTile({ e, done, open, onMini, onRetake, mailto }) {
       {done ? (
         <>
           <button className="insbtn" aria-expanded={showIns} onClick={() => { if (!showIns) track("view_insights", e.mini); setShowIns(!showIns); }}>Your insights <span aria-hidden="true">{showIns ? "▴" : "▾"}</span></button>
-          <Unfold open={showIns}><div className="insfold"><LensInsights id={e.mini} result={done} /><div className="insacts"><button className="rtbtn" onClick={() => onMini(e.mini)}>Open the full read</button><button className="rtbtn ghostbtn" onClick={() => onRetake(e.mini)}>Take it again</button></div></div></Unfold>
+          <Unfold open={showIns}><div className="insfold"><LensInsights id={e.mini} result={done} onSOS={onSOS} /><div className="insacts"><button className="rtbtn" onClick={() => onMini(e.mini)}>Open the full read</button><button className="rtbtn ghostbtn" onClick={() => onRetake(e.mini)}>Take it again</button></div></div></Unfold>
         </>
       ) : e.mini ? (
         open ? <button className="rtbtn" onClick={() => onMini(e.mini)}>Take this lens</button>
@@ -1069,7 +1099,7 @@ function LensTile({ e, done, open, onMini, onRetake, mailto }) {
   );
 }
 
-function LibraryScreen({ state, onBack, onMini, onRetake, onAssessment }) {
+function LibraryScreen({ state, onBack, onMini, onRetake, onAssessment, onSOS }) {
   const mailto = (n) => "mailto:ops@ishkiy.com?subject=" + encodeURIComponent("Library vote — " + n) + "&body=" + encodeURIComponent("Build “" + n + "” first. I'd take it.");
   const miniDone = state.miniResults || {};
   const st = profileStrength(state);
@@ -1084,7 +1114,7 @@ function LibraryScreen({ state, onBack, onMini, onRetake, onAssessment }) {
       <div className="rhead noprint">
         <button className="ghost inkghost" onClick={onBack}>← Home</button>
         <Wordmark />
-        <a className="sosjump" href="#sos" aria-label="SOS: urgent support">SOS</a>
+        <button className="sosjump" onClick={onSOS} aria-label="SOS: urgent support">SOS</button>
       </div>
       <article className="report">
         <p className="kicker gold">The Library of You</p>
@@ -1111,7 +1141,6 @@ function LibraryScreen({ state, onBack, onMini, onRetake, onAssessment }) {
               </a>
             );
           })}
-          <a role="listitem" className="subjchip sosclip" href="#sos"><SubjectIcon id="sos" size={16} />SOS</a>
         </div>
 
         {SUBJECTS.map((s) => {
@@ -1130,14 +1159,24 @@ function LibraryScreen({ state, onBack, onMini, onRetake, onAssessment }) {
               </div>
               <p className="subjask">“{s.ask}”</p>
               <div className="libgrid">
-                {inIt.map((e) => <LensTile key={e.name} e={e} done={e.mini ? miniDone[e.mini] : null} open={open} onMini={onMini} onRetake={onRetake} mailto={mailto} />)}
+                {inIt.map((e) => <LensTile key={e.name} e={e} done={e.mini ? miniDone[e.mini] : null} open={open} onMini={onMini} onRetake={onRetake} mailto={mailto} onSOS={onSOS} />)}
               </div>
             </section>
           );
         })}
-        <SOSSection />
         <p className="hquote">The future is not artificial; it's authentically human.</p>
       </article>
+    </div>
+  );
+}
+
+/* SOS lives with the Companion. Help is never behind a lock, though, so until
+   the Companion opens it has a page of its own, reachable from Home. */
+function SOSScreen({ onBack }) {
+  return (
+    <div className="reportpage tint-clay">
+      <div className="rhead noprint"><button className="ghost inkghost" onClick={onBack}>← Home</button><Wordmark /><span /></div>
+      <article className="report"><SOSSection /></article>
     </div>
   );
 }
@@ -1152,7 +1191,7 @@ function useDenied() {
   const deny = () => { setAt(0); requestAnimationFrame(() => setAt(Date.now())); };
   return [at, deny];
 }
-function HomeTile({ title, sub, locked, lockNote, onClick, art, badge, acc, pulse, fresh, cls }) {
+function HomeTile({ title, sub, locked, lockNote, onClick, art, badge, acc, pulse, fresh, cls, kicker, extra }) {
   const [denied, deny] = useDenied();
   const opened = fresh && !locked;
   return (
@@ -1163,18 +1202,36 @@ function HomeTile({ title, sub, locked, lockNote, onClick, art, badge, acc, puls
         ? <span className="htbadge openbadge"><LockIcon open /> Now open</span>
         : locked ? <span className="htlock" aria-hidden="true"><LockIcon size={15} /></span>
         : badge != null && <span className="htbadge">{badge}</span>}
+      {kicker && <span className="htkick">{kicker}</span>}
       {art}
       <span className="httitle">{title}</span>
       <span className="htsub" aria-live="polite">{locked ? <span className="locknote" key={denied}>{lockNote}</span> : sub}</span>
+      {extra}
     </button>
+  );
+}
+
+/* The road ahead, drawn small on the lead card until the first report exists:
+   where they are, and what each step opens. */
+function Journey({ at }) {
+  const steps = [["The assessment", "10–15 min"], ["Your report", "written for you"], ["Your Companion", "three voices"], ["The Library", "at Full Portrait"]];
+  return (
+    <span className="journey" aria-label={`Step ${at + 1} of ${steps.length}`}>
+      {steps.map(([t, s], k) => (
+        <span key={t} className={"jstep" + (k < at ? " done" : k === at ? " now" : "")}>
+          <span className="jdot" aria-hidden="true">{k < at ? "✓" : k + 1}</span>
+          <span className="jtext"><span className="jt">{t}</span><span className="js">{s}</span></span>
+        </span>
+      ))}
+    </span>
   );
 }
 
 /* A slim row for the quieter corners of Home: present, one tap away, but not
    asking for attention the way the cards above do. */
-function QuietRow({ title, sub, onClick, art, badge }) {
+function QuietRow({ title, sub, onClick, art, badge, cls }) {
   return (
-    <button className="qrow" onClick={onClick}>
+    <button className={"qrow" + (cls ? " " + cls : "")} onClick={onClick}>
       <span className="qicon" aria-hidden="true">{art}</span>
       <span className="qtext"><span className="qtitle">{title}</span><span className="qsub">{sub}</span></span>
       {badge && <span className="qbadge">{badge}</span>}
@@ -1261,12 +1318,14 @@ function Home({ state, go, startAssessment, onTheme, onResume }) {
              that aren't open yet sit below, smaller; and the quieter corners of
              the app (connections, account, settings) are a slim list at the end. */
           const tiles = [
-            { id: "profile", rank: hasReport ? (compLeft === 0 ? 0 : 2) : 0, node: (cls) => <HomeTile key="profile" cls={cls}
+            { id: "profile", rank: hasReport ? (compLeft === 0 ? 0 : 2) : 0, node: (cls) => <HomeTile key="profile" cls={cls + (!hasReport ? " firststep" : "")}
+              kicker={hasReport ? null : reportDue ? "Step 2 · Ready now" : midway ? "Step 1 · Carry on" : "Step 1 · Start here"}
+              extra={!hasReport ? <><Journey at={reportDue ? 1 : 0} /><span className="btn gold leadbtn" aria-hidden="true">{reportDue ? "Write my report" : midway ? "Carry on" : "Begin the assessment"}</span></> : null}
               acc="#5C7CA3"
               title={hasReport ? "Your profile" : reportDue ? "Write my report" : midway ? "Continue the assessment" : "Take the assessment"}
               badge={hasReport ? (levelFor(strength) || {}).name : reportDue ? "Ready" : null}
               pulse={reportDue}
-              sub={hasReport ? "Read your report. Save it, share it, retake parts." : reportDue ? "Your answers are in. Tap and it's written for you in about a minute. You can go deeper afterwards." : "Answer questions about yourself. Your first profile takes 10–15 minutes."}
+              sub={hasReport ? "Read your report. Save it, share it, retake parts." : reportDue ? "Your answers are in. Tap and it's written for you in about a minute. You can go deeper afterwards." : midway ? "Your answers kept your place. Everything else here opens from this." : "Everything else here opens from this. A few honest questions, about ten minutes, and your report is written for you."}
               onClick={hasReport || reportDue ? () => { track(reportDue ? "report_recover" : "view_report"); go("report"); } : state.paused ? () => { track("resume"); onResume(); } : () => { track("assessment_start"); startAssessment(); }}
               art={<svg viewBox="0 0 60 40" className="hart"><circle cx="30" cy="20" r="12" fill="none" stroke={gold} strokeWidth="2"/><circle cx="30" cy="20" r="4" fill={gold}/></svg>}
             /> },
@@ -1311,7 +1370,9 @@ function Home({ state, go, startAssessment, onTheme, onResume }) {
           const soon = tiles.filter((t) => t.locked);
           const linked = (() => { const c = state.constellation || {}; return Object.values(c).filter((x) => x && x.linked).length; })();
           return (<>
-            <div className="hgrid">{open.map((t, k) => t.node(k === 0 ? "lead" : ""))}</div>
+            <div className="hgrid">{open.slice(0, 1).map((t) => t.node("lead"))}</div>
+            {!hasReport && <p className="hgroupk hthen">Also open now</p>}
+            <div className="hgrid">{open.slice(1).map((t) => t.node(!hasReport ? "compact" : ""))}</div>
             {soon.length > 0 && (
               <section className="hsoon">
                 <p className="hgroupk">Opens soon</p>
@@ -1321,6 +1382,8 @@ function Home({ state, go, startAssessment, onTheme, onResume }) {
             <section className="quiet">
               <p className="hgroupk">Also here</p>
               <div className="qlist">
+                {!hasReport && <QuietRow title="SOS" sub="If things feel like too much right now, people to talk to. Free, and open now." onClick={() => go("sos")} cls="qsos"
+                  art={<svg viewBox="0 0 24 24" className="qart" stroke="#C0504D"><SubjectGlyph id="sos" /></svg>} />}
                 <QuietRow title="The Constellation" sub="Your other iSHKiY apps, connected here. Only if you choose." badge={!state.constellationInvite ? "Invite only" : linked ? `${linked} connected` : null}
                   onClick={() => go("constellation")}
                   art={<svg viewBox="0 0 60 40" className="qart"><circle cx="30" cy="20" r="4" fill={gold}/><circle cx="13" cy="12" r="2.5" fill="none" stroke={gold} strokeWidth="1.6"/><circle cx="47" cy="10" r="2.5" fill="none" stroke="currentColor" strokeWidth="1.6" opacity=".4"/><circle cx="46" cy="31" r="2.5" fill="none" stroke={gold} strokeWidth="1.6"/><circle cx="12" cy="30" r="2.5" fill="none" stroke="currentColor" strokeWidth="1.6" opacity=".4"/><line x1="26.5" y1="18" x2="15.3" y2="13" stroke={gold} strokeWidth="1.2" opacity=".6"/><line x1="33.5" y1="22" x2="43.8" y2="30" stroke={gold} strokeWidth="1.2" opacity=".6"/></svg>} />
@@ -1886,7 +1949,7 @@ function Retakes({ completedAt, onRetake }) {
 }
 
 
-function CompanionScreen({ state, scores, onBack, onRegenerate, onHuman }) {
+function CompanionScreen({ state, scores, onBack, onRegenerate, onHuman, onSOS }) {
   try {
     const mr = state.miniResults || {};
     window.__eraMinis = Object.keys(mr).length ? Object.fromEntries(Object.keys(mr).filter((id) => MINIS[id]).map((id) => { const r = readMini(id, mr[id]); return [id, { lens: MINIS[id].name, pattern: r && r.tag, read: r && r.headline, detail: r && r.bars.filter(([, v]) => v != null).map(([l, v]) => `${l}: ${bandOf("lens", v)}`).join("; ") }]; })) : null;
@@ -1897,7 +1960,7 @@ function CompanionScreen({ state, scores, onBack, onRegenerate, onHuman }) {
       <div className="rhead noprint">
         <button className="ghost inkghost" onClick={onBack}>← Home</button>
         <Wordmark />
-        <span />
+        <a className="sosjump" href="#sos" aria-label="SOS: urgent support">SOS</a>
       </div>
       <article className="report">
         <p className="kicker gold">The Companion</p>
@@ -1910,6 +1973,7 @@ function CompanionScreen({ state, scores, onBack, onRegenerate, onHuman }) {
         {state.report.preview
           ? <div className="previewnote"><p>Your report didn't finish writing, so the Companion is waiting. Your answers are safe — one tap tries again.</p><button className="btn gold" onClick={onRegenerate}>Write my real report</button></div>
           : <Companion scores={scores} answers={state.answers || {}} reportText={state.report.text} start={state.companionStart} onHuman={onHuman} />}
+        <SOSSection />
         <p className="hquote">The future is not artificial; it's authentically human.</p>
       </article>
     </div>
@@ -2444,35 +2508,57 @@ function Explainer({ onDone, done = "Begin" }) {
   );
 }
 
-/* ---------------- choose your depth ---------------- */
+/* ---------------- choose your depth ----------------
+   The same five stages as the badges, top to bottom. The first three are
+   depths of the assessment you can choose; the last two happen in the
+   Library. Each says what it opens, so the reason to go further is on the
+   card rather than a surprise afterwards. */
+function Unlocks({ items, got }) {
+  return (
+    <ul className={"unlocks" + (got ? " got" : "")}>
+      {items.map((u) => <li key={u}><LockIcon open={got} size={13} /><span>{u}</span></li>)}
+    </ul>
+  );
+}
 function ChooseDepth({ state, onPick, onBack }) {
-  const done = partsDone(state.completedAt);
-  const hasStarter = (state.completedAt || {})["values"] && (state.completedAt || {})["big5"];
+  const st = profileStrength(state);
+  const done = st.parts;
+  const next = nextLevel(st);
+  const arcFor = { starter: "starter", core: "core", full: done ? "more" : "full" };
   return (
     <Shell>
       <div className="intro">
         <button className="ghost inkghost" onClick={onBack}>← Home</button>
         <p className="kicker gold">How deep, today?</p>
         <h1 className="display ink"><Words text="Start small. Go deeper when you want." delay={150} /></h1>
-        <p className="lede inkdim">You don't have to do it all at once. Every part you finish makes your report truer — and you can always come back.</p>
-        <div className="depthgrid">
-          <button className="depthcard" onClick={() => onPick("starter")}>
-            <span className="depthtime">10–15 min</span>
-            <span className="depthname">A first look</span>
-            <span className="depthsub">Your values and how you work. Enough for a real report and your first badge.</span>
-          </button>
-          <button className="depthcard" onClick={() => onPick("core")}>
-            <span className="depthtime">+15 min</span>
-            <span className="depthname">A fuller picture</span>
-            <span className="depthsub">Adds how you think, how you feel, and what pulls you.</span>
-          </button>
-          <button className="depthcard" onClick={() => onPick("full")}>
-            <span className="depthtime">+15–20 min</span>
-            <span className="depthname">The whole portrait</span>
-            <span className="depthsub">Every part. The deepest, truest mirror.</span>
-          </button>
-        </div>
-        <p className="tnote">Most people start with the first look and come back. Nothing is lost between visits, and each part you add makes the report truer.</p>
+        <p className="lede inkdim">Five stages, one road. The first three are the assessment, and you choose how far to go today. The last two are in the Library. Every stage opens something new, and nothing you've done is lost between visits.</p>
+        <ol className="ladder">
+          {LEVELS.map((L, k) => {
+            const got = meets(L, st);
+            const isNext = next && next.id === L.id;
+            const choosable = !!arcFor[L.id] && !got;
+            const inner = (<>
+              <span className="ladnum" aria-hidden="true">{got ? "✓" : k + 1}</span>
+              <span className="ladbody">
+                <span className="ladtop">
+                  <span className="depthtime">{L.depth} · {L.time}</span>
+                  {got ? <span className="ladstate got">Reached</span> : isNext ? <span className="ladstate next">{done ? "Next" : "Start here"}</span> : null}
+                </span>
+                <span className="depthname">{L.name}</span>
+                <span className="depthsub">{got ? "Done." : L.lenses ? `Take ${L.how}. They open at Full Portrait.` : `Finish ${L.how}.`} It opens:</span>
+                <Unlocks items={L.unlocks} got={got} />
+              </span>
+            </>);
+            return (
+              <li key={L.id} className={"ladrung" + (got ? " got" : "") + (isNext ? " next" : "")}>
+                {choosable
+                  ? <button className="depthcard" onClick={() => onPick(arcFor[L.id])}>{inner}</button>
+                  : <div className={"depthcard static" + (L.lenses ? " lib" : "")}>{inner}</div>}
+              </li>
+            );
+          })}
+        </ol>
+        <p className="tnote">Most people start with the first look and come back. Every part you add makes your report truer.</p>
       </div>
     </Shell>
   );
@@ -2542,8 +2628,9 @@ function StrengthScreen({ state, onBack, onAssessment, onLibrary }) {
               <div key={L.id} className={"rung" + (got ? " got" : "") + (here ? " here" : "")}>
                 <i className="rungdot" />
                 <div>
-                  <p className="rungn">{L.name}{here ? <em className="rungyou"> — you are here</em> : null}</p>
-                  <p className="rungb">{got ? L.next : L.blurb}</p>
+                  <p className="rungn">{L.name}{here ? <em className="rungyou"> · you are here</em> : null}</p>
+                  <p className="rungb">{got ? "Reached." : `Reach it with ${L.how}.`} {L.blurb}</p>
+                  <Unlocks items={L.unlocks} got={got} />
                 </div>
               </div>
             );

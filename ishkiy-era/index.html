@@ -1227,6 +1227,64 @@
   .qrow:focus-visible{outline:2px solid #D4A547; outline-offset:-3px; border-radius:18px}
   .quiet + .hquote{margin-top:40px}
 
+  /* --- step one, unmistakable --- */
+  .htkick{font-size:12.5px; font-weight:700; letter-spacing:.2em; text-transform:uppercase; color:#8a6d1f; display:inline-flex; align-items:center; gap:10px}
+  .htkick::before{content:""; width:9px; height:9px; border-radius:50%; background:#D4A547; box-shadow:0 0 0 4px rgba(212,165,71,.2); animation:nowpulse 3.8s ease-in-out infinite}
+  body.dm .htkick{color:var(--gold)}
+  .htile.lead.firststep{padding:32px 26px 28px; background:
+      linear-gradient(90deg, transparent 6%, var(--acc) 50%, transparent 94%) top / 100% 2px no-repeat,
+      radial-gradient(120% 90% at 100% 0%, rgba(212,165,71,.22), transparent 60%),
+      radial-gradient(130% 90% at 0% 0%, color-mix(in srgb, var(--acc) 16%, transparent), transparent 62%), var(--card);
+    box-shadow:0 0 0 1.5px rgba(212,165,71,.55), 0 26px 60px -26px rgba(212,165,71,.65)}
+  .htile.lead.firststep::after{display:none}
+  .htile.lead.firststep .httitle{font-size:clamp(30px, 7.4vw, 38px)}
+  .htile.lead.firststep > .htsub{padding-right:0}
+  .leadbtn{margin-top:6px; pointer-events:none; align-self:stretch; text-align:center; font-size:17px; padding:17px 26px}
+  @media (min-width:560px){ .leadbtn{align-self:flex-start} }
+  .journey{display:grid; grid-template-columns:repeat(4, 1fr); gap:6px; width:100%; margin:8px 0 4px; position:relative}
+  .journey::before{content:""; position:absolute; left:12%; right:12%; top:13px; height:1.5px; background:linear-gradient(90deg, #D4A547, var(--ink12) 30%)}
+  .jstep{position:relative; display:flex; flex-direction:column; align-items:center; text-align:center; gap:6px}
+  .jdot{width:27px; height:27px; border-radius:50%; display:grid; place-items:center; font-size:12.5px; font-weight:700; background:var(--bone); color:var(--ink60); box-shadow:0 0 0 1.5px var(--ink12)}
+  .jstep.now .jdot{background:linear-gradient(140deg, var(--gold-hi), #D4A547 50%, #B98A33); color:#0F1E3D; box-shadow:0 0 0 4px rgba(212,165,71,.22), 0 0 16px rgba(212,165,71,.6)}
+  .jstep.done .jdot{background:rgba(212,165,71,.2); color:#8a6d1f; box-shadow:0 0 0 1.5px rgba(212,165,71,.6)}
+  .jtext{display:flex; flex-direction:column; gap:1px}
+  .jt{font-size:13px; font-weight:650; color:var(--ink); line-height:1.25}
+  .js{font-size:12px; font-weight:500; color:var(--ink60); line-height:1.3}
+  .jstep:not(.now):not(.done) .jt{color:var(--ink60)}
+  .hthen{margin:30px 0 12px}
+
+  /* --- the ladder: five stages, what each opens --- */
+  .ladder{list-style:none; margin:20px 0 10px; padding:0; display:flex; flex-direction:column; gap:12px; position:relative}
+  .ladder::before{content:""; position:absolute; left:33px; top:30px; bottom:30px; width:1.5px; background:linear-gradient(180deg, #D4A547, var(--ink12) 60%)}
+  .ladrung .depthcard{display:flex; flex-direction:row; align-items:flex-start; gap:16px; width:100%; padding:20px 20px 18px}
+  .depthcard.static{cursor:default}
+  .depthcard.static.lib{opacity:.8}
+  .ladnum{flex:none; position:relative; z-index:1; width:28px; height:28px; border-radius:50%; display:grid; place-items:center; font-size:13px; font-weight:700; background:var(--bone); color:var(--ink60); box-shadow:0 0 0 1.5px var(--ink12)}
+  .ladrung.next .ladnum{background:linear-gradient(140deg, var(--gold-hi), #D4A547 50%, #B98A33); color:#0F1E3D; box-shadow:0 0 0 4px rgba(212,165,71,.22), 0 0 16px rgba(212,165,71,.6)}
+  .ladrung.got .ladnum{background:rgba(212,165,71,.2); color:#8a6d1f; box-shadow:0 0 0 1.5px rgba(212,165,71,.6)}
+  .ladbody{flex:1; min-width:0; display:flex; flex-direction:column; gap:5px}
+  .ladtop{display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap}
+  .ladstate{font-size:12px; font-weight:700; letter-spacing:.06em; border-radius:999px; padding:3px 10px}
+  .ladstate.next{color:#0F1E3D; background:linear-gradient(140deg, var(--gold-hi), #D4A547)}
+  .ladstate.got{color:#5d7a4e; background:rgba(111,143,94,.16); box-shadow:0 0 0 1px rgba(111,143,94,.4)}
+  body.dm .ladstate.got{color:#9CC08A}
+  .ladrung.next .depthcard{box-shadow:0 0 0 1.5px rgba(212,165,71,.6), 0 20px 46px -22px rgba(212,165,71,.6)}
+  .ladrung.got .depthname{opacity:.75}
+  .unlocks{list-style:none; margin:4px 0 0; padding:0; display:flex; flex-direction:column; gap:6px}
+  .unlocks li{display:flex; align-items:flex-start; gap:9px; font-size:14.5px; font-weight:500; line-height:1.45; color:var(--ink)}
+  .unlocks .lockic{flex:none; margin-top:3px; color:var(--ink60)}
+  .unlocks.got .lockic{color:#C49236}
+  .unlocks.got li{color:var(--ink60)}
+  .rung .unlocks{margin-top:8px}
+
+  /* --- SOS on Home, before the Companion opens --- */
+  .qrow.qsos .qtitle{color:#B8453F; letter-spacing:.06em}
+  body.dm .qrow.qsos .qtitle{color:#E58A84}
+  .qrow.qsos{background:rgba(192,80,77,.05)}
+  button.sosjump{border:none; cursor:pointer; font:inherit; font-size:12px; font-weight:700; letter-spacing:.12em}
+
+  .intro > .inkghost{align-self:flex-start}
+
   /* --- quieter when asked for --- */
   @media (prefers-reduced-motion: reduce){
     *, *::before, *::after{animation-duration:.01ms !important; animation-iteration-count:1 !important; animation-delay:0ms !important; transition-duration:.01ms !important}
