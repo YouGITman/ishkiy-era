@@ -313,3 +313,20 @@ TOPUPS.push(
 );
 export const PRIMES = TOPUPS.filter((t) => t.prime);
 export const topupOf = (id) => TOPUPS.find((t) => t.id === id);
+
+/* Vision: one short paragraph, present tense, the life as if it's already
+   here. Kept as text and as one recording (re-recorded by overwriting), and
+   played daily at a time the person picks. */
+export const VISION_TIMES = [["Morning", "07:00"], ["Midday", "12:30"], ["Evening", "19:00"]];
+export const VISION_HINT = "A short paragraph in the present tense. Who you are, how your days feel, what you have, who's around you, what you're grateful for. Read aloud, it should take under a minute.";
+/* A first draft from what they've already written, to edit rather than face a blank page. */
+export function draftVision({ statements = [], scene = {}, eraName }) {
+  const s = (t) => { const x = present(t); return /[.!?]$/.test(x) ? x : x + "."; };
+  const parts = [];
+  if (scene.where) parts.push(s(scene.where));
+  statements.map((x) => (x.text || "").trim()).filter(Boolean).forEach((l) => parts.push(s(l)));
+  if (scene.feel) parts.push(s(scene.feel));
+  if (scene.thanks) parts.push(s(scene.thanks));
+  parts.push(eraName ? `This is ${eraName}, and it's already mine.` : "This is my life now, and it's already mine.");
+  return parts.join(" ");
+}

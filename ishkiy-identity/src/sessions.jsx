@@ -263,11 +263,15 @@ const pickMime = () => {
   const c = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4", "audio/aac", "audio/ogg;codecs=opus"];
   try { return c.find((m) => window.MediaRecorder && MediaRecorder.isTypeSupported(m)) || ""; } catch { return ""; }
 };
-export function Recorder({ script, onSaved, onSkip }) {
+/* Records one take. With an existing recording it becomes a re-record:
+   nothing is overwritten until the person has heard the new take and chosen
+   to commit it; discarding leaves the old one exactly as it was. There is
+   only ever one recording per kind, so committing has no undo, and says so. */
+export function Recorder({ script, onSaved, onSkip, existing = null, onDiscard, bed = "theta", what = "recording", intro }) {
   const [state, setState] = useState("idle"); // idle | rec | review | denied
   const [level, setLevel] = useState(0);
   const [blob, setBlob] = useState(null);
-  const [previewing, setPreviewing] = useState(false);
+  const [previewing, setPreviewing] = useState(null); // null | "new" | "old"
   const rec = useRef(null), stopLevel = useRef(null), chunks = useRef([]), prev = useRef(null);
   const elapsed = useElapsed(state === "rec");
   useWakeLock(state === "rec");
@@ -289,32 +293,46 @@ export function Recorder({ script, onSaved, onSkip }) {
     } catch { setState("denied"); }
   };
   const stop = () => { stopLevel.current && stopLevel.current(); stopLevel.current = null; rec.current && rec.current.stop(); };
-  const preview = async () => {
-    if (previewing) { prev.current && prev.current.stop(); setPreviewing(false); return; }
-    setPreviewing(true);
-    prev.current = await playSession({ bedKey: "theta", voiceBlob: blob, tailMin: 0.2, onEnd: () => setPreviewing(false) });
+  const stopPreview = () => { prev.current && prev.current.stop(); prev.current = null; setPreviewing(null); };
+  const preview = async (which) => {
+    const was = previewing; stopPreview();
+    if (was === which) return;
+    setPreviewing(which);
+    prev.current = await playSession({ bedKey: bed, voiceBlob: which === "old" ? existing : blob, tailMin: 0.2, onEnd: () => setPreviewing(null) });
   };
-  const again = () => { prev.current && prev.current.stop(); setPreviewing(false); setBlob(null); setState("idle"); };
-  const keep = () => { prev.current && prev.current.stop(); onSaved(blob); };
+  const again = () => { stopPreview(); setBlob(null); setState("idle"); };
+  const keep = () => { stopPreview(); onSaved(blob); };
+  const discard = () => { stopPreview(); setBlob(null); onDiscard ? onDiscard() : setState("idle"); };
 
   return (
     <div className="recorder">
       {state === "idle" && <>
-        <p className="lede dim">Somewhere quiet. Phone about a hand's width from your mouth. Read slowly, slower than feels natural, and pause at every "…". Speak to yourself as "you", warmly, the way someone who loves you would. About five minutes.</p>
-        <button className="btn gold" onClick={start}>Start recording</button>
-        {onSkip && <button className="ghost light" onClick={onSkip}>Use the phone's voice for now</button>}
+        <p className="lede dim">{intro || `Somewhere quiet. Phone about a hand's width from your mouth. Read slowly, slower than feels natural, and pause at every "…". Speak to yourself as "you", warmly, the way someone who loves you would. About five minutes.`}{existing ? ` Your current ${what} stays as it is until you choose to replace it.` : ""}</p>
+        <button className="btn gold" onClick={start}>{existing ? "Start the new take" : "Start recording"}</button>
+        {onSkip && !existing && <button className="ghost light" onClick={onSkip}>Use the phone's voice for now</button>}
+        {existing && onDiscard && <button className="ghost light" onClick={onDiscard}>Keep my current {what}</button>}
       </>}
       {state === "denied" && <>
         <p className="lede dim">The microphone isn't available. Check the browser's permission for this site, or use the phone's voice for now and record later from the Sound room.</p>
         <button className="btn gold" onClick={start}>Try again</button>
-        {onSkip && <button className="ghost light" onClick={onSkip}>Use the phone's voice for now</button>}
+        {onSkip && !existing && <button className="ghost light" onClick={onSkip}>Use the phone's voice for now</button>}
+        {existing && onDiscard && <button className="ghost light" onClick={onDiscard}>Keep my current {what}</button>}
       </>}
       {state === "rec" && <div className="recbar"><span className="recdot" style={{ transform: `scale(${1 + Math.min(1.5, level * 14)})` }} /><span className="count light">Recording · {mmss(elapsed)}</span><button className="btn gold" onClick={stop}>Stop</button></div>}
       {(state === "idle" || state === "rec") && <div className={"prompter" + (state === "rec" ? " live" : "")}>{script.split("\n\n").map((p, i) => <p key={i}>{p}</p>)}</div>}
-      {state === "review" && <>
-        <p className="lede dim">Listen back over the theta bed. If it sounds rushed, do it again. Slow is the whole trick.</p>
-        <div className="row"><button className="btn ink2" onClick={preview}>{previewing ? "Stop" : "Listen back"}</button><button className="btn gold" onClick={keep}>Keep this one</button></div>
+      {state === "review" && !existing && <>
+        <p className="lede dim">Listen back. If it sounds rushed, do it again. Slow is the whole trick.</p>
+        <div className="row"><button className="btn ink2" onClick={() => preview("new")}>{previewing === "new" ? "Stop" : "Listen back"}</button><button className="btn gold" onClick={keep}>Keep this one</button></div>
         <button className="ghost light" onClick={again}>Record it again</button>
+      </>}
+      {state === "review" && existing && <>
+        <p className="lede dim">Listen to the new take before you decide. Committing it replaces your current {what}, and there's no undo. Discarding it leaves your current {what} exactly as it is.</p>
+        <div className="row wrap">
+          <button className="btn ink2" onClick={() => preview("new")}>{previewing === "new" ? "Stop" : "Listen to the new take"}</button>
+          <button className="btn ink2" onClick={() => preview("old")}>{previewing === "old" ? "Stop" : `Listen to my current ${what}`}</button>
+        </div>
+        <button className="btn gold" onClick={keep}>Commit: replace my {what}</button>
+        <div className="row wrap"><button className="ghost light" onClick={discard}>Discard this take</button><button className="ghost light" onClick={again}>Record another take</button></div>
       </>}
     </div>
   );

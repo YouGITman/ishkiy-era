@@ -4,7 +4,7 @@
 const KEY = "ishkiy-identity-v1";
 export const load = () => { try { return JSON.parse(localStorage.getItem(KEY)) || {}; } catch { return {}; } };
 export const save = (s) => { try { localStorage.setItem(KEY, JSON.stringify(s)); } catch {} };
-export const wipe = async () => { try { localStorage.removeItem(KEY); } catch {} await delVoice(); };
+export const wipe = async () => { try { localStorage.removeItem(KEY); } catch {} await delVoice(); await delVoice("vision"); };
 
 const DB = "ishkiy-identity", STORE = "voice";
 const open = () => new Promise((res, rej) => {
@@ -22,9 +22,11 @@ const tx = async (mode, fn) => {
     t.onerror = () => rej(t.error);
   });
 };
-export const putVoice = (blob) => tx("readwrite", (s) => s.put(blob, "induction"));
-export const getVoice = async () => { try { return await tx("readonly", (s) => s.get("induction")); } catch { return null; } };
-export const delVoice = async () => { try { await tx("readwrite", (s) => s.delete("induction")); } catch {} };
+/* Two recordings, each a single take that a re-record overwrites (no history):
+   "induction", the daily recording, and "vision", the vision statement. */
+export const putVoice = (blob, key = "induction") => tx("readwrite", (s) => s.put(blob, key));
+export const getVoice = async (key = "induction") => { try { return await tx("readonly", (s) => s.get(key)); } catch { return null; } };
+export const delVoice = async (key = "induction") => { try { await tx("readwrite", (s) => s.delete(key)); } catch {} };
 
 /* Dates as local YYYY-MM-DD, so "today" means the person's today. */
 export const dayKey = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -55,6 +57,27 @@ export function reminderICS({ start, days = 21, morning = "06:45", evening = "22
     ev(morning, "iSHKiY · Morning. Before the phone, you first", `Open iSHKiY Identity. Listen once and say your lines out loud${eraName ? " as " + eraName : ""}.`, "am"),
     ev(evening, "iSHKiY · Tonight. Calm body, calm mind", "Open iSHKiY Identity. Check in, then fall asleep to your recording.", "pm"),
     ...(midday ? [ev(midday, "iSHKiY · A two-minute top-up", "Open iSHKiY Identity. Two minutes to come back to the new you.", "md")] : []),
+    "END:VCALENDAR",
+  ].join("\r\n");
+}
+
+/* The vision reminder: one daily alarm with no end date, linking straight to
+   the vision screen. */
+export function visionICS({ time = "07:30", url }) {
+  const d = dayKey().replace(/-/g, "");
+  return [
+    "BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//iSHKiY//Identity//EN", "CALSCALE:GREGORIAN",
+    "BEGIN:VEVENT",
+    `UID:vision-${d}@identity.ishkiy.com`,
+    `DTSTAMP:${new Date().toISOString().replace(/[-:]/g, "").slice(0, 15)}Z`,
+    `DTSTART:${d}T${time.replace(":", "")}00`,
+    "DURATION:PT5M",
+    "RRULE:FREQ=DAILY",
+    "SUMMARY:iSHKiY · Your vision",
+    `DESCRIPTION:Open iSHKiY Identity and play your vision. ${url || ""}`,
+    ...(url ? [`URL:${url}`] : []),
+    "BEGIN:VALARM", "ACTION:DISPLAY", "DESCRIPTION:iSHKiY · Your vision", "TRIGGER:PT0M", "END:VALARM",
+    "END:VEVENT",
     "END:VCALENDAR",
   ].join("\r\n");
 }

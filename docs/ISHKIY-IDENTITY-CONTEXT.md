@@ -2,7 +2,7 @@
 
 Read this first. It tells you what Identity is, the idea behind it, how it sounds, how it is built and deployed, what is unfinished, and where it is safe to change things. It was written from the code in `ishkiy-identity/` as it stands on branch `claude/upbeat-knuth-s0xvxv`. Where something could not be verified, it says so.
 
-Read `docs/ISHKIY-ERA-CONTEXT.md` too. Identity inherits ERA's brand, voice rules and privacy promises, and does not repeat them in full. The founder is **Tarang**. The brand and every word of copy use **UK English**.
+Read `docs/HANDOFF.md` for the latest requests and what is still open, and `docs/ISHKIY-ERA-CONTEXT.md` too. Identity inherits ERA's brand, voice rules and privacy promises, and does not repeat them in full. The founder is **Tarang**. The brand and every word of copy use **UK English**.
 
 ---
 
@@ -55,7 +55,7 @@ All the app's words live in **`src/content.js`**. Edit voice there, not in compo
 | Build | `npm run build` bundles to `site/dist/app.js` and **copies only the real files** into `site/` (`index.html`, `manifest.json`, `sw.js`, icons, `audio/`). **Netlify publishes `site/`, never the project folder** |
 | Hosting | Netlify, project **`stately-pika-8b9efc`** (not renamed yet). Branch to deploy: **`claude/upbeat-knuth-s0xvxv`**. Base directory: **`ishkiy-identity`**. Build command and publish directory are left blank; `netlify.toml` supplies them |
 | AI | `netlify/functions/claude.js`, a copy of ERA's proxy at `/api/claude`. Needs `ANTHROPIC_API_KEY` in Netlify. Used for exactly two things (section 6) |
-| Offline | `sw.js` caches the shell and every audio clip. **Bump the `CACHE` name (now `identity-v5`) whenever audio or app files change**, or installed phones keep the old ones |
+| Offline | `sw.js` caches the shell and every audio clip. **Bump the `CACHE` name (now `identity-v6`) whenever audio or app files change**, or installed phones keep the old ones |
 | Package type | `"type": "module"`. The ElevenLabs build plugin dynamically imports `src/content.js` |
 
 ### Traps (each one has already cost time)
@@ -91,6 +91,8 @@ All the app's words live in **`src/content.js`**. Edit voice there, not in compo
 - **Morning**: listen to the recording, **say each line out loud** (the mic fills a ring when a second of voice is heard), then optional **mirror work** with the front camera.
 - **Through the day**: a power question that rotates by the hour; **I caught the old voice** (pick the old line, say the new one to swap it); **Log evidence** (a list of votes for the new self); **Top-up sessions** (below).
 - **Night**: a check-in (0 to 10 "how much did I feel like the new me", what went in today: clean, mixed or noise, one vote), a three-and-a-half-minute spoken calm, then the recording, which **starts automatically** (eyes still shut). The screen dims after 20 seconds and the bed plays on for ten minutes after the words end.
+- **Vision**: a short present-tense statement kept as text and as a single recording (IndexedDB key `"vision"`), with a daily calendar reminder at a time the person picks and a link to `/#vision`. A Today card turns gold once that time has passed and it hasn't been played. See `docs/HANDOFF.md`, 4 October.
+- **Re-record** (daily recording and vision): listen to the new take and the current one, then commit (overwrite, no history) or discard (old one kept). Nothing is written until commit.
 - **Daytime top-ups (optional)**: six spoken sessions of one to two minutes: *Two-minute reset*, *Before it matters*, *After the noise*, *Power questions*, *Two minutes of thank you*, *Your lines, out loud* (the voice hands over to the mic for the person's own lines, then carries on). The list highlights the one that fits the hour.
 - **The transition timer (task switching)**: reached from the top of the top-ups list. Pick *Prime for creativity* (eyes shut, alpha bed) or *Prime for focus* (eyes open, square breathing, no-beat bed), take a one-, two- or three-minute break, then the primer starts on its own through `GuideSession`'s `autoStart`. The countdown runs from an end time, so a throttled page still lands on time. The last choice is remembered in `transition`. The primers are entries in `TOPUPS` marked `prime: true` (exported as `PRIMES`), so they also play directly from the list and log to `days[...].topups`.
 - **Weekly check-in** (days 7, 14, 21): self-image 0 to 10, where the old self pulled back ("the rubber band"), what the new self did, the line they need next week, and a short reflection.
@@ -175,9 +177,10 @@ Changing a voice means: edit `CALM_SCRIPT` / `TOPUPS` in `content.js`, run `node
 | `weekly` | `[{ week, era, at, self, pull, did, need, reflection }]` |
 | `reminders` | `{ morning, evening, midday? }` |
 | `transition` | `{ prime, mins }`: the last primer and break length chosen |
+| `vision` | `{ text, at, time, audio: { at, mime, text } }`; the audio itself is in IndexedDB under `"vision"`. Plays log `days[date].vision` |
 | `calmCount` | How many calm sessions completed |
 
-**IndexedDB** `ishkiy-identity` / store `voice` / key `induction`: the person's recording as a Blob.
+**IndexedDB** `ishkiy-identity` / store `voice`: key `induction` (the daily recording) and key `vision` (the vision), each one Blob, overwritten on commit.
 
 Dates are local `YYYY-MM-DD` (`dayKey`), so "today" is the person's today. `eraDay(st)` is `daysBetween(start, today) + 1`.
 
