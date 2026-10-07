@@ -24,8 +24,8 @@ export const MINIS = {
     kicker: "A short lens on attachment",
     from: "Grounded in adult attachment research",
     research: {
-      what: "Attachment theory began with John Bowlby and Mary Ainsworth watching how infants handle separation from a carer. In 1987 Cindy Hazan and Phillip Shaver showed the same patterns turn up in adult love. A decade later Kelly Brennan, Catherine Clark and Phillip Shaver pooled dozens of questionnaires and found almost everything reduced to two dimensions: attachment anxiety (how much you worry about being left) and attachment avoidance (how uneasy closeness makes you). Where you sit on those two gives the four familiar styles — secure, anxious, avoidant, and fearful-avoidant.",
-      limits: "Attachment is not a fixed type stamped on you in childhood. It shifts with relationships and with life — researchers call the move towards security 'earned security'. You may also attach differently to a partner than to a parent or a friend. This lens reads your general pattern, not a diagnosis.",
+      what: "Attachment theory began with John Bowlby and Mary Ainsworth watching how infants handle separation from a carer. In 1987 Cindy Hazan and Phillip Shaver showed the same patterns turn up in adult love. A decade later Kelly Brennan, Catherine Clark and Phillip Shaver pooled dozens of questionnaires and found almost everything reduced to two dimensions: attachment anxiety (how much you worry about being left) and attachment avoidance (how uneasy closeness makes you). Where you sit on those two gives the four familiar styles: secure, anxious, avoidant and fearful-avoidant.",
+      limits: "Attachment shifts with relationships and with life; researchers call the move towards security 'earned security'. You may also attach differently to a partner than to a parent or a friend. This lens reads your general pattern. It can't diagnose anything.",
     },
     blurb: "When someone matters, do you lean in, hold back, or both at once? The pattern underneath most of your closest relationships. Twelve questions, about six minutes.",
     tint: "clay",
@@ -59,7 +59,7 @@ export const MINIS = {
           label: "Anxious",
           headline: "Closeness matters so much to you that its absence gets loud.",
           paras: ["When someone you love goes quiet, your mind fills the silence, usually with the worst version. You're highly tuned to connection, which makes you warm and attentive. It also means you can spend a lot of energy checking whether you're still wanted.",
-            "The research calls this 'hyperactivation': turning the signal up to make sure it gets heard. It isn't neediness. It's a strategy that once made sense, running a little louder than today requires."],
+            "The research calls this 'hyperactivation': turning the signal up to make sure it gets heard. It's a strategy that once made sense, still running a little louder than today requires."],
           tryThis: "Ask for the reassurance directly instead of testing for it. “I'm feeling a bit wobbly, can you tell me we're okay?” works far better than waiting to see if they notice.",
         },
         avoidant: {
@@ -73,23 +73,23 @@ export const MINIS = {
           label: "Fearful-avoidant",
           headline: "You want closeness and brace against it at the same time.",
           paras: ["Part of you reaches for people; another part expects it to go wrong and gets ready to leave first. That push and pull is exhausting, for you more than anyone, and it can make relationships feel like weather you can't predict.",
-            "This pattern usually has a history behind it, and it tends to soften with steady relationships and good support. It isn't a flaw in you. It's a sensible response to something that once wasn't safe."],
+            "This pattern usually has a history behind it. It made sense once, when something wasn't safe. It tends to soften with steady relationships and good support."],
           tryThis: "This one is worth talking through with someone trained to help. A good therapist is, among other things, a safe place to practise closeness.",
         },
       }[style];
-      return { tag: S.label, headline: S.headline, bars: bars(this, r), paras: [...S.paras, "Attachment isn't fixed. People move towards security over time, often through one steady relationship."], tryThis: S.tryThis };
+      return { tag: S.label, headline: S.headline, bars: bars(this, r), paras: [...S.paras, "Attachment moves. People grow towards security over time, often through one steady relationship."], tryThis: S.tryThis };
     },
   },
 
   friend: {
     id: "friend",
     subject: "closeness",
-    name: "The friend you are — and the one you need",
+    name: "The friend you are, and the one you need",
     kicker: "A short lens on closeness",
     from: "Grounded in attachment and social-support research",
     research: {
       what: "Social-support research separates what we give from what we receive, and finds the two are often out of step: plenty of people are generous supporters who rarely let anyone support them. It also finds the kind of support matters as much as the amount. Some people need presence and reliability; others need to feel deeply understood. Attachment research adds the 'why': how much reassurance you need tends to track how safe closeness has felt to you before.",
-      limits: "Friendship is two people, and this lens only hears from one of them. It reads your tendencies, not how good a friend you are. Your friends might tell a different, kinder story.",
+      limits: "Friendship is two people, and this lens only hears from one of them. It reads your tendencies. How good a friend you are is for your friends to say, and they might tell a kinder story.",
     },
     blurb: "Two questions, really. What do you bring to the people you love? And what do you quietly need back? Twelve questions, about six minutes.",
     tint: "clay",
@@ -111,9 +111,9 @@ export const MINIS = {
     read(r) {
       const gap = r.give != null && r.need != null ? r.give - r.need : 0;
       const headline = gap > 15 ? "You give more than you ask for. A quiet strength, and worth watching so the well doesn't run dry."
-        : gap < -15 ? "You feel the need for closeness keenly. That's not weakness; it's how you're wired to bond."
+        : gap < -15 ? "You feel the need for closeness keenly. It's how you're wired to bond."
         : "You give and need in fair balance. Rarer than it sounds.";
-      const paras = ["This lens looks at two sides of closeness: what you naturally give the people you love, and what you quietly need back. Neither number is good or bad. The interesting part is the gap between them, and whether the people around you know what you need."];
+      const paras = ["This lens looks at two sides of closeness: what you naturally give the people you love, and what you quietly need back. Both numbers are just information. The interesting part is the gap between them, and whether the people around you know what you need."];
       if (r.needMost) paras.push(`When it comes to it, the friend you need most is one who offers ${r.needMost === "reliability" ? "reliability: someone who simply shows up" : "depth: someone who really gets you"}.`);
       return { tag: gap > 15 ? "The giver" : gap < -15 ? "The seeker" : "In balance", headline, bars: [["What you give", r.give], ["What you need", r.need]], paras,
         tryThis: gap > 15 ? "Tell one friend this week something you need from them. Small counts." : "Name the kind of friend you need to the friends you have. Most people can't guess." };
@@ -152,11 +152,11 @@ export const MINIS = {
       const q = L >= 50 ? (W >= 50 ? "host" : "captain") : (W >= 50 ? "harbour" : "observer");
       const Q = {
         host: ["The host", "You lift a room and give it a direction.", "You combine warmth with a willingness to lead, so people tend to feel both welcomed and taken somewhere. Groups often organise themselves around you without anyone deciding they should."],
-        captain: ["The captain", "People feel steered by you — clearly, and sometimes from a slight distance.", "You bring direction and decisiveness more than warmth. That makes you valuable when things need sorting, and can make you harder to get close to. People may respect you before they feel they know you."],
+        captain: ["The captain", "People feel steered by you: clearly, and sometimes from a slight distance.", "You bring direction and decisiveness more than warmth. That makes you valuable when things need sorting, and can make you harder to get close to. People may respect you before they feel they know you."],
         harbour: ["The harbour", "People feel safe around you, and may not always hear you.", "You bring warmth without needing the spotlight. People confide in you and settle around you. The risk is that your view gets lost because you won't push for the floor."],
         observer: ["The observer", "You read a room before you enter it.", "You tend to hang back, watch, and engage on your own terms. You often see what others miss. People may find you hard to know at first, which suits you more than it bothers you."],
       }[q];
-      const cost = band(U) === "high" ? "And it costs you. Keeping this up takes real effort, which is why you need time alone afterwards. That isn't antisocial; it's maintenance."
+      const cost = band(U) === "high" ? "And it costs you. Keeping this up takes real effort, which is why you need time alone afterwards. Call it maintenance."
         : band(U) === "low" ? "And it costs you little. The person people meet is close to the person you are, which is rarer, and more restful, than it sounds."
         : "It costs you something, though not everything. Some rooms drain you more than others, and it's worth noticing which.";
       const pick = { momentum: "You said people get momentum from you.", warmth: "You said people get warmth from you.", order: "You said people get clarity from you.", attention: "You said people get your quiet attention." }[(r.picks || {})["RM-PK1"]];
@@ -172,8 +172,8 @@ export const MINIS = {
     kicker: "A short lens on conflict",
     from: "Grounded in conflict style research",
     research: {
-      what: "Conflict-style research rests on the 'dual concern' model, developed by Robert Blake and Jane Mouton and later by Afzalur Rahim and by Dean Pruitt. In any disagreement you are balancing two things: how much you care about your own outcome, and how much you care about theirs. The balance gives five broad moves — competing, collaborating, compromising, avoiding and accommodating. Most people use all five but reach for one first, and that first reach is usually learned early.",
-      limits: "No style is the right one; each fits some situations and backfires in others. This reads your habit under tension, not your skill. You may fight quite differently with a partner than with a colleague.",
+      what: "Conflict-style research rests on the 'dual concern' model, developed by Robert Blake and Jane Mouton and later by Afzalur Rahim and by Dean Pruitt. In any disagreement you are balancing two things: how much you care about your own outcome, and how much you care about theirs. The balance gives five broad moves: competing, collaborating, compromising, avoiding and accommodating. Most people use all five but reach for one first, and that first reach is usually learned early.",
+      limits: "Every style fits some situations and backfires in others. This reads your habit under tension. Skill is a separate matter. You may fight quite differently with a partner than with a colleague.",
     },
     blurb: "Everyone has a move when it gets tense. Yours is probably older than the argument. Eleven questions, about five minutes.",
     tint: "clay",
@@ -196,14 +196,14 @@ export const MINIS = {
     read(r) {
       const order = ranked(r.dims, ["compete", "collaborate", "compromise", "avoid", "accommodate"]);
       const M = {
-        compete: ["The stand", "Your move is to hold your ground.", "You care about getting the outcome right and you'll push for it. It's invaluable when something important is at stake and someone needs to be firm. It costs you when the other person stops arguing, not because they agree, but because they've given up talking to you."],
+        compete: ["The stand", "Your move is to hold your ground.", "You care about getting the outcome right and you'll push for it. It's invaluable when something important is at stake and someone needs to be firm. It costs you when the other person stops arguing because they've given up talking to you, and you take it for agreement."],
         collaborate: ["The table", "Your move is to work it through.", "You want both of you to leave with what you actually need, and you'll put in the time. It's the most constructive style there is, and also the most tiring: not every argument deserves a full summit, and some people just want it over."],
         compromise: ["The middle", "Your move is to meet halfway.", "You're quick to find something both sides can live with, which keeps things moving. The risk is that halfway becomes a habit, and neither of you gets what really mattered, because you split it before anyone said what it was."],
         avoid: ["The exit", "Your move is to step away.", "You'd rather let things cool than fight in the heat, and sometimes that's wise. But the things you don't say don't go anywhere. They wait, and they tend to come back larger."],
         accommodate: ["The peace", "Your move is to give way.", "You protect the relationship by letting the other person have it. It's generous, and it makes you easy to be close to. Over time, though, the people around you may not know what you want, because you've stopped telling them."],
       };
       const top = order[0], second = order[1];
-      const after = { unsaid: "You said what bothers you afterwards is what you didn't say. That's usually a sign your first move is quieter than you'd like it to be.", oversaid: "You said what bothers you afterwards is saying too much. The heat gets ahead of you, and it's worth having a way to slow it down.", unresolved: "You said what bothers you afterwards is that nothing got resolved. You want arguments to end somewhere, not just stop.", hurt: "You said what bothers you afterwards is that they're still upset. The relationship matters more to you than the point." }[(r.picks || {})["CF-PK1"]];
+      const after = { unsaid: "You said what bothers you afterwards is what you didn't say. That's usually a sign your first move is quieter than you'd like it to be.", oversaid: "You said what bothers you afterwards is saying too much. The heat gets ahead of you, and it's worth having a way to slow it down.", unresolved: "You said what bothers you afterwards is that nothing got resolved. You want arguments to arrive somewhere.", hurt: "You said what bothers you afterwards is that they're still upset. The relationship matters more to you than the point." }[(r.picks || {})["CF-PK1"]];
       const paras = [M[top][2]];
       if (second) paras.push(`Your second move is to ${M[second][1].replace(/^Your move is to /, "").replace(/\.$/, "").toLowerCase()}. When the first doesn't work, that's where you go.`);
       if (after) paras.push(after);
@@ -221,9 +221,9 @@ export const MINIS = {
     from: "Grounded in approach–avoidance motivation research",
     research: {
       what: "Approach–avoidance motivation is one of the oldest ideas in psychology, running from Kurt Lewin through Jeffrey Gray's work on the brain's reward and threat systems to Andrew Elliot's research on goals. People are moved both towards things they want and away from things they fear, but most lead with one. Tory Higgins' regulatory focus theory frames it as 'promotion' (chasing gains) versus 'prevention' (guarding against losses), and shows each changes how you plan, decide and feel about outcomes.",
-      limits: "Neither orientation is better. Leading with the upside makes you bold; leading with care makes you steady. Which one you lead with can also shift with circumstances, especially under stress.",
+      limits: "Both work. Leading with the upside makes you bold; leading with care makes you steady. Which one you lead with can also shift with circumstances, especially under stress.",
     },
-    blurb: "Do you move towards what you want, or away from what you fear? Neither is wrong, but knowing which changes everything. Ten questions, about five minutes.",
+    blurb: "Do you move towards what you want, or away from what you fear? Knowing which one leads explains a lot. Ten questions, about five minutes.",
     tint: "steel",
     dims: [{ key: "approach", label: "Moving towards" }, { key: "avoid", label: "Moving away" }],
     items: [
@@ -255,7 +255,7 @@ export const MINIS = {
     from: "Grounded in entrepreneurial disposition research",
     research: {
       what: "Research on who starts things draws on several threads. Thomas Bateman and Michael Crant's 'proactive personality' describes people who act on their environment rather than waiting for it. Work on risk-taking and tolerance of ambiguity (from Budner onwards) shows builders are less bothered by not knowing. Angela Duckworth's research on grit adds staying power: the ability to keep going through the dull middle. Studies of founders consistently find the mix matters more than any single trait.",
-      limits: "Plenty of successful founders score modestly here, and plenty of high scorers never start anything. Circumstances — money, time, responsibilities, luck — shape who builds as much as temperament does. This reads the disposition, not the destiny.",
+      limits: "Plenty of successful founders score modestly here, and plenty of high scorers never start anything. Circumstances shape who builds as much as temperament does: money, time, responsibilities, luck. This reads the disposition. The rest is up to life, and to you.",
     },
     blurb: "Some people can't stop starting things. An honest measure of whether you're one of them. Twelve questions, about six minutes.",
     tint: "steel",
@@ -298,10 +298,10 @@ export const MINIS = {
     kicker: "A short lens on coping",
     from: "Grounded in coping and self-regulation research",
     research: {
-      what: "Richard Lazarus and Susan Folkman's work in the 1980s split coping into two families: tackling the problem itself, and managing how you feel about it. Charles Carver's research mapped the everyday moves people actually make, from planning and asking for help to distraction and denial. James Gross added reappraisal — changing how you see a situation — as one of the most reliably helpful. Susan Nolen-Hoeksema showed that rumination, going round the same thoughts without moving, is closely tied to low mood.",
-      limits: "No coping move is good or bad in itself; a night of television can be exactly right. What matters is range and fit: whether you have more than one move, and whether the one you reach for suits the problem. This reads your habits, not your character.",
+      what: "Richard Lazarus and Susan Folkman's work in the 1980s split coping into two families: tackling the problem itself, and managing how you feel about it. Charles Carver's research mapped the everyday moves people actually make, from planning and asking for help to distraction and denial. James Gross added reappraisal, changing how you see a situation, as one of the most reliably helpful. Susan Nolen-Hoeksema showed that rumination, going round the same thoughts without moving, is closely tied to low mood.",
+      limits: "Any coping move can be the right one; a night of television can be exactly right. What matters is range and fit: whether you have more than one move, and whether the one you reach for suits the problem. This reads your habits.",
     },
-    blurb: "Not what you'd like to do. What you actually do, at eleven at night, when it isn't moving. Thirteen questions, about six minutes.",
+    blurb: "What you actually do, at eleven at night, when it isn't moving. Thirteen questions, about six minutes.",
     tint: "steel",
     dims: [{ key: "tackle", label: "Tackle it" }, { key: "reframe", label: "Look again" }, { key: "reach", label: "Reach out" }, { key: "rest", label: "Step away" }, { key: "numb", label: "Numb it" }, { key: "loop", label: "Go round in circles" }],
     items: [
@@ -330,7 +330,7 @@ export const MINIS = {
       const top = good[0] || "tackle";
       const paras = [G[top][2]];
       const costly = band(d.loop) === "high" || (d.loop >= 50 && d.loop >= d.numb) ? "loop" : d.numb >= 50 ? "numb" : null;
-      if (costly === "loop") paras.push("The move that costs you is going round in circles. Rumination feels like working on the problem, but it isn't. It's the coping habit most tied to low mood, which makes it worth interrupting on purpose.");
+      if (costly === "loop") paras.push("The move that costs you is going round in circles. Rumination feels like working on the problem. Mostly it keeps the problem company. It's the coping habit most tied to low mood, which makes it worth interrupting on purpose.");
       else if (costly === "numb") paras.push("The move that costs you is numbing: the scroll, the snack, the glass, the 'later'. In small doses it's fine. As a first resort, it means the problem is still there in the morning, plus a bit of guilt.");
       else paras.push("Neither numbing nor going round in circles has much of a hold on you. That's worth knowing, because both are common.");
       const care = band(d.loop) === "high" && band(d.numb) === "high";
@@ -349,7 +349,7 @@ export const MINIS = {
     from: "Grounded in stress and recovery research",
     research: {
       what: "Stress research long ago stopped treating pressure as the enemy. What wears people down is load without recovery. Sabine Sonnentag and Charlotte Fritz identified four experiences that restore people after demanding days: psychological detachment (actually switching off), relaxation, mastery (doing something absorbing and challenging for yourself) and control (choosing how you spend your own time). Sheldon Cohen's work on perceived stress shows that how loaded you feel matters as much as what's actually on your plate.",
-      limits: "This is a snapshot of right now, and right now changes. It isn't a measure of burnout, anxiety or depression, and it can't tell you whether you need help. If pressure has become too much, please talk to your GP or one of the services in the SOS section.",
+      limits: "This is a snapshot of right now, and right now changes. It can't measure burnout, anxiety or depression, or tell you whether you need help. If pressure has become too much, please talk to your GP, or use the SOS page in your Companion.",
     },
     blurb: "Where your load actually sits, what it costs you, and the recovery that works for someone built like you. Eleven questions, about five minutes.",
     tint: "sage",
@@ -374,11 +374,11 @@ export const MINIS = {
       const rec = ranked(d, ["detach", "relax", "mastery", "control"]), best = rec[0], thin = rec[rec.length - 1];
       const R = { detach: "switching off", relax: "unwinding", mastery: "getting absorbed in something of your own", control: "having your time be yours" };
       const headline = lb === "high" ? "You're carrying a lot right now." : lb === "low" ? "Your load feels manageable right now." : "You're carrying a fair amount, and mostly holding it.";
-      const paras = [`Your strongest recovery is ${R[best]}. Your thinnest is ${R[thin]}, and that's usually where the leak is. Recovery doesn't come from rest alone; it comes from whichever of the four you're short of.`];
-      const where = { body: "You notice pressure in your body first. Your body tends to know before you do, so it's worth treating tight shoulders or bad sleep as an early warning, not background noise.", head: "You notice pressure in your head first: racing thoughts, lost focus. Getting things out of your head and onto paper helps more for you than for most.", mood: "You notice pressure in your mood first. The people closest to you probably notice it before you do; it's worth asking them to tell you.", habits: "You notice pressure in what you do: more eating, drinking, scrolling or working. Those habits are the signal, not the problem, and they're easier to spot than feelings." }[(r.picks || {})["PR-PK1"]];
+      const paras = [`Your strongest recovery is ${R[best]}. Your thinnest is ${R[thin]}, and that's usually where the leak is. Rest alone rarely fixes it. Recovery comes from whichever of the four you're short of.`];
+      const where = { body: "You notice pressure in your body first. Your body tends to know before you do, so it's worth treating tight shoulders or bad sleep as an early warning.", head: "You notice pressure in your head first: racing thoughts, lost focus. Getting things out of your head and onto paper helps more for you than for most.", mood: "You notice pressure in your mood first. The people closest to you probably notice it before you do; it's worth asking them to tell you.", habits: "You notice pressure in what you do: more eating, drinking, scrolling or working. Those habits are the signal, and they're easier to spot than feelings." }[(r.picks || {})["PR-PK1"]];
       if (where) paras.push(where);
       const care = d.load != null && d.load >= 75;
-      if (care) paras.push("A load this heavy for long is worth talking to someone about, whether that's your GP, someone you trust, or one of the services in the SOS section of the Library. You don't have to be in crisis to ask for help.");
+      if (care) paras.push("A load this heavy, carried for long, is worth talking to someone about. Your GP, someone you trust, or a service on the SOS page in your Companion. Help is for before a crisis, too.");
       const tips = { detach: "Build an end-of-day ritual: write tomorrow's first task, close the laptop, change clothes. It tells your mind the day is done.", relax: "Put one properly restful thing in your diary this week, and guard it like a meeting.", mastery: "Pick one small thing outside work to get better at. Absorption restores in a way rest can't.", control: "Claim one hour this week that belongs to nobody but you." };
       return { tag: lb === "high" ? "Heavy load" : lb === "low" ? "Light load" : "Holding it", headline, bars: bars(this, r), paras, care, tryThis: tips[thin] };
     },
@@ -391,10 +391,10 @@ export const MINIS = {
     kicker: "A short lens on resilience",
     from: "Grounded in resilience research",
     research: {
-      what: "Ann Masten, who spent decades studying children who thrived against the odds, called resilience 'ordinary magic': not a rare trait but a set of everyday resources most people can build. Bruce Smith's work focused on the simplest part, how quickly you bounce back. Albert Bandura's self-efficacy research shows that believing you can act is itself protective. Research on social support and on meaning, including Viktor Frankl's, adds two more: people who have others to lean on, and a reason to keep going, recover better.",
-      limits: "Resilience isn't the same as never struggling, and a low score here doesn't mean you'll break. It means some of your handholds are thinner than others, which is useful to know while things are calm.",
+      what: "Ann Masten, who spent decades studying children who thrived against the odds, called resilience 'ordinary magic': a set of everyday resources most people can build. Bruce Smith's work focused on the simplest part, how quickly you bounce back. Albert Bandura's self-efficacy research shows that believing you can act is itself protective. Research on social support and on meaning, including Viktor Frankl's, adds two more: people who have others to lean on, and a reason to keep going, recover better.",
+      limits: "Resilient people struggle too. A low score here means some of your handholds are thinner than others, which is useful to know while things are calm.",
     },
-    blurb: "Setbacks don't test character so much as reveal a pattern. This one finds yours before you need it. Eleven questions, about five minutes.",
+    blurb: "Setbacks reveal a pattern. This lens finds yours before you need it. Eleven questions, about five minutes.",
     tint: "sage",
     dims: [{ key: "bounce", label: "Bounce-back speed" }, { key: "agency", label: "Belief you can act" }, { key: "connect", label: "People to lean on" }, { key: "meaning", label: "A reason to keep going" }, { key: "flex", label: "Finding plan B" }],
     items: [
@@ -435,7 +435,7 @@ export const MINIS = {
     from: "Grounded in wealth psychology",
     research: {
       what: "Financial psychologists Brad Klontz and Ted Klontz found that most people carry 'money scripts': beliefs about money, usually picked up in childhood, that run quietly in the background of every financial decision. Their research groups them into four families. Money avoidance (money is bad, or not for people like me), money worship (more would fix things), money status (net worth is self-worth), and money vigilance (be careful, be private, save). Each script is linked to predictable patterns of spending, saving and worry.",
-      limits: "Scripts aren't right or wrong; each one protects you from something. This lens isn't financial advice, and it can't see your actual situation. It reads the beliefs, not the bank balance.",
+      limits: "Every script protects you from something. This lens can't see your actual situation and isn't financial advice. It reads the beliefs. The bank balance is another matter.",
     },
     blurb: "What money means to you, what it protects you from, and what that protection costs. Thirteen questions, about six minutes.",
     tint: "gold",
@@ -479,7 +479,7 @@ export const MINIS = {
     from: "Grounded in research on aspiration and satisfaction",
     research: {
       what: "Several lines of research meet here. Barry Schwartz distinguished 'maximisers', who need the best option, from 'satisficers', who are content with good enough, and found satisficers tend to be happier. Philip Brickman's 'hedonic treadmill' describes how we adapt to gains and reset our expectations upwards. Leon Festinger's social comparison theory explains why other people's lives move our own finish line. Tim Kasser and Richard Ryan showed that goals built on growth, relationships and contribution are more satisfying than goals built on wealth, image and fame.",
-      limits: "Ambition isn't the problem, and wanting more isn't wrong. This lens looks at whether your idea of 'enough' is yours, and whether it holds still long enough for you to reach it.",
+      limits: "Ambition is fine, and so is wanting more. This lens looks at whether your idea of 'enough' is yours, and whether it holds still long enough for you to reach it.",
     },
     blurb: "Everyone has a number. Almost nobody has asked themselves where theirs came from. Eleven questions, about five minutes.",
     tint: "gold",
@@ -503,13 +503,13 @@ export const MINIS = {
       const d = r.dims;
       const moving = ((d.treadmill || 0) + (d.compare || 0)) / 2;
       const headline = moving >= 60 ? "Your finish line moves." : moving <= 35 ? "You know what enough looks like." : "Your 'enough' mostly holds still, with the odd nudge.";
-      const paras = [moving >= 60 ? "Each time you get close, it shifts, often because someone nearby has moved theirs. That's the treadmill most people are on without noticing, and it means satisfaction is always one more step away." : moving <= 35 ? "Other people's progress doesn't move you much, and when you reach a goal, it counts. That's less common than it should be, and it's a real source of contentment." : "You notice what others have, and your targets drift a bit, but not so much that you can't enjoy getting somewhere."];
-      paras.push(band(d.intrinsic) === "high" ? "What you're aiming for is mostly made of things money can't count: growth, people, contribution. The research is clear that those goals satisfy more when you reach them." : band(d.intrinsic) === "low" ? "What you're aiming for leans towards things others can see: money, status, admiration. Nothing wrong with that, but the research suggests those goals satisfy less once you get there, so it's worth checking they're really yours." : "Your aims are a mix of things others can see and things only you can.");
-      if (band(d.maximise) === "high") paras.push("You also tend to need the best option, not just a good one. Maximisers often get better results and enjoy them less.");
+      const paras = [moving >= 60 ? "Each time you get close, it shifts, often because someone nearby has moved theirs. That's the treadmill most people are on without noticing, and it means satisfaction is always one more step away." : moving <= 35 ? "Other people's progress doesn't move you much, and when you reach a goal, it counts. That's less common than it should be, and it's a real source of contentment." : "You notice what others have, and your targets drift a bit. Never so far that you can't enjoy getting somewhere."];
+      paras.push(band(d.intrinsic) === "high" ? "What you're aiming for is mostly made of things money can't count: growth, people, contribution. The research is clear that those goals satisfy more when you reach them." : band(d.intrinsic) === "low" ? "What you're aiming for leans towards things others can see: money, status, admiration. Fair enough. The research suggests those goals satisfy less once you get there, so it's worth checking they're really yours." : "Your aims are a mix of things others can see and things only you can.");
+      if (band(d.maximise) === "high") paras.push("You also tend to need the best option. A good one won't quite do. Maximisers often get better results and enjoy them less.");
       const src = { parents: "Your number came from your parents, whether matching them or escaping them. Worth asking whether it fits the life you want, rather than the one you grew up in.", peers: "Your number came from the people around you. That's the one most likely to keep moving, because they keep moving too.", fear: "Your number is about safety. That's a sound instinct; the question is whether the number would ever actually feel safe enough.", plans: "Your number comes from what your plans actually cost. That's the most solid kind: it's anchored to something real.", unknown: "You don't know where your number came from. That's the honest answer most people don't give, and the best place to start." }[(r.picks || {})["EN-PK1"]];
       if (src) paras.push(src);
       return { tag: moving >= 60 ? "Moving line" : moving <= 35 ? "Fixed line" : "Mostly steady", headline, bars: bars(this, r), paras,
-        tryThis: "Write down what 'enough' would actually look like — the house, the week, the people — not the number. Then price it." };
+        tryThis: "Write down what 'enough' would actually look like: the house, the week, the people. Leave the number out. Then price it." };
     },
   },
 
@@ -521,8 +521,8 @@ export const MINIS = {
     kicker: "A short lens on your story",
     from: "Grounded in life-narrative research",
     research: {
-      what: "Psychologist Dan McAdams argues that by early adulthood we all carry a 'narrative identity': an internal, evolving story of how we became who we are. His research, and Jonathan Adler's, finds the shape of that story matters. People who tell 'redemption' stories, where bad things lead somewhere good, tend to report more wellbeing and give more back. People who tell 'contamination' stories, where good things get spoiled, tend to struggle more. So do people who see themselves as a passenger, not the author, of their own lives.",
-      limits: "Your story isn't your life; it's the version you tell. That's the hopeful part: stories can be retold. This lens reads the shape of yours today, not whether your life has gone well or badly.",
+      what: "Psychologist Dan McAdams argues that by early adulthood we all carry a 'narrative identity': an internal, evolving story of how we became who we are. His research, and Jonathan Adler's, finds the shape of that story matters. People who tell 'redemption' stories, where bad things lead somewhere good, tend to report more wellbeing and give more back. People who tell 'contamination' stories, where good things get spoiled, tend to struggle more. So do people who see themselves as a passenger in their own lives.",
+      limits: "Your story is the version of your life you tell. That's the hopeful part: stories can be retold. This lens reads the shape of yours today. Whether your life has gone well is a different question.",
     },
     blurb: "The story you tell about how you got here, and what it's quietly deciding about where you go next. Eleven questions, about five minutes.",
     tint: "heather",
@@ -547,7 +547,7 @@ export const MINIS = {
       const arc = (d.redemption || 0) - (d.contamination || 0);
       const headline = arc >= 15 ? "Yours is a redemption story." : arc <= -15 ? "Your story has a shadow over it." : "Your story is still deciding what kind it is.";
       const paras = [arc >= 15 ? "When you look back, hard things tend to lead somewhere. That shape, bad turning into good, is the one the research most links to wellbeing and to wanting to give something back." : arc <= -15 ? "When you look back, good things have a way of being spoiled, or there's a point where it all went wrong. That's an understandable way to tell a hard story, and it can quietly decide that the next chapter will go the same way. Stories can be retold; it's often what good therapy does." : "Some chapters have turned good; some have been spoiled. You haven't settled on the shape yet, which means you still get to choose it."];
-      paras.push(band(d.author) === "high" ? "You see yourself as the author, not a passenger. That's a strong predictor of taking the next chapter in hand." : band(d.author) === "low" ? "You tell it as though much of it happened to you. That may be true; it's also worth asking where you had more say than you're giving yourself credit for." : "You share the writing with circumstance: some of it's yours, some of it just happened.");
+      paras.push(band(d.author) === "high" ? "You see yourself as the author. That's a strong predictor of taking the next chapter in hand." : band(d.author) === "low" ? "You tell it as though much of it happened to you. That may be true; it's also worth asking where you had more say than you're giving yourself credit for." : "You share the writing with circumstance: some of it's yours, some of it just happened.");
       paras.push(band(d.direction) === "high" ? "And you know what comes next, which is rarer than it should be." : band(d.direction) === "low" ? "What comes next is unclear right now. That's often the most honest place to start from." : "What comes next is partly written.");
       const ch = { beginning: "You said you're at a beginning.", middle: "You said you're in the long middle, the part stories skip and lives are mostly made of.", turning: "You said you're at a turning point. How you tell this chapter later will shape the next one.", rebuilding: "You said you're rebuilding. Redemption stories are written in chapters like this one.", harvest: "You said you're in harvest, reaping what you planted." }[(r.picks || {})["LN-PK1"]];
       if (ch) paras.push(ch);

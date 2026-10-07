@@ -9,7 +9,7 @@ export const PARTS = [
     id: "arrival",
     kicker: "Part one of nine",
     title: "Arrival",
-    intro: "A few questions to set the scene. There are no scores here — just tell it straight.",
+    intro: "A few questions to set the scene. Nothing here is scored, so tell it straight.",
     items: [
       { id: "AR-1", format: "FT", short: true, text: "What should we call you?" },
       { id: "AR-2", format: "FT", text: "What do you do right now — and how long have you been doing it?" },
@@ -24,7 +24,7 @@ export const PARTS = [
     id: "think1",
     kicker: "Part two of nine",
     title: "How you think — patterns & numbers",
-    intro: "Untimed puzzles. This is about how you move through a problem, not an IQ score — we don't do those.",
+    intro: "Untimed puzzles. They show how you move through a problem. Take the time you need.",
     items: [
       { id: "TH-1", format: "MC", dim: "num", key: "17", text: "What comes next: 2, 3, 5, 8, 12, __ ?", options: ["15", "16", "17", "18"] },
       { id: "TH-2", format: "MC", dim: "num", key: "1", text: "What comes next: 81, 27, 9, 3, __ ?", options: ["1", "0", "2", "1.5"] },
@@ -39,7 +39,7 @@ export const PARTS = [
       { id: "TH-19", format: "MC", dim: "spa", key: "Down and to the left", text: "Picture a capital F. Rotate it 180 degrees. Its two arms now point which way?", options: ["Up and to the right", "Down and to the left", "Up and to the left", "Down and to the right"] },
       { id: "TH-20", format: "MC", dim: "spa", key: "Two holes, both on the left edge", text: "Fold a square of paper in half, top edge down to bottom edge. Punch one hole near the top-left corner. Unfold it. What do you see?", options: ["One hole, top-left", "Two holes, both on the left edge", "Two holes, both on the top edge", "Four holes, one in each corner"] },
     ],
-    glimmer: { visual: "ring", line: () => "No scores yet. Just noticing how you move through a problem." },
+    glimmer: { visual: "ring", line: () => "Nothing scored yet. Just noticing how you move through a problem." },
   },
   {
     id: "think2",
@@ -60,13 +60,13 @@ export const PARTS = [
       { id: "TH-15", format: "L5", dim: "approach", text: "I'd rather sit with a hard problem than be handed the answer." },
       { id: "TH-16", format: "L5", dim: "approach", text: "I often spot the pattern before I can explain it in words." },
     ],
-    glimmer: { visual: "tiles", line: (a, s) => s.thinking.lean === "balanced" ? "You moved easily across all of it — no single lean showing yet. Rare, and worth knowing." : `You leant ${s.thinking.lean} in this section. We will test that read as we go.` },
+    glimmer: { visual: "tiles", line: (a, s) => s.thinking.lean === "balanced" ? "You moved easily across all of it, with no single lean showing yet. That's rare, and worth knowing." : `You leant ${s.thinking.lean} in this section. We will test that read as we go.` },
   },
   {
     id: "ei1",
     kicker: "Part four of nine",
     title: "How you read the room",
-    intro: "Answer as you actually are, not as you'd like to be. The honest answer is the useful one.",
+    intro: "Answer as you actually are. The honest answer is the useful one.",
     items: [
       { id: "EI-SA1", format: "L5", domain: "sa", text: "I can usually name what I'm feeling while I'm still feeling it." },
       { id: "EI-SA2", format: "L5", domain: "sa", text: "I know which situations drain me before I'm in them." },
@@ -105,7 +105,7 @@ export const PARTS = [
     id: "riasec",
     kicker: "Part six of nine",
     title: "What pulls you",
-    intro: "Quick ones. Gut answers — would you enjoy it?",
+    intro: "Quick ones. Gut answers: would you enjoy it?",
     shuffle: true,
     items: [
       { id: "RI-R1", format: "E5", code: "R", text: "Fixing a machine until it runs right" },
@@ -167,7 +167,7 @@ export const PARTS = [
     id: "big5",
     kicker: "Part eight of nine",
     title: "How you work",
-    intro: "Last battery. How you actually operate, day to day.",
+    intro: "How you actually operate, day to day. Quick reactions beat careful ones here.",
     items: [
       { id: "BF-O1", format: "L5", trait: "O", text: "I hunt out ideas well beyond my own field." },
       { id: "BF-O2", format: "L5", trait: "O", reverse: true, text: "Abstract conversations bore me." },
@@ -195,7 +195,7 @@ export const PARTS = [
       { id: "BF-N4", format: "L5", trait: "N", text: "Criticism rolls off me fairly quickly." },
       { id: "BF-N5", format: "L5", trait: "N", reverse: true, text: "My confidence can dip without warning." },
     ],
-    glimmer: { visual: "bars", line: () => "Nearly there. The picture is almost whole." },
+    glimmer: { visual: "bars", line: () => "That's how you work, on the record. Every part from here sharpens the picture." },
   },
   {
     id: "mirror",

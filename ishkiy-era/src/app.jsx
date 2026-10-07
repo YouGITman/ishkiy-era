@@ -26,44 +26,65 @@ const sid = (() => { try { let x = localStorage.getItem("era-sid"); if (!x) { x 
 const track = (e, d) => { try { const sp = getSupa(); if (!sp) return; sp.from("era_events").insert({ e, d: d == null ? null : String(d).slice(0, 40), sid, v: "1.10" }).then(() => {}, () => {}); } catch {} };
 
 /* ---------------- profile strength, levels & badges ----------------
-   Strength is one number out of 100, and it is deliberately not reachable by
-   the assessment alone: the nine parts carry 70 of it, the Library lenses the
-   other 30. Finishing the assessment is a real summit (Full Portrait) with
-   somewhere further to go, which is the point — the profile is meant to deepen
-   for life, not be finished in an hour.
-   Levels above Full Portrait are gated on all nine parts as well as the score,
-   so a stack of lenses can never buy a name that claims a complete portrait. */
+   One ladder, five stages, used everywhere: the depth you choose, the badge
+   you earn, the strength page and the report. The first three are the three
+   depths of the assessment (a first look, a fuller picture, the whole
+   portrait); the last two come from the Library. Each stage is reached by
+   finishing a named set of parts or a number of lenses, never by points, so
+   what a stage says it opens is always true.
+
+   Strength stays one number out of 100 (the nine parts carry 70, the lenses
+   30); it measures how much of yourself you've put in, and the stages sit on
+   the same road. */
 const STARTER_PARTS = ["values", "big5", "think1"];   // ~12 min: what you're for, how you work, a thinking taste
 const CORE_ADDED = ["riasec", "ei1", "ei2"];          // rounds the picture
 // everything else (arrival, think2, mirror) completes the full ERA
 const PARTS_WEIGHT = 70, LENS_WEIGHT = 30;
 const LEVELS = [
-  { id: "starter", name: "First Light", need: 6, blurb: "You've met yourself. The first honest look — your values and how you work.", accuracy: "a clear sketch", next: "Keep going. Each part you finish sharpens the picture." },
-  { id: "core", name: "In Focus", need: 38, blurb: "The picture sharpens. Thinking, feeling, and what pulls you now sit alongside the rest.", accuracy: "a rounded read", next: "Finish the remaining parts and the portrait is complete." },
-  { id: "full", name: "Full Portrait", need: 70, allParts: true, blurb: "Every part complete. The deepest, truest mirror the assessment alone can hold up.", accuracy: "the fullest picture", next: "The Library is where it goes further. Each lens adds a colour the assessment can't reach." },
-  { id: "colour", name: "In Colour", need: 85, allParts: true, blurb: "The portrait has depth now. The lenses you've taken shade in what the nine parts could only outline.", accuracy: "a portrait with shading", next: "One or two more lenses and the picture is as full as iSHKiY can draw it today." },
-  { id: "lifesize", name: "Life Size", need: 100, allParts: true, blurb: "Everything iSHKiY can ask, you've answered. Your Companion knows you as well as it is able to, and your report has every chapter open to it.", accuracy: "the whole of you, so far", next: "New lenses arrive in the Library. Your profile grows when they do." },
+  { id: "starter", name: "First Light", parts: STARTER_PARTS, depth: "A first look", time: "10–15 min", how: "3 parts of the assessment",
+    blurb: "Your first clear look: what you value and how you work. Already more than most people know about themselves.", accuracy: "a clear sketch", next: "Keep going. Each part you finish sharpens the picture.",
+    unlocks: ["Your written report, yours to keep", "Your Companion: three voices for seven days", "A human, when you're ready", "Your share card"] },
+  { id: "core", name: "In Focus", parts: [...STARTER_PARTS, ...CORE_ADDED], depth: "A fuller picture", time: "+15 min", how: "3 more parts",
+    blurb: "Sharper now. How you think, how you feel and what pulls you sit alongside the rest.", accuracy: "a rounded read", next: "Finish the remaining parts and the portrait is complete.",
+    unlocks: ["Your report adds how you think, how you carry yourself and what pulls you", "The Tensions: where you pull against yourself", "Sharper answers from your Companion, closer human matches"] },
+  { id: "full", name: "Full Portrait", parts: "all", depth: "The whole portrait", time: "+15–20 min", how: "the last 3 parts",
+    blurb: "Every part done. This is as clearly as the assessment can show you.", accuracy: "the fullest picture", next: "The Library goes further. Each lens adds a colour the nine parts can't reach.",
+    unlocks: ["The whole report, with your own words woven through it", "The Library of You: twelve lenses open"] },
+  { id: "colour", name: "In Colour", parts: "all", lenses: 6, depth: "In the Library", time: "about 6 min a lens", how: "6 Library lenses",
+    blurb: "The portrait has depth now. The lenses you've taken shade in what the nine parts could only outline.", accuracy: "a portrait with shading", next: "A few more lenses and the picture is as full as iSHKiY can draw it today.",
+    unlocks: ["Your Companion draws on your relationships, drive, mind and money", "Shading the nine parts couldn't reach"] },
+  { id: "lifesize", name: "Life Size", parts: "all", lenses: "all", depth: "In the Library", time: "all twelve lenses", how: "all 12 Library lenses",
+    blurb: "You've answered everything iSHKiY can ask. Your Companion knows you as well as it can.", accuracy: "the whole of you, so far", next: "New lenses arrive in the Library. Your profile grows when they do.",
+    unlocks: ["Everything iSHKiY can ask, answered", "Your Companion knows you as fully as it can"] },
 ];
 const partsDone = (completedAt) => Object.keys(completedAt || {}).length;
 const LENS_IDS = Object.keys(MINIS);
 /* One place that answers "how complete is this person's profile". */
 const profileStrength = (state) => {
-  const parts = partsDone(state && state.completedAt);
+  const completedAt = (state && state.completedAt) || {};
+  const parts = partsDone(completedAt);
   const totalParts = PARTS.length;
   const totalLenses = LENS_IDS.length;
   const lenses = LENS_IDS.filter((id) => (state && state.miniResults || {})[id]).length;
   const score = Math.round((parts / totalParts) * PARTS_WEIGHT + (totalLenses ? (lenses / totalLenses) * LENS_WEIGHT : 0));
-  return { score, parts, totalParts, lenses, totalLenses, allParts: parts >= totalParts };
+  return { score, parts, totalParts, lenses, totalLenses, allParts: parts >= totalParts, completedAt };
 };
-const meets = (l, st) => st.score >= l.need && (!l.allParts || st.allParts);
+const levelParts = (l) => (l.parts === "all" ? PARTS.map((p) => p.id) : l.parts);
+const levelLenses = (l, st) => (l.lenses === "all" ? st.totalLenses : l.lenses || 0);
+const partsShortFor = (l, st) => levelParts(l).filter((id) => !(st.completedAt || {})[id]).length;
+const meets = (l, st) => partsShortFor(l, st) === 0 && st.lenses >= levelLenses(l, st);
 const PART_IX = Object.fromEntries(PARTS.map((p, i) => [p.id, i]));
-// Which part-indices a given arc walks, in order. "starter" walks a short set; anything else walks all.
+/* Every route walks the ladder in the same order: arrival (who you are), then
+   the first look, then the fuller picture, then the rest. So whichever depth
+   someone picks, First Light, In Focus and Full Portrait land at the same
+   points on the way. */
+const LADDER = ["arrival", ...STARTER_PARTS, ...CORE_ADDED, ...PARTS.map((p) => p.id).filter((id) => id !== "arrival" && !STARTER_PARTS.includes(id) && !CORE_ADDED.includes(id))];
 const arcParts = (arc, completedAt) => {
   const done = completedAt || {};
-  if (arc === "starter") return STARTER_PARTS.map((id) => PART_IX[id]);
+  if (arc === "starter") return STARTER_PARTS.filter((id) => !done[id]).map((id) => PART_IX[id]);
   if (arc === "core") return [...STARTER_PARTS, ...CORE_ADDED].filter((id) => !done[id]).map((id) => PART_IX[id]);
-  if (arc === "more") return PARTS.map((_, i) => i).filter((i) => !done[PARTS[i].id]); // remaining, for "go deeper"
-  return PARTS.map((_, i) => i); // full
+  if (arc === "more") return LADDER.filter((id) => !done[id]).map((id) => PART_IX[id]); // remaining, for "go deeper"
+  return LADDER.map((id) => PART_IX[id]); // full
 };
 const levelFor = (st) => LEVELS.slice().reverse().find((l) => meets(l, st)) || null;
 const nextLevel = (st) => LEVELS.find((l) => !meets(l, st)) || null;
@@ -71,10 +92,9 @@ const nextLevel = (st) => LEVELS.find((l) => !meets(l, st)) || null;
 const nextStep = (st) => {
   const nx = nextLevel(st);
   if (!nx) return null;
-  const partsShort = nx.allParts ? st.totalParts - st.parts : Math.max(0, Math.ceil(((nx.need - st.score) / PARTS_WEIGHT) * st.totalParts));
+  const partsShort = partsShortFor(nx, st);
   if (partsShort > 0) return { level: nx, what: `Finish ${partsShort} more part${partsShort === 1 ? "" : "s"} of the assessment`, kind: "parts" };
-  const per = st.totalLenses ? LENS_WEIGHT / st.totalLenses : 0;
-  const lensShort = per ? Math.max(1, Math.ceil((nx.need - st.score) / per)) : 0;
+  const lensShort = levelLenses(nx, st) - st.lenses;
   const canTake = st.totalLenses - st.lenses;
   if (lensShort > 0 && canTake > 0) return { level: nx, what: `Take ${Math.min(lensShort, canTake)} more lens${Math.min(lensShort, canTake) === 1 ? "" : "es"} in the Library`, kind: "lens" };
   return { level: nx, what: "More lenses are being written. This one opens when they land.", kind: "wait" };
@@ -119,6 +139,22 @@ async function sha256(text) {
   const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text.trim().toUpperCase()));
   return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
+
+/* ---------------- membership ----------------
+   Stripe is the record of who is a member. After checkout the app holds a
+   signed token for its Stripe customer (netlify/lib/membership.js) and asks
+   /api/membership now and then; it never decides membership on its own.
+   Founding access codes still work, and count as access. */
+const PRICE = { intro: "£9.99", monthly: "£12.99", annual: "£89.99" };
+const isMember = (s) => !!(s && s.membership && s.membership.live);
+const hasAccess = (s) => isMember(s) || !!(s && s.unlocked);
+const postJSON = async (path, body) => {
+  const r = await fetch(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(d.error || "Something went wrong. Try again in a moment.");
+  return d;
+};
+const fmtDate = (ms) => new Date(ms).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
 
 /* ---------------- scoring ---------------- */
 const likertVal = (idx, reverse) => (reverse ? 4 - idx : idx) + 1; // 1..5
@@ -212,25 +248,41 @@ function fcPhrase(v, wins) {
     "Achievement": "being seen to do it well", "Universalism": "the work mattering beyond you",
     "Power": "a hand on the wheel", "Self-direction": "your own path, on your own terms",
   };
-  return wins ? map[v] : "no single thing — you weigh each trade on its own";
+  return wins ? map[v] : "no single thing; you weigh each trade on its own";
 }
 
 /* ---------------- report generation ---------------- */
-const SYSTEM = `You are writing an Essence Recovery Assessment report for iSHKiY. You write as a person: someone kind and unhurried who has spent twenty-five years watching what work does to people, and who tells the truth gently. Not a coach, not a consultant, not an assistant. A wise friend with a pen.
+/* ---------------- the iSHKiY voice ----------------
+   One voice for everything the AI writes: the report, the Companion, the
+   summaries. VOICE.md in the project folder says the same for people. */
+const VOICE = `THE iSHKiY VOICE. You sound like an intelligent friend who has read their answers properly. One person, two registers.
 
-Voice rules, non-negotiable:
-- UK English. Short sentences. Fragments allowed. Most sentences under fifteen words.
-- Vary rhythm like speech: a long sentence, then a short one. Sometimes three words.
-- Plain Anglo-Saxon words. BANNED: leverage, optimise, journey, deliver, transform, unlock, empower, navigate, landscape, tapestry, testament, delve, moreover, furthermore, additionally, ultimately, holistic, comprehensive, resonate, foster, harness, elevate, robust.
-- BANNED constructions: "It's worth noting", "It's important to", "not just X but Y", "isn't merely X — it's Y", "In conclusion", "What's striking is", rhetorical questions, starting two consecutive paragraphs with the same word.
-- At most one em-dash per section. No bullet lists, ever. No exclamation marks.
-- Use their name at most twice in the entire report. Address them as "you".
-- Be specific to THEIR numbers and THEIR words. If a line could sit in anyone's horoscope, cut it.
-- One dry understatement per section is allowed. Never ask for the laugh.
-- End each section on a feeling or a plain truth, never a summary or a recommendation to "consider".
-- This tool is grounded in established frameworks (CHC, Goleman EI, RIASEC, Schwartz, Big Five), not clinically validated: write "your answers suggest", "the pattern points to", never diagnose or claim certainty. "Steadiness" is inverted Neuroticism — if relevant, explain that plainly once.
+SHARP, the default: notice something specific about them and say it plainly. Curious, warm, a little wry. Give them a reason to take the next step. Ask one good question at most, then stop.
 
-Format: begin every section with one headline line formatted exactly as "### " followed by six to ten words — the truth of the section said the way a friend would say it across a kitchen table, not a corporate title. Then flowing short paragraphs. Nothing else.`;
+QUIET, whenever they sound tired, low, upset, unsure or in distress: slow right down. Fewer words, short lines, room between ideas. Calm first. Motivation can wait, or wait for another day.
+
+Always: UK English. Short, whole sentences, most under fifteen words. Plain words. Talk to them as "you". Be specific to their answers and their own words; if a line could sit in anyone's horoscope, cut it.
+
+Never:
+- long dashes of any kind. Use a full stop or a comma.
+- the contrast shapes "not X, but Y", "X, not Y", "isn't X, it's Y", "not just X but Y".
+- reassurance by denial, such as "this isn't a test" or "you're not broken". Say what is true instead.
+- flattery, cheerleading, exclamation marks, rhetorical questions, bullet lists.
+- stock phrases: "it's worth noting", "it's important to", "in conclusion", "what's striking is", "at the end of the day", "I hear you".
+- these words: leverage, optimise, journey, deliver, transform, unlock, empower, navigate, landscape, tapestry, testament, delve, moreover, furthermore, additionally, ultimately, holistic, comprehensive, resonate, foster, harness, elevate, robust.`;
+
+const SYSTEM = `You are writing an Essence Recovery Assessment report for iSHKiY: someone kind and clear-eyed who has spent twenty-five years watching what work does to people, and who tells the truth gently. A sharp friend with a pen.
+
+${VOICE}
+
+For the report:
+- Vary rhythm like speech: a longer sentence, then a short one. Sometimes three words.
+- Use their name at most twice in the whole report.
+- One dry understatement per section is allowed. Never reach for the laugh.
+- End each section on a feeling or a plain truth. No summaries, and no advice to "consider" things.
+- The tool is grounded in established frameworks (CHC, Goleman EI, RIASEC, Schwartz, Big Five) and hasn't been clinically validated. Write "your answers suggest" or "the pattern points to". Never diagnose or claim certainty. "Steadiness" is Neuroticism turned the right way up; if it matters, explain that once, plainly.
+
+Format: begin every section with one headline line formatted exactly as "### " followed by six to ten words: the truth of the section, said the way a sharp, kind friend would say it across a kitchen table. Then flowing short paragraphs. Nothing else.`;
 
 function reportCalls(answers, scores) {
   const ctx = JSON.stringify({
@@ -248,12 +300,12 @@ function reportCalls(answers, scores) {
   const scope = `\n\nSCOPE: They have taken ${taken.length} of ${PARTS.length} parts: ${taken.map((p) => p.title).join("; ")}.${notYet.length ? ` Not taken yet: ${notYet.join("; ")}. Null or missing values mean NOT TAKEN YET, never a score of zero and never something they withheld. Never tell them what they didn't give or didn't say; don't list what's missing. Where it helps, mention a part still to come once, briefly, as an invitation.` : ""} ${name ? `Their name is ${name}.` : "They haven't given a name. Do not use or invent one, and never address them as iSHKiY or \"friend\"; just say \"you\"."}`;
   const calls = [];
   // Partial profiles open with ViewIntro, written in the app, not by the model.
-  if (notYet.length === 0) calls.push({ title: "Opening", prompt: `Data: ${ctx}${scope}\n\nWrite the OPENING section (~210 words). Start with the "### " headline line. ${answers["AR-3"] || answers["AR-4"] || answers["MI-1"] ? "Reflect their own words back — woven with one thing the data already confirms. Quote vivid phrases." : "Open with the clearest thing their answers already show, said plainly and warmly, so the first lines land as recognition. Do not remark on their own words being absent."} Only discuss dimensions actually present in the scores. End on a sentence that earns trust.` });
-  if (m.values || m.big5) calls.push({ title: "Values & work", prompt: `Data: ${ctx}${scope}\n\nWrite ${m.values && m.big5 ? "two sections" : "one section"}. ${m.values ? '"## What you\'re for" — their ranked values and especially the forced-choice pattern; name the trade they keep making.' : ""} ${m.big5 ? '"## How you work" — the Big Five in plain language (Steadiness = inverted Neuroticism, explain plainly if relevant).' : ""} Each starts with its "### " headline after the ## title. Discuss ONLY these.` });
-  if (m.thinking || m.ei) calls.push({ title: "Think & feel", prompt: `Data: ${ctx}${scope}\n\nWrite ${m.thinking && m.ei ? "two sections" : "one section"}. ${m.thinking ? '"## How you think" — thinking-style profile, never IQ framing. Talk only about the problem types they have actually done; if the words-and-logic puzzles are still to come, say so in one light line.' : ""} ${m.ei ? '"## How you carry yourself" — the four EI domains and what the scenario choices reveal.' : ""} Each starts with its "### " headline. Discuss ONLY these.` });
-  if (m.riasec) calls.push({ title: "What pulls you", prompt: `Data: ${ctx}${scope}\n\nWrite "## What pulls you" (~180 words), "### " headline first — top two RIASEC inclinations in plain words, and what the lowest one quietly says.` });
-  if (full) calls.push({ title: "The tensions", prompt: `Data: ${ctx}${scope}\n\nWrite "## The tensions" (~220 words), "### " headline first — the two or three places their dimensions pull against each other, and what living inside each tension feels like on a Tuesday. Be brave.` });
-  calls.push({ title: "What this suggests", prompt: `Data: ${ctx}${scope}\n\nWrite the final section "## What this suggests" (~${full ? 260 : 180} words), "### " headline first. Read honestly against ${full ? "the whole profile" : "what's been measured so far, and gently note that going deeper would sharpen it"}. Offer ${full ? "two or three" : "one or two"} shapes of work that fit, each with one concrete first step. ${full ? "" : "Encourage them warmly to complete more parts when ready — more answers, truer mirror."} Close the whole report with this exact line on its own: The box was never you.` });
+  if (notYet.length === 0) calls.push({ title: "Opening", prompt: `Data: ${ctx}${scope}\n\nWrite the OPENING section (~210 words). Start with the "### " headline line. ${answers["AR-3"] || answers["AR-4"] || answers["MI-1"] ? "Reflect their own words back: woven with one thing the data already confirms. Quote vivid phrases." : "Open with the clearest thing their answers already show, said plainly and warmly, so the first lines land as recognition. Do not remark on their own words being absent."} Only discuss dimensions actually present in the scores. End on a sentence that earns trust.` });
+  if (m.values || m.big5) calls.push({ title: "Values & work", prompt: `Data: ${ctx}${scope}\n\nWrite ${m.values && m.big5 ? "two sections" : "one section"}. ${m.values ? '"## What you\'re for": their ranked values and especially the forced-choice pattern; name the trade they keep making.' : ""} ${m.big5 ? '"## How you work": the Big Five in plain language (Steadiness = inverted Neuroticism, explain plainly if relevant).' : ""} Each starts with its "### " headline after the ## title. Discuss ONLY these.` });
+  if (m.thinking || m.ei) calls.push({ title: "Think & feel", prompt: `Data: ${ctx}${scope}\n\nWrite ${m.thinking && m.ei ? "two sections" : "one section"}. ${m.thinking ? '"## How you think": thinking-style profile, never IQ framing. Talk only about the problem types they have actually done; if the words-and-logic puzzles are still to come, say so in one light line.' : ""} ${m.ei ? '"## How you carry yourself": the four EI domains and what the scenario choices reveal.' : ""} Each starts with its "### " headline. Discuss ONLY these.` });
+  if (m.riasec) calls.push({ title: "What pulls you", prompt: `Data: ${ctx}${scope}\n\nWrite "## What pulls you" (~180 words), "### " headline first: top two RIASEC inclinations in plain words, and what the lowest one quietly says.` });
+  if (full) calls.push({ title: "The tensions", prompt: `Data: ${ctx}${scope}\n\nWrite "## The tensions" (~220 words), "### " headline first: the two or three places their dimensions pull against each other, and what living inside each tension feels like on a Tuesday. Be brave.` });
+  calls.push({ title: "What this suggests", prompt: `Data: ${ctx}${scope}\n\nWrite the final section "## What this suggests" (~${full ? 260 : 180} words), "### " headline first. Read honestly against ${full ? "the whole profile" : "what's been measured so far, and gently note that going deeper would sharpen it"}. Offer ${full ? "two or three" : "one or two"} shapes of work that fit, each with one concrete first step. ${full ? "" : "Encourage them warmly to complete more parts when ready: more answers, truer mirror."} Close the whole report with this exact line on its own: The box was never you.` });
   return calls;
 }
 
@@ -267,7 +319,7 @@ async function callClaude(prompt) {
   return (data.content || []).filter((c) => c.type === "text").map((c) => c.text).join("\n");
 }
 
-const SAMPLE = `*(Preview mode — the live report is generated when the app is deployed with its key. This sample shows the shape.)*\n\nYou said the hardest part right now is the feeling of running in place. Your answers back that up — and they also show something you may not have said out loud yet.\n\n## How you think\nYou lean verbal-logical. You take a problem apart with words before numbers, and you'd rather sit with it than be handed the answer.\n\n## How you carry yourself\nYour awareness of others runs ahead of your awareness of yourself. People tell you things. You don't always tell yourself things.\n\n## What pulls you\nSomething keeps pulling you toward starting things and bringing others with you.\n\n## What you're for\nWhen forced to choose, you chose your own path, on your own terms. Every time.\n\n## How you work\nHigh Openness, high Conscientiousness — the rare pairing that starts things AND finishes them.\n\n## The tensions\nYou want freedom and you want the ground not to move. Those two run your life between them.\n\n## What this suggests\nThe pattern points somewhere specific. The live report will point there with you.\n\nThe box was never you.`;
+const SAMPLE = `*(Preview mode. The live report is written when the app is deployed with its key. This sample shows the shape.)*\n\nYou said the hardest part right now is the feeling of running in place. Your answers back that up. They also show something you may not have said out loud yet.\n\n## How you think\nYou lean verbal-logical. You take a problem apart with words before numbers, and you'd rather sit with it than be handed the answer.\n\n## How you carry yourself\nYour read on other people runs ahead of your read on yourself. People tell you things. You don't always tell yourself things.\n\n## What pulls you\nSomething keeps pulling you toward starting things and bringing others with you.\n\n## What you're for\nWhen forced to choose, you chose your own path, on your own terms. Every time.\n\n## How you work\nHigh Openness with high Conscientiousness. A rare pair: it starts things and it finishes them.\n\n## The tensions\nYou want freedom and you want the ground to stay still. Those two run your life between them.\n\n## What this suggests\nThe pattern points somewhere specific. The live report will point there with you.\n\nThe box was never you.`;
 
 /* ---------------- markdown-lite renderer ---------------- */
 function md(text) {
@@ -320,39 +372,76 @@ function App() {
     if (patch.phase && patch.phase !== state.phase) return transition(() => apply(patch));
     apply(patch);
   };
+  /* Coming back from Stripe (checkout or the membership portal), and a quiet
+     re-check of membership every few hours so a cancellation or failed card
+     shows up without anyone having to do anything. */
+  useEffect(() => {
+    const q = new URLSearchParams(location.search);
+    const back = q.get("checkout"), sid = q.get("session_id"), portal = q.get("portal");
+    if (back || portal) history.replaceState(null, "", location.pathname);
+    if (back === "success" && sid) {
+      postJSON("/api/membership", { session_id: sid })
+        .then((m) => { track("member_join", m.plan); update({ membership: { ...m, checkedAt: Date.now() }, hadMembership: true, joinNote: null, phase: state.afterJoin || "home", afterJoin: null }); })
+        .catch(() => update({ phase: "unlock", joinNote: "Your payment went through, but we couldn't confirm it just now. Refresh this page in a minute. If it still won't open, email ops@ishkiy.com and we'll sort it." }));
+      return;
+    }
+    if (back === "cancel") { update({ phase: "unlock", joinNote: "No payment was taken. Pick up whenever you're ready." }); return; }
+    const m = state.membership;
+    if (m && m.token && (portal || !m.checkedAt || Date.now() - m.checkedAt > 6 * 3600e3)) {
+      postJSON("/api/membership", { token: m.token })
+        .then((d) => update({ membership: { ...d, checkedAt: Date.now() }, ...(portal ? { phase: "settings" } : {}) }))
+        .catch(() => {});
+    }
+  }, []);
+  const goJoin = (after) => update({ afterJoin: after, joinNote: null, phase: "unlock" });
+  const memberUpdate = (m) => update({ membership: { ...m, checkedAt: Date.now() }, hadMembership: true });
   const answers = state.answers;
   const scores = useMemo(() => (["glimmer", "generating", "report", "companion", "humans", "library", "account", "settings", "constellation"].includes(state.phase) && Object.keys(answers).length) ? computeScores(answers) : null, [state.phase, answers]);
 
   useLayoutEffect(() => { window.scrollTo(0, 0); }, [state.phase, state.part, state.item]);
+  useEffect(() => {
+    if (!state.jump) return;
+    const t = setTimeout(() => { const el = document.getElementById(state.jump); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); apply({ jump: null }); }, 900);
+    return () => clearTimeout(t);
+  }, [state.jump, state.phase]);
   useEffect(() => { document.body.classList.toggle("dm", !!state.dark); }, [state.dark]);
+
+  /* SOS from anywhere: the Companion's support section once it's open, its own
+     page before then. `jump` scrolls to it once the screen has arrived. */
+  const toSOS = () => { track("sos_open"); update({ phase: state.report ? "companion" : "sos", jump: "sos" }); };
 
   if (state.phase === "breath") return <Breath onEnter={() => update({ phase: state.seenExplainer ? "home" : "explainer" })} />;
   if (state.phase === "home") return <Home state={state} onResume={() => { const p = state.paused; update({ part: p.part, item: p.item, arc: p.arc, paused: null, phase: p.at === "run" ? "run" : "intro" }); }} onTheme={() => update({ dark: !state.dark })} go={(p) => update({ phase: p })} startAssessment={() => update({ phase: Object.keys(answers).length ? "chooseDepth" : "chooseDepth" })} />;
-  if (state.phase === "companion") return <CompanionScreen state={state} scores={scores} onBack={() => update({ phase: "home" })} onRegenerate={() => update({ phase: "generating" })} onHuman={() => update({ phase: "humans" })} />;
+  if (state.phase === "companion") return <CompanionScreen state={state} scores={scores} onJoin={() => goJoin("companion")} onBack={() => update({ phase: "home" })} onRegenerate={() => update({ phase: "generating" })} onHuman={() => update({ phase: "humans" })} />;
+  if (state.phase === "sos") return <SOSScreen onBack={() => update({ phase: "home" })} />;
   if (state.phase === "constellation") return <ConstellationScreen state={state} update={update} onBack={() => update({ phase: "home" })} />;
-  if (state.phase === "humans") return <HumansScreen scores={scores} state={state} onBack={() => update({ phase: "home" })} onApply={() => update({ phase: "apply" })} />;
-  if (state.phase === "account") return <AccountScreen state={state} scores={scores} onBack={() => update({ phase: "home" })} />;
-  if (state.phase === "settings") return <SettingsScreen state={state} update={update} onBack={() => update({ phase: "home" })} />;
+  if (state.phase === "humans") return <HumansScreen scores={scores} state={state} onJoin={() => goJoin("humans")} onBack={() => update({ phase: "home" })} onApply={() => update({ phase: "apply" })} />;
+  if (state.phase === "account") return <AccountScreen state={state} scores={scores} onMembership={memberUpdate} onBack={() => update({ phase: "home" })} />;
+  if (state.phase === "settings") return <SettingsScreen state={state} update={update} onJoin={() => goJoin("settings")} onBack={() => update({ phase: "home" })} />;
   if (state.phase === "apply") return <ApplyScreen onBack={() => update({ phase: "humans" })} />;
   if (state.phase === "strength") return <StrengthScreen state={state} onBack={() => update({ phase: "home" })} onAssessment={() => update({ phase: "chooseDepth" })} onLibrary={() => update({ phase: "library" })} />;
-  if (state.phase === "library") return <LibraryScreen state={state} onBack={() => update({ phase: "home" })} onAssessment={() => update({ phase: "chooseDepth" })} onMini={(id) => update({ miniId: id, phase: (state.miniResults || {})[id] ? "miniResult" : "miniRun" })} onRetake={(id) => update({ miniId: id, phase: "miniRun" })} />;
+  if (state.phase === "library") return <LibraryScreen state={state} onSOS={toSOS} onJoin={() => goJoin("library")} onBack={() => update({ phase: "home" })} onAssessment={() => update({ phase: "chooseDepth" })} onMini={(id) => update({ miniId: id, phase: (state.miniResults || {})[id] ? "miniResult" : "miniRun" })} onRetake={(id) => update({ miniId: id, phase: "miniRun" })} />;
   if (state.phase === "miniRun") return <MiniRunner miniId={state.miniId} answers={(state.miniAnswers || {})[state.miniId]} onBack={() => update({ phase: "library" })} onDone={(a) => { const res = scoreMini(state.miniId, a); track("mini_done", state.miniId); update({ miniAnswers: { ...(state.miniAnswers || {}), [state.miniId]: a }, miniResults: { ...(state.miniResults || {}), [state.miniId]: res }, phase: "miniResult" }); }} />;
   if (state.phase === "miniResult") return <MiniResult miniId={state.miniId} result={(state.miniResults || {})[state.miniId]} onBack={() => update({ phase: "library" })} onRetake={() => update({ phase: "miniRun" })} />;
-  if (state.phase === "welcome") return <Welcome onStart={() => update({ phase: state.unlocked ? (Object.keys(answers).length ? "intro" : "warmup") : "unlock" })} resumable={state.part > 0 || state.item > 0} />;
+  if (state.phase === "welcome") return <Welcome onStart={() => update({ afterJoin: "warmup", phase: hasAccess(state) ? (Object.keys(answers).length ? "intro" : "warmup") : "unlock" })} resumable={state.part > 0 || state.item > 0} />;
   /* Answers save on every tap already; "Save & pick up later" also remembers
      exactly where someone was, so Home can drop them straight back in. */
   const saveExit = (at) => { track("save_exit", PARTS[state.part] && PARTS[state.part].id); update({ phase: "home", paused: { at, part: state.part, item: at === "run" ? state.item : 0, arc: state.arc } }); };
-  if (state.phase === "unlock") return <Unlock onUnlock={() => update({ unlocked: true, phase: "warmup" })} onHome={() => update({ phase: "home" })} />;
+  if (state.phase === "unlock") return <Join state={state} note={state.joinNote}
+    onCode={() => update({ unlocked: true, joinNote: null, phase: state.afterJoin || "home", afterJoin: null })}
+    onRestored={(m) => update({ membership: { ...m, checkedAt: Date.now() }, hadMembership: true, joinNote: null, phase: state.afterJoin || "home", afterJoin: null })}
+    onAccount={() => update({ phase: "account" })}
+    onHome={() => update({ phase: "home", joinNote: null })} />;
   if (state.phase === "warmup") return <Warmup onDone={() => update({ phase: "intro" })} onExit={() => saveExit("intro")} />;
   if (state.phase === "explainer") return <Explainer onDone={() => update({ phase: "home", seenExplainer: true })} />;
   // Same deck, reachable any time from Home or Settings.
   if (state.phase === "explainerAgain") return <Explainer done="Done" onDone={() => update({ phase: state.explainerBack || "home" })} />;
-  if (state.phase === "chooseDepth") return <ChooseDepth state={state} onPick={(arc) => { const parts = arcParts(arc, state.completedAt); const first = parts[0] ?? 0; update({ arc, part: first, item: 0, paused: null, phase: state.unlocked ? "warmup" : "unlock" }); }} onBack={() => update({ phase: "home" })} />;
+  if (state.phase === "chooseDepth") return <ChooseDepth state={state} onPick={(arc) => { const parts = arcParts(arc, state.completedAt); const first = parts[0] ?? 0; update({ arc, part: first, item: 0, paused: null, afterJoin: "warmup", phase: hasAccess(state) ? "warmup" : "unlock" }); }} onBack={() => update({ phase: "home" })} />;
   /* The badge comes straight after the last part, before any report exists for
      the answers just given, so "See my report" has to write it first. Going
      straight to "report" landed on an empty page. */
   if (state.phase === "badge") return <BadgeScreen state={state} onDone={() => update({ phase: "generating" })} />;
-  if (state.phase === "intro") return <PartIntro part={PARTS[state.part]} n={state.part} onGo={() => update({ phase: "run" })} onExit={() => saveExit("intro")} />;
+  if (state.phase === "intro") return <PartIntro part={PARTS[state.part]} arc={state.arc} completedAt={state.completedAt} retaking={state.retaking} onGo={() => update({ phase: "run" })} onExit={() => saveExit("intro")} />;
   if (state.phase === "run") return <Runner state={state} update={update} onExit={() => saveExit("run")} />;
   if (state.phase === "glimmer") return <Glimmer part={PARTS[state.part]} answers={answers} scores={scores} onNext={() => {
     const completedAt = { ...(state.completedAt || {}), [PARTS[state.part].id]: Date.now() };
@@ -377,8 +466,8 @@ function Shell({ dark, children, footer }) {
 }
 
 const WARMUP = [
-  { line: "Take a breath. This isn't a test you can fail.", sub: "There are no wrong answers here. Only true ones and polite ones." },
-  { line: "Answer as you are, not as the job advert wants you to be.", sub: "No one is scoring you against anyone. The only person who loses from a polished answer is you." },
+  { line: "Take a breath. Settle in.", sub: "Go with what's true for you. A polite answer only gets you a polite report." },
+  { line: "Answer as you are on an ordinary Tuesday.", sub: "Nobody's comparing you with anyone. This is only for you." },
   { line: "Ten to fifteen minutes to begin. Slow is fine.", sub: "You can stop after that with a real report in hand, or keep going. Your answers stay on this device." },
 ];
 
@@ -414,52 +503,112 @@ function Welcome({ onStart, resumable }) {
         <Wordmark light />
         <p className="kicker">Essence Recovery Assessment</p>
         <h1 className="display"><Words text="You weren't built for a box." delay={200} /></h1>
-        <p className="lede">This app helps you understand yourself — and use what you learn.</p>
+        <p className="lede">Get to know how you work, then put it to use.</p>
         <div className="steps">
-          <div className="step"><span className="stepn">1</span><span>Answer questions about yourself. Ten to fifteen minutes for your first profile, and you can go deeper whenever you want. It saves as you go.</span></div>
-          <div className="step"><span className="stepn">2</span><span>Get a written report about you — how you think, what you enjoy, what matters to you. Yours to keep.</span></div>
-          <div className="step"><span className="stepn">3</span><span>Talk it over with your AI Companion for 7 days. Ask it anything about your life and work.</span></div>
+          <div className="step"><span className="stepn">1</span><span>Answer some questions about yourself. Ten to fifteen minutes for a first look. It saves as you go, and you can go deeper whenever you like.</span></div>
+          <div className="step"><span className="stepn">2</span><span>Get a report written about you: how you think, what you enjoy, what matters to you. Yours to keep.</span></div>
+          <div className="step"><span className="stepn">3</span><span>Talk it over with your Companion, part of membership. Ask it anything about your life and work.</span></div>
         </div>
-        <p className="lede dim">Built on trusted psychology (Big Five, CHC, Goleman EI, RIASEC, Schwartz Values). A self-discovery tool, not a medical test. Your answers stay on your phone — no one can read them, iSHKiY included.</p>
+        <p className="lede dim">Built on established psychology (Big Five, CHC, Goleman EI, RIASEC, Schwartz Values). It's for self-discovery; anything medical belongs with a professional. Your answers stay on your phone, private to you.</p>
         <button className="btn gold" onClick={onStart}>{resumable ? "Continue where you left off" : "Begin"}</button>
       </div>
     </Shell>
   );
 }
 
-function Unlock({ onUnlock, onHome }) {
-  const [code, setCode] = useState(""); const [err, setErr] = useState(false); const [busy, setBusy] = useState(false);
+/* The paywall. One low price to begin, the report included, then membership
+   rolls monthly or yearly. Founding access codes still work, tucked under the
+   plans, and a member on a new device can restore by signing in. */
+function Join({ state, note, onCode, onRestored, onAccount, onHome }) {
+  const intro = !state.hadMembership;
+  const [plan, setPlan] = useState("monthly");
+  const [agree, setAgree] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+  const [showCode, setShowCode] = useState(isPreviewHost());
+  const [code, setCode] = useState(""); const [codeErr, setCodeErr] = useState(false);
+  const session = useSession();
+  const renewOn = fmtDate(Date.now() + 30 * DAY);
+  const pay = async () => {
+    if (!agree || busy) return;
+    setBusy(true); setErr("");
+    try { track("checkout_start", plan); const d = await postJSON("/api/checkout", { plan, intro }); window.location.href = d.url; }
+    catch (e) { setErr(e.message); setBusy(false); }
+  };
   const check = async () => {
-    setBusy(true); const h = await sha256(code); setBusy(false);
-    if (CODE_HASHES.includes(h) || (isPreviewHost() && h === PREVIEW_HASH)) onUnlock(); else setErr(true);
+    const h = await sha256(code);
+    if (CODE_HASHES.includes(h) || (isPreviewHost() && h === PREVIEW_HASH)) onCode(); else setCodeErr(true);
+  };
+  const restore = async () => {
+    setBusy(true); setErr("");
+    try { onRestored(await postJSON("/api/restore", { access_token: session.access_token })); }
+    catch (e) { setErr(e.message); setBusy(false); }
   };
   return (
     <Shell dark>
-      <div className="welcome">
+      <div className="welcome join">
         <button className="saveexit light" onClick={onHome}>← Home</button>
-        <p className="kicker">Founding access</p>
-        <h1 className="display sm">Enter your access code</h1>
-        <p className="lede dim">Your code came with your payment confirmation. £29 gets you: the full assessment, your written report (yours to keep), a share card, and 7 days with your AI Companion — a coach, a mentor and a sounding voice that have actually read you.</p>
-        <input className="code" value={code} onChange={(e) => { setCode(e.target.value); setErr(false); }} onKeyDown={(e) => e.key === "Enter" && code && check()} placeholder="e.g. ERA-XXXX-XXXX" autoFocus spellCheck="false" />
-        {err && <p className="err">That code isn't recognised. Check for typos — codes aren't case-sensitive.</p>}
-        {isPreviewHost() && <p className="tnote">This is a preview build, so the founder code <strong>PREVIEW</strong> works here. It does not work on the live site.</p>}
-        <button className="btn gold" disabled={!code || busy} onClick={check}>{busy ? "Checking…" : "Continue"}</button>
-        <a className="paylink" href="STRIPE_PAYMENT_LINK" target="_blank" rel="noreferrer">Don't have a code? Become a founding member →</a>
+        <p className="kicker">Membership</p>
+        <h1 className="display sm">Start with your report.</h1>
+        <p className="lede dim">The full assessment and your written report, yours to keep whatever you decide later. Then your Companion, the Library of You, and real people when you're ready.</p>
+        {note && <p className="joinnote">{note}</p>}
+        <div className="plans" role="radiogroup" aria-label="Choose a plan">
+          <button role="radio" aria-checked={plan === "monthly"} className={"plan" + (plan === "monthly" ? " sel" : "")} onClick={() => setPlan("monthly")}>
+            <span className="planname">Monthly</span>
+            <span className="planprice">{intro ? PRICE.intro : PRICE.monthly}<small>{intro ? " today" : " a month"}</small></span>
+            <span className="planline">{intro ? `Then ${PRICE.monthly} a month from ${renewOn}.` : "Rolling monthly."} Cancel any time.</span>
+          </button>
+          <button role="radio" aria-checked={plan === "annual"} className={"plan" + (plan === "annual" ? " sel" : "")} onClick={() => setPlan("annual")}>
+            <span className="plansave">Save 42%</span>
+            <span className="planname">Annual</span>
+            <span className="planprice">{PRICE.annual}<small> a year</small></span>
+            <span className="planline">About £7.50 a month. We'll email you before it renews.</span>
+          </button>
+        </div>
+        <label className="agree">
+          <input type="checkbox" checked={agree} onChange={(e) => setAgree(e.target.checked)} />
+          <span>Start my membership now. I understand my report is delivered straight away, so my 14-day right to cancel ends once it is, and that I can cancel membership at any time from Settings.</span>
+        </label>
+        {err && <p className="err">{err}</p>}
+        <button className="btn gold" disabled={!agree || busy} onClick={pay}>{busy ? "One moment…" : `Continue to payment · ${plan === "annual" ? PRICE.annual : intro ? PRICE.intro : PRICE.monthly}`}</button>
+        <p className="tnote">Secure payment by Stripe. Prices include VAT where it applies.</p>
+        <div className="joinalt">
+          {session
+            ? <button className="cimport" onClick={restore} disabled={busy}>Already a member? Restore it on this device</button>
+            : <button className="cimport" onClick={onAccount}>Already a member? Sign in to restore it</button>}
+          <button className="cimport" onClick={() => setShowCode(!showCode)}>{showCode ? "Hide access code" : "Have a founding access code?"}</button>
+        </div>
+        {showCode && (
+          <div className="codebox">
+            <input className="code" value={code} onChange={(e) => { setCode(e.target.value); setCodeErr(false); }} onKeyDown={(e) => e.key === "Enter" && code && check()} placeholder="e.g. ERA-XXXX-XXXX" spellCheck="false" />
+            {codeErr && <p className="err">That code didn't work. Check for typos. Capitals don't matter.</p>}
+            {isPreviewHost() && <p className="tnote">Preview build: Stripe is in test mode. Pay with card <strong>4242 4242 4242 4242</strong>, any future date, any CVC. The founder code <strong>PREVIEW</strong> also works here, and never on the live site.</p>}
+            <button className="btn ghostlight" disabled={!code} onClick={check}>Use code</button>
+          </div>
+        )}
       </div>
     </Shell>
   );
 }
 
-function Dots({ n }) {
-  return (<div className="dots" aria-hidden="true">{PARTS.map((p, i) => (<span key={p.id} className={"dot" + (i < n ? " done" : i === n ? " now" : "")} />))}</div>);
+/* The parts of the route someone chose, in the order they walk them. Three for
+   a first look, six for a fuller picture, nine for the whole portrait. The dots
+   and the "Part 2 of 3" label both read from this, so they always match. */
+const routeIds = (arc) => (arc === "starter" ? STARTER_PARTS : arc === "core" ? [...STARTER_PARTS, ...CORE_ADDED] : LADDER);
+const routeLabel = (arc, partId, retaking) => {
+  const ids = routeIds(arc), k = ids.indexOf(partId);
+  return retaking || k < 0 ? "A part, again" : `Part ${k + 1} of ${ids.length}`;
+};
+function Dots({ arc, completedAt, current }) {
+  return (<div className="dots" aria-hidden="true">{routeIds(arc).map((id) => (<span key={id} className={"dot" + (id === current ? " now" : (completedAt || {})[id] ? " done" : "")} />))}</div>);
 }
 
 /* The breath cue stays put under the circle; only the advice below it turns,
    and slowly, so it can be read while breathing rather than chased. */
 const MINDSET = [
   "Put your feet flat. Let your shoulders drop.",
-  "There are no right answers here. Only true ones.",
-  "Answer as you are today — not as you think you should be.",
+  "First answers are usually the honest ones.",
+  "Answer as you are today.",
 ];
 const BREATH_HALF = 4000; // half of .mindpulse's 8s cycle: in as it grows, out as it settles
 function BreathCue() {
@@ -476,7 +625,7 @@ function BreathDiagram() {
     </svg>
   );
 }
-function PartIntro({ part, n, onGo, onExit }) {
+function PartIntro({ part, arc, completedAt, retaking, onGo, onExit }) {
   const [ready, setReady] = useState(false);
   const [line, setLine] = useState(0);
   useEffect(() => { const t = setInterval(() => setLine((v) => (v + 1) % MINDSET.length), 9000); return () => clearInterval(t); }, []);
@@ -484,9 +633,9 @@ function PartIntro({ part, n, onGo, onExit }) {
   return (
     <Shell>
       <div className="exitrow"><SaveExit onExit={onExit} /></div>
-      <Dots n={n} />
+      <Dots arc={arc} completedAt={completedAt} current={part.id} />
       <div className={"intro mindset" + (ready ? " leaving" : "")}>
-        <p className="kicker gold">{part.kicker}</p>
+        <p className="kicker gold">{routeLabel(arc, part.id, retaking)}</p>
         <h1 className="display ink"><Words text={part.title} delay={150} /></h1>
         <p className="lede inkdim">{part.intro}</p>
         <div className="mindwrap">
@@ -570,7 +719,7 @@ function Runner({ state, update, onExit }) {
       </div>
     }>
       <div className="exitrow"><SaveExit onExit={onExit} /></div>
-      <Dots n={state.part} />
+      <Dots arc={state.arc} completedAt={state.completedAt} current={part.id} />
       <QDots i={state.item} total={total} />
       <div className="qwrap" key={item.id}>
         {item.svg === "frames" && <FramesSvg />}
@@ -612,7 +761,7 @@ function Runner({ state, update, onExit }) {
         {item.format === "ACK" && (
           <div className="ft">
             <p className="consent">{item.text}</p>
-            <button className="btn ink" onClick={() => setAnswer(true)}>Understood — write my report</button>
+            <button className="btn ink" onClick={() => setAnswer(true)}>Understood. Write my report</button>
           </div>
         )}
       </div>
@@ -727,11 +876,11 @@ function Tiles({ scores }) {
   const [open, setOpen] = useState(null);
   const t = scores.thinking, ei = scores.ei, b5 = scores.big5;
   const tiles = [
-    { id: "think", acc: "#5C7CA3", label: "How you think", stat: t.lean, art: <MiniBars pairs={[[t.lean, 100], ["", 55]].slice(0, 1).concat([["numerical", t.numerical], ["spatial", t.spatial], ["verbal", t.verbal], ["logical", t.logical]].filter(([, v]) => v != null).sort((a, b) => b[1] - a[1]).slice(0, 3))} />, detail: [["Numerical", t.numerical], ["Spatial", t.spatial], ["Verbal", t.verbal], ["Logical", t.logical]].map(([k, v]) => [k, v == null ? "not taken yet" : scoreLine("think", v)]), note: "Accuracy by problem type. The lean is your first language for a hard problem — not a ceiling on the others.", about: "Grounded in Cattell–Horn–Carroll (CHC) theory, the most widely used map of human cognitive abilities. Our short, untimed puzzles sample four problem types to read your thinking style. What it can't claim: this is a style indicator, not an IQ measure — a handful of puzzles can suggest how you approach problems, not the size of the engine." },
-    { id: "heart", acc: "#C06B5C", label: "How you carry yourself", stat: "the compass", art: <MiniCompass ei={ei} />, detail: [["Self-awareness", scoreLine("heart", ei.selfAwareness)], ["Social awareness", scoreLine("heart", ei.socialAwareness)], ["Self-management", scoreLine("heart", ei.selfManagement)], ["With others", scoreLine("heart", ei.relationshipManagement)]], note: "Goleman's four domains, 0–100 from your answers. The needle points where you're strongest.", about: "Based on Daniel Goleman's four-domain model of emotional intelligence: knowing yourself, steadying yourself, reading others, and working with others. What it can't claim: this is self-report — it measures how you see yourself, which is itself useful information, but a colleague might score you differently." },
-    { id: "pull", acc: "#D4A547", label: "What pulls you", stat: scores.riasec.top + " · " + scores.riasec.second, art: <MiniPetals riasec={scores.riasec} />, detail: ["R", "I", "A", "S", "E", "C"].map((c) => [{ R: "Making", I: "Understanding", A: "Creating", S: "People", E: "Starting", C: "Ordering" }[c], scoreLine("pull", scores.riasec.scores[c])]), note: "The gold petal is the strongest pull. The faint one is second. Low petals matter too — they're honest about what drains you.", about: "John Holland's RIASEC model — six themes of vocational interest, used in career guidance for over sixty years. People tend to thrive where their environment matches their strongest themes. What it can't claim: interests aren't abilities. Loving a thing and being built for it usually travel together, but not always." },
-    { id: "values", acc: "#6F8F5E", label: "What you're for", stat: scores.values.ranked[0], art: <MiniBeam values={scores.values} />, detail: scores.values.ranked.map((v) => [v, scoreLine("values", scores.values.scores[v]) + (scores.values.fcWins[v] ? " · you chose it often" : "")]), note: "Ranked by importance, weighted by what you chose when forced to pick. Forced choices tell the truth.", about: "Drawn from Shalom Schwartz's theory of basic human values — a model validated across more than eighty countries. We sample six values most alive in working life, and weight the forced choices heavily because trade-offs reveal what ratings flatter. What it can't claim: values shift with seasons of life. This is your now, not your always." },
-    { id: "work", acc: "#8A6FA0", label: "How you work", stat: Object.entries(b5).sort((a, b) => b[1] - a[1])[0][0].toLowerCase(), art: <MiniBars pairs={Object.entries(b5).sort((a, b) => b[1] - a[1])} />, detail: Object.entries(b5).map(([k, v]) => [k, scoreLine("work", v)]), note: "The Big Five, 0–100. Steadiness is Neuroticism turned right-side up: high means the weather passes through you quickly.", about: "The Big Five is the most replicated personality model in psychology — five broad traits that describe how people differ in daily working life. We present Neuroticism as Steadiness (same scale, inverted) because it reads truer that way. What it can't claim: five items per trait gives a sketch, not a portrait. The written report adds the shading." },
+    { id: "think", acc: "#5C7CA3", label: "How you think", stat: t.lean, art: <MiniBars pairs={[[t.lean, 100], ["", 55]].slice(0, 1).concat([["numerical", t.numerical], ["spatial", t.spatial], ["verbal", t.verbal], ["logical", t.logical]].filter(([, v]) => v != null).sort((a, b) => b[1] - a[1]).slice(0, 3))} />, detail: [["Numerical", t.numerical], ["Spatial", t.spatial], ["Verbal", t.verbal], ["Logical", t.logical]].map(([k, v]) => [k, v == null ? "not taken yet" : scoreLine("think", v)]), note: "Accuracy by problem type. Your lean is where you reach first on a hard problem. You can still do the rest.", about: "Grounded in Cattell–Horn–Carroll (CHC) theory, the most widely used map of human cognitive abilities. Our short, untimed puzzles sample four problem types to read your thinking style. What it can't claim: this reads style. A handful of puzzles can suggest how you approach problems; it takes far more to measure ability, and we don't try." },
+    { id: "heart", acc: "#C06B5C", label: "How you carry yourself", stat: "the compass", art: <MiniCompass ei={ei} />, detail: [["Self-awareness", scoreLine("heart", ei.selfAwareness)], ["Social awareness", scoreLine("heart", ei.socialAwareness)], ["Self-management", scoreLine("heart", ei.selfManagement)], ["With others", scoreLine("heart", ei.relationshipManagement)]], note: "Goleman's four domains, 0–100 from your answers. The needle points where you're strongest.", about: "Based on Daniel Goleman's four-domain model of emotional intelligence: knowing yourself, steadying yourself, reading others, and working with others. What it can't claim: this is self-report. It measures how you see yourself, which is useful in itself, and a colleague might score you differently." },
+    { id: "pull", acc: "#D4A547", label: "What pulls you", stat: scores.riasec.top + " · " + scores.riasec.second, art: <MiniPetals riasec={scores.riasec} />, detail: ["R", "I", "A", "S", "E", "C"].map((c) => [{ R: "Making", I: "Understanding", A: "Creating", S: "People", E: "Starting", C: "Ordering" }[c], scoreLine("pull", scores.riasec.scores[c])]), note: "The gold petal is the strongest pull. The faint one is second. Low petals matter too. They're honest about what drains you.", about: "John Holland's RIASEC model: six themes of vocational interest, used in career guidance for over sixty years. People tend to thrive where their environment matches their strongest themes. What it can't claim: interests and abilities are different things. Loving a thing and being built for it usually travel together, though not always." },
+    { id: "values", acc: "#6F8F5E", label: "What you're for", stat: scores.values.ranked[0], art: <MiniBeam values={scores.values} />, detail: scores.values.ranked.map((v) => [v, scoreLine("values", scores.values.scores[v]) + (scores.values.fcWins[v] ? " · you chose it often" : "")]), note: "Ranked by importance, weighted by what you chose when forced to pick. Forced choices tell the truth.", about: "Drawn from Shalom Schwartz's theory of basic human values, a model validated across more than eighty countries. We sample six values most alive in working life, and weight the forced choices heavily because trade-offs reveal what ratings flatter. What it can't claim: values shift with the seasons of a life. This is your now." },
+    { id: "work", acc: "#8A6FA0", label: "How you work", stat: Object.entries(b5).sort((a, b) => b[1] - a[1])[0][0].toLowerCase(), art: <MiniBars pairs={Object.entries(b5).sort((a, b) => b[1] - a[1])} />, detail: Object.entries(b5).map(([k, v]) => [k, scoreLine("work", v)]), note: "The Big Five, 0–100. Steadiness is Neuroticism turned right-side up: high means the weather passes through you quickly.", about: "The Big Five is the most replicated personality model in psychology: five broad traits that describe how people differ in daily working life. We present Neuroticism as Steadiness (same scale, inverted) because it reads truer that way. What it can't claim: five items per trait gives a sketch. The written report adds the shading." },
   ];
   const mk = { think: "thinking", heart: "ei", pull: "riasec", values: "values", work: "big5" };
   const shown = (scores.measured ? tiles.filter((t) => scores.measured[mk[t.id]]) : tiles);
@@ -775,7 +924,7 @@ function shareCardSvg(scores, name) {
   <line x1="60" y1="180" x2="1020" y2="180" stroke="rgba(245,241,232,0.14)" stroke-width="2"/>
   <text x="90" y="300" font-family="Inter,Arial,sans-serif" font-size="25" letter-spacing="5" fill="#D4A547">ESSENCE RECOVERY ASSESSMENT &amp; COMPANION</text>
   ${pullT}${chooseT}
-  <text x="90" y="1130" font-family="Georgia,serif" font-style="italic" font-size="46" fill="#D4A547">The box was never you.</text>\n  <text x="90" y="1178" font-family="Inter,Arial,sans-serif" font-size="27" fill="rgba(245,241,232,0.55)">What would it read in you? — ishkiy-era.netlify.app</text>
+  <text x="90" y="1130" font-family="Georgia,serif" font-style="italic" font-size="46" fill="#D4A547">The box was never you.</text>\n  <text x="90" y="1178" font-family="Inter,Arial,sans-serif" font-size="27" fill="rgba(245,241,232,0.55)">What would it read in you? ishkiy-era.netlify.app</text>
   <text x="90" y="1250" font-family="Georgia,serif" font-weight="700" font-size="40" fill="#F5F1E8">${"ı"}SHK${"ı"}Y</text>
   <circle cx="96" cy="1214" r="5.5" fill="#D4A547"/><circle cx="190" cy="1214" r="5.5" fill="#D4A547"/>
   <text x="990" y="1250" text-anchor="end" font-family="Inter,Arial,sans-serif" font-size="28" fill="rgba(245,241,232,0.6)">#NotBuiltForABox</text>
@@ -809,25 +958,25 @@ const QUOTES = [
   "Stay yourself. The rest follows.",
   "Notice. Name it. Leave the box.",
   "You were someone before the job title. You still are.",
-  "A good Tuesday is not too much to ask.",
-  "Quiet is not empty. It's where you hear yourself.",
-  "The ladder isn't the only shape a life can take.",
+  "A good Tuesday is a reasonable thing to want.",
+  "Quiet is where you hear yourself.",
+  "A life can take more shapes than a ladder.",
   "What drains you is data. What lights you is direction.",
-  "You don't need fixing. You need finding.",
+  "Some of you is still waiting to be found.",
   "The costume comes off. The person was always underneath.",
   "Slow is fine. Honest is everything.",
   "Nobody else has your pattern. That's the point.",
   "The cage door was never locked.",
   "Ambition without self-knowledge is just running.",
   "You can be grateful and still want more.",
-  "The work should fit the human, not the other way round.",
+  "Work should be shaped around the person doing it.",
   "Some questions deserve more than a spare minute.",
   "What you avoid is a map too.",
   "Belonging starts with belonging to yourself.",
   "You are allowed to outgrow what once fit.",
   "The hardest person to meet is yourself. Worth it, though.",
-  "Rest is not a reward. It's a requirement.",
-  "Your story isn't behind you. You're holding the pen.",
+  "Rest is part of the work.",
+  "You're still holding the pen.",
   "Being good at it and being for it are different things.",
   "The world needs what you almost didn't say.",
   "Comparison is a box with mirrors for walls.",
@@ -836,7 +985,7 @@ const QUOTES = [
   "You can't read the label from inside the jar. So we look together.",
   "What pulls you was never random.",
   "A life is built on Tuesdays.",
-  "Home is a direction, not an address.",
+  "Home is a direction you keep walking in.",
 ];
 const qNext = () => {
   try {
@@ -922,7 +1071,7 @@ const LENS_TIER = { attachment: "FREE", friend: "FREE", approach: "FREE" };
 const LENS_ORDER = ["attachment", "friend", "room", "fight", "approach", "builder", "stuck", "pressure", "resilience", "money", "enough", "narrative"];
 const EXPANSIONS = [
   ...LENS_ORDER.map((id) => ({ subject: MINIS[id].subject, name: MINIS[id].name, mini: id, from: MINIS[id].from, research: MINIS[id].research, line: MINIS[id].blurb, tier: LENS_TIER[id] || "MEMBERSHIP" })),
-  { subject: "becoming", name: "The Partner Series", from: "With thinkers you already trust", research: { what: "Each Partner lens is built with a writer, researcher or practitioner whose ideas have changed how people live and work. We distil their philosophy with them, test the questions together, and they sign off every word of the read you get back.", limits: "Partner lenses are grounded in one person's thinking, not a body of research, and we'll always say which is which. Names are announced once agreements are signed." }, line: "Their life's philosophy, distilled with them into a mirror you can take. Conversations underway — names when the ink is dry.", tier: "PARTNER", status: "In conversation" },
+  { subject: "becoming", name: "The Partner Series", from: "With thinkers you already trust", research: { what: "Each Partner lens is built with a writer, researcher or practitioner whose ideas have changed how people live and work. We distil their philosophy with them, test the questions together, and they sign off every word of the read you get back.", limits: "Partner lenses are grounded in one person's thinking rather than a body of research, and we'll always say which is which. Names are announced once agreements are signed." }, line: "Their life's philosophy, distilled with them into a mirror you can take. Conversations underway. Names when the ink is dry.", tier: "PARTNER", status: "In conversation" },
 ];
 const SUBJ_ACC = { closeness: "#C06B5C", drive: "#5C7CA3", mind: "#6F8F5E", money: "#D4A547", becoming: "#8A6FA0", sos: "#C0504D" };
 /* One symbol per subject, drawn on a 24-unit grid so the same paths serve the
@@ -985,7 +1134,7 @@ function SOSSection() {
           <div><p className="subjname">SOS</p><p className="subjline">If things feel like too much right now, you don't have to hold it on your own.</p></div>
         </div>
       </div>
-      <p className="sosnote">iSHKiY is a mirror, not a crisis service. These people are trained for exactly this, they're free, and none of them will judge you for calling. If you're in immediate danger, call <b>999</b> or go to A&amp;E.</p>
+      <p className="sosnote">iSHKiY can help you think. For a moment like this, talk to a person. These people are trained for exactly this. They're free, and they'll be kind. If you're in immediate danger, call <b>999</b> or go to A&amp;E.</p>
       <div className="sosgrid">
         {SOS_LINES.map((o) => (
           <div key={o.name} className="sostile">
@@ -1028,7 +1177,7 @@ function ResearchNote({ from, research }) {
 
 /* A lens's read: the words, the bars, one thing to try. Used inline in the
    Library and on the lens's own page. */
-function LensInsights({ id, result }) {
+function LensInsights({ id, result, onSOS }) {
   const r = readMini(id, result);
   if (!r) return <p className="libline">This result was saved in an older format. Take the lens again to see your insights.</p>;
   return (
@@ -1040,12 +1189,12 @@ function LensInsights({ id, result }) {
       ))}</div>
       {r.paras.map((t, k) => <p key={k} className="insp">{t}</p>)}
       {r.tryThis && <p className="instry"><strong>Try this.</strong> {r.tryThis}</p>}
-      {r.care && <a className="rtbtn soscta" href="#sos">Talk to someone now →</a>}
+      {r.care && (onSOS ? <button className="rtbtn soscta" onClick={onSOS}>Talk to someone now →</button> : <a className="rtbtn soscta" href="#sos">Talk to someone now →</a>)}
     </div>
   );
 }
 
-function LensTile({ e, done, open, onMini, onRetake, mailto }) {
+function LensTile({ e, done, open, onMini, onRetake, mailto, onSOS }) {
   const [showIns, setShowIns] = useState(false);
   const [denied, deny] = useDenied();
   const locked = e.mini && !open && !done;
@@ -1059,24 +1208,26 @@ function LensTile({ e, done, open, onMini, onRetake, mailto }) {
       {done ? (
         <>
           <button className="insbtn" aria-expanded={showIns} onClick={() => { if (!showIns) track("view_insights", e.mini); setShowIns(!showIns); }}>Your insights <span aria-hidden="true">{showIns ? "▴" : "▾"}</span></button>
-          <Unfold open={showIns}><div className="insfold"><LensInsights id={e.mini} result={done} /><div className="insacts"><button className="rtbtn" onClick={() => onMini(e.mini)}>Open the full read</button><button className="rtbtn ghostbtn" onClick={() => onRetake(e.mini)}>Take it again</button></div></div></Unfold>
+          <Unfold open={showIns}><div className="insfold"><LensInsights id={e.mini} result={done} onSOS={onSOS} /><div className="insacts"><button className="rtbtn" onClick={() => onMini(e.mini)}>Open the full read</button><button className="rtbtn ghostbtn" onClick={() => onRetake(e.mini)}>Take it again</button></div></div></Unfold>
         </>
       ) : e.mini ? (
         open ? <button className="rtbtn" onClick={() => onMini(e.mini)}>Take this lens</button>
-          : <button className="rtbtn ghostbtn lockpill" aria-disabled="true" onClick={(ev) => { ev.stopPropagation(); deny(); }}><LockIcon size={13} /> <span className="locknote" key={denied}>Opens at Full Portrait — finish all nine parts</span></button>
+          : <button className="rtbtn ghostbtn lockpill" aria-disabled="true" onClick={(ev) => { ev.stopPropagation(); deny(); }}><LockIcon size={13} /> <span className="locknote" key={denied}>Opens at Full Portrait. Finish all nine parts.</span></button>
       ) : <a className="rtbtn ghostbtn" href={mailto(e.name)}>Build this one first</a>}
     </div>
   );
 }
 
-function LibraryScreen({ state, onBack, onMini, onRetake, onAssessment }) {
-  const mailto = (n) => "mailto:ops@ishkiy.com?subject=" + encodeURIComponent("Library vote — " + n) + "&body=" + encodeURIComponent("Build “" + n + "” first. I'd take it.");
+function LibraryScreen({ state, onBack, onMini, onRetake, onAssessment, onSOS, onJoin }) {
+  const mailto = (n) => "mailto:ops@ishkiy.com?subject=" + encodeURIComponent("Library vote: " + n) + "&body=" + encodeURIComponent("Build “" + n + "” first. I'd take it.");
   const miniDone = state.miniResults || {};
   const st = profileStrength(state);
   /* Deploy previews can open the Library early, so it can be checked without
      sitting all nine parts. Never on the live site — same rule as PREVIEW. */
   const [peek, setPeek] = useState(false);
-  const open = st.allParts || peek;
+  // Two keys: a full portrait, and membership (or a founding code).
+  const member = hasAccess(state);
+  const open = (st.allParts && member) || peek;
   const built = EXPANSIONS.filter((e) => e.mini);
   const taken = built.filter((e) => miniDone[e.mini]).length;
   return (
@@ -1084,20 +1235,27 @@ function LibraryScreen({ state, onBack, onMini, onRetake, onAssessment }) {
       <div className="rhead noprint">
         <button className="ghost inkghost" onClick={onBack}>← Home</button>
         <Wordmark />
-        <a className="sosjump" href="#sos" aria-label="SOS: urgent support">SOS</a>
+        <button className="sosjump" onClick={onSOS} aria-label="SOS: urgent support">SOS</button>
       </div>
       <article className="report">
         <p className="kicker gold">The Library of You</p>
         <h1 className="display ink"><Words text="One profile. Deepening for life." delay={150} /></h1>
         <Constellation />
-        <p className="libnarr">Your report was the first light, the centre of the constellation. The Library is where the rest arrive: {built.length} lenses across five parts of life — how you attach and how you fight, what drives you and what stops you, how you carry pressure, what money means to you, and whether the life you're building is the one you meant. Each is ground from research psychologists actually use. Each one you complete adds a star to the same map: your Companion answers with more of you in the room, and what you choose to share with a human arrives richer.</p>
+        <p className="libnarr">Your report was the first light, the centre of the constellation. The Library is where the rest arrive: {built.length} lenses across five parts of life: how you attach and how you fight, what drives you and what stops you, how you carry pressure, what money means to you, and whether the life you're building is the one you meant. Each is ground from research psychologists actually use. Each one you complete adds a star to the same map: your Companion answers with more of you in the room, and what you choose to share with a human arrives richer.</p>
         {!st.allParts && (
           <div className="liblock">
             <p className="liblockk">🔒 Opens at Full Portrait</p>
-            <p className="liblockt">You've finished {st.parts} of {st.totalParts} parts of the assessment. Finish the rest and every lens here opens — including how you attach, how you fight, and where your idea of 'enough' came from.</p>
+            <p className="liblockt">You've finished {st.parts} of {st.totalParts} parts of the assessment. Finish the rest and every lens here opens, including how you attach, how you fight, and where your idea of 'enough' came from.</p>
             <div className="track"><div className="fill" style={{ width: `${Math.round((st.parts / st.totalParts) * 100)}%` }} /></div>
             <button className="btn gold" onClick={onAssessment}>{st.parts ? "Continue the assessment" : "Start the assessment"}</button>
             {isPreviewHost() && <button className="exskip libpeek" onClick={() => setPeek(!peek)}>{peek ? "Preview: lock it again" : "Preview build: open the Library anyway"}</button>}
+          </div>
+        )}
+        {st.allParts && !member && !peek && (
+          <div className="liblock">
+            <p className="liblockk">🔒 Part of membership</p>
+            <p className="liblockt">Your portrait is full, so every lens here is ready for you. The Library opens with iSHKiY membership, alongside your Companion and real humans when you want one.</p>
+            <button className="btn gold" onClick={onJoin}>{state.hadMembership ? `Rejoin · ${PRICE.monthly} a month` : "Become a member"}</button>
           </div>
         )}
         <p className="libtally"><span className="tnum">{taken}</span> of <span className="tnum">{built.length}</span> lenses taken</p>
@@ -1111,7 +1269,6 @@ function LibraryScreen({ state, onBack, onMini, onRetake, onAssessment }) {
               </a>
             );
           })}
-          <a role="listitem" className="subjchip sosclip" href="#sos"><SubjectIcon id="sos" size={16} />SOS</a>
         </div>
 
         {SUBJECTS.map((s) => {
@@ -1130,14 +1287,24 @@ function LibraryScreen({ state, onBack, onMini, onRetake, onAssessment }) {
               </div>
               <p className="subjask">“{s.ask}”</p>
               <div className="libgrid">
-                {inIt.map((e) => <LensTile key={e.name} e={e} done={e.mini ? miniDone[e.mini] : null} open={open} onMini={onMini} onRetake={onRetake} mailto={mailto} />)}
+                {inIt.map((e) => <LensTile key={e.name} e={e} done={e.mini ? miniDone[e.mini] : null} open={open} onMini={onMini} onRetake={onRetake} mailto={mailto} onSOS={onSOS} />)}
               </div>
             </section>
           );
         })}
-        <SOSSection />
         <p className="hquote">The future is not artificial; it's authentically human.</p>
       </article>
+    </div>
+  );
+}
+
+/* SOS lives with the Companion. Help is never behind a lock, though, so until
+   the Companion opens it has a page of its own, reachable from Home. */
+function SOSScreen({ onBack }) {
+  return (
+    <div className="reportpage tint-clay">
+      <div className="rhead noprint"><button className="ghost inkghost" onClick={onBack}>← Home</button><Wordmark /><span /></div>
+      <article className="report"><SOSSection /></article>
     </div>
   );
 }
@@ -1152,20 +1319,51 @@ function useDenied() {
   const deny = () => { setAt(0); requestAnimationFrame(() => setAt(Date.now())); };
   return [at, deny];
 }
-function HomeTile({ title, sub, locked, lockNote, onClick, art, badge, acc, pulse, fresh }) {
+function HomeTile({ title, sub, locked, lockNote, onClick, art, badge, acc, pulse, fresh, cls, kicker, extra }) {
   const [denied, deny] = useDenied();
   const opened = fresh && !locked;
   return (
-    <button className={"htile" + (locked ? " locked" : "") + (pulse ? " pulse" : "") + (denied ? " denied" : "") + (opened ? " fresh" : "")} style={acc ? { "--acc": acc } : undefined}
+    <button className={"htile" + (cls ? " " + cls : "") + (locked ? " locked" : "") + (pulse ? " pulse" : "") + (denied ? " denied" : "") + (opened ? " fresh" : "")} style={acc ? { "--acc": acc } : undefined}
       onClick={locked ? () => { track("locked_tap", title); deny(); } : onClick} aria-disabled={locked}>
       {opened && <span className="opened" aria-hidden="true"><Burst n={18} spread={130} /></span>}
       {opened
         ? <span className="htbadge openbadge"><LockIcon open /> Now open</span>
         : locked ? <span className="htlock" aria-hidden="true"><LockIcon size={15} /></span>
         : badge != null && <span className="htbadge">{badge}</span>}
+      {kicker && <span className="htkick">{kicker}</span>}
       {art}
       <span className="httitle">{title}</span>
       <span className="htsub" aria-live="polite">{locked ? <span className="locknote" key={denied}>{lockNote}</span> : sub}</span>
+      {extra}
+    </button>
+  );
+}
+
+/* The road ahead, drawn small on the lead card until the first report exists:
+   where they are, and what each step opens. */
+function Journey({ at }) {
+  const steps = [["The assessment", "10–15 min"], ["Your report", "written for you"], ["Your Companion", "three voices"], ["The Library", "at Full Portrait"]];
+  return (
+    <span className="journey" aria-label={`Step ${at + 1} of ${steps.length}`}>
+      {steps.map(([t, s], k) => (
+        <span key={t} className={"jstep" + (k < at ? " done" : k === at ? " now" : "")}>
+          <span className="jdot" aria-hidden="true">{k < at ? "✓" : k + 1}</span>
+          <span className="jtext"><span className="jt">{t}</span><span className="js">{s}</span></span>
+        </span>
+      ))}
+    </span>
+  );
+}
+
+/* A slim row for the quieter corners of Home: present, one tap away, but not
+   asking for attention the way the cards above do. */
+function QuietRow({ title, sub, onClick, art, badge, cls }) {
+  return (
+    <button className={"qrow" + (cls ? " " + cls : "")} onClick={onClick}>
+      <span className="qicon" aria-hidden="true">{art}</span>
+      <span className="qtext"><span className="qtitle">{title}</span><span className="qsub">{sub}</span></span>
+      {badge && <span className="qbadge">{badge}</span>}
+      <span className="qchev" aria-hidden="true">›</span>
     </button>
   );
 }
@@ -1234,7 +1432,7 @@ function Home({ state, go, startAssessment, onTheme, onResume }) {
       <div className="home">
         <div className="hrow"><Wordmark /><button className="thememini" onClick={onTheme}>{state.dark ? "Light mode" : "Dark mode"}</button></div>
         <h1 className="display ink hgreet"><Words text={name ? `Welcome back, ${name}.` : "Welcome."} delay={150} /></h1>
-        <p className="lede inkdim hsub">{hasReport ? "Your profile is waiting. So is the team." : reportDue ? "You've done the first look. Your report is ready to be written — the Companion and the rest open once it is." : midway ? "You're partway through. Pick up where you left off — your answers kept your place." : "Everything here begins with ten honest minutes. Start when you're ready."}</p>
+        <p className="lede inkdim hsub">{hasReport ? "Your report's here, and the Companion's free when you are." : reportDue ? "First look done. Your report's ready to be written, and the Companion opens with it." : midway ? "You're partway through. Your answers kept your place." : "It all starts with ten honest minutes. Whenever you're ready."}</p>
         {state.paused && PARTS[state.paused.part] && (
           <button className="resumecard" onClick={() => { track("resume"); onResume(); }}>
             <span className="resumek">Saved for later</span>
@@ -1242,74 +1440,96 @@ function Home({ state, go, startAssessment, onTheme, onResume }) {
             <span className="resumes">{PARTS[state.paused.part].title}{state.paused.at === "run" ? ` · question ${state.paused.item + 1}` : ""} →</span>
           </button>
         )}
-        <div className="hgrid">
-          <HomeTile
-            acc="#5C7CA3"
-            title={hasReport ? "Your profile" : reportDue ? "Write my report" : midway ? "Continue the assessment" : "Take the assessment"}
-            badge={hasReport ? (levelFor(strength) || {}).name : reportDue ? "Ready" : null}
-            pulse={reportDue}
-            sub={hasReport ? "Read your report. Save it, share it, retake parts." : reportDue ? "Your answers are in. Tap and it's written for you in about a minute. You can go deeper afterwards." : "Answer questions about yourself. Your first profile takes 10–15 minutes."}
-            onClick={hasReport || reportDue ? () => { track(reportDue ? "report_recover" : "view_report"); go("report"); } : state.paused ? () => { track("resume"); onResume(); } : () => { track("assessment_start"); startAssessment(); }}
-            art={<svg viewBox="0 0 60 40" className="hart"><circle cx="30" cy="20" r="12" fill="none" stroke={gold} strokeWidth="2"/><circle cx="30" cy="20" r="4" fill={gold}/></svg>}
-          />
-          <HomeTile
-            acc="#D4A547"
-            title="Profile strength"
-            badge={`${strength.score} / 100`}
-            sub={strengthStep ? `${strengthStep.what} to reach ${strengthStep.level.name}.` : "Everything iSHKiY can ask, you've answered."}
-            onClick={() => { track("view_strength"); go("strength"); }}
-            art={<svg viewBox="0 0 60 40" className="hart"><circle cx="30" cy="20" r="13" fill="none" stroke="currentColor" strokeWidth="3" opacity=".22"/><circle cx="30" cy="20" r="13" fill="none" stroke={gold} strokeWidth="3" strokeLinecap="round" strokeDasharray={`${(strength.score / 100) * 81.7} 81.7`} transform="rotate(-90 30 20)"/></svg>}
-          />
-          <HomeTile
-            acc="#D4A547"
-            title="Your companion"
-            sub="Talk about your life and work with three AI voices that know your report and share one memory. Ten questions a day."
-            locked={!hasReport} lockNote="Opens after your report is written."
-            fresh={fresh.companion}
-            onClick={() => go("companion")}
-            badge={hasReport && compLeft != null ? `${compLeft} left today` : null}
-            art={<svg viewBox="0 0 60 40" className="hart"><circle cx="22" cy="20" r="9" fill="none" stroke={gold} strokeWidth="2"/><circle cx="38" cy="20" r="9" fill="none" stroke={faint} strokeWidth="2"/></svg>}
-          />
-          <HomeTile
-            acc="#C06B5C"
-            title="A human, when ready"
-            sub="Real people to talk to, later. You choose what they see of you."
-            locked={!hasReport} lockNote="Opens after your report is written."
-            fresh={fresh.humans}
-            onClick={() => { track("view_humans"); go("humans"); }}
-            art={<RotatingFaces />}
-          />
-          <HomeTile
-            acc="#8A6FA0"
-            title="The Library of You"
-            sub={strength.allParts ? `Twelve lenses on relationships, drive, mind, money and purpose. ${strength.lenses} of ${strength.totalLenses} taken.` : "Twelve lenses on relationships, drive, mind, money and purpose. Browse now; they open at Full Portrait."}
-            badge={strength.allParts ? `${strength.lenses}/${strength.totalLenses} taken` : "Opens at Full Portrait"}
-            fresh={fresh.library}
-            onClick={() => { track("view_library"); go("library"); }}
-            art={<RotatingGlyphs />}
-          />
-          <HomeTile
-            acc="#D4A547"
-            title="The Constellation"
-            sub="Your other iSHKiY apps, connected here. Only if you choose."
-            onClick={() => go("constellation")}
-            badge={(() => { if (!state.constellationInvite) return "Invite only"; const c = state.constellation || {}; const n = Object.values(c).filter((x) => x && x.linked).length; return n ? `${n} connected` : null; })()}
-            art={<svg viewBox="0 0 60 40" className="hart"><circle cx="30" cy="20" r="4" fill={gold}/><circle cx="13" cy="12" r="2.5" fill="none" stroke={gold} strokeWidth="1.6"/><circle cx="47" cy="10" r="2.5" fill="none" stroke="currentColor" strokeWidth="1.6" opacity=".4"/><circle cx="46" cy="31" r="2.5" fill="none" stroke={gold} strokeWidth="1.6"/><circle cx="12" cy="30" r="2.5" fill="none" stroke="currentColor" strokeWidth="1.6" opacity=".4"/><line x1="26.5" y1="18" x2="15.3" y2="13" stroke={gold} strokeWidth="1.2" opacity=".6"/><line x1="33.5" y1="22" x2="43.8" y2="30" stroke={gold} strokeWidth="1.2" opacity=".6"/></svg>}
-          />
-          <HomeTile
-            acc="#6F8F5E"
-            title="Your account"
-            sub="Back up your profile online. Optional. Delete it any time."
-            onClick={() => go("account")}
-            art={<svg viewBox="0 0 60 40" className="hart"><circle cx="30" cy="13" r="6.5" fill="none" stroke={gold} strokeWidth="2"/><path d="M17 34 Q30 24 43 34" fill="none" stroke="currentColor" strokeWidth="2" opacity=".4"/></svg>}
-          />
-        </div>
-        <div className="hlinks">
-          <button className="settingslink" onClick={() => { track("view_explainer"); go("explainerAgain"); }}>How iSHKiY works</button>
-          <button className="settingslink" onClick={() => go("settings")}>Settings & your data</button>
-        </div>
+        {(() => {
+          /* Home leads with what can be done now. One lead card for the main next
+             step, then the other open tiles by how much they offer to do; tiles
+             that aren't open yet sit below, smaller; and the quieter corners of
+             the app (connections, account, settings) are a slim list at the end. */
+          const tiles = [
+            { id: "profile", rank: hasReport ? (compLeft === 0 ? 0 : 2) : 0, node: (cls) => <HomeTile key="profile" cls={cls + (!hasReport ? " firststep" : "")}
+              kicker={hasReport ? null : reportDue ? "Step 2 · Ready now" : midway ? "Step 1 · Carry on" : "Step 1 · Start here"}
+              extra={!hasReport ? <><Journey at={reportDue ? 1 : 0} /><span className="btn gold leadbtn" aria-hidden="true">{reportDue ? "Write my report" : midway ? "Carry on" : "Begin the assessment"}</span></> : null}
+              acc="#5C7CA3"
+              title={hasReport ? "Your profile" : reportDue ? "Write my report" : midway ? "Continue the assessment" : "Take the assessment"}
+              badge={hasReport ? (levelFor(strength) || {}).name : reportDue ? "Ready" : null}
+              pulse={reportDue}
+              sub={hasReport ? "Read your report. Save it, share it, retake parts." : reportDue ? "Your answers are in. Tap and it's written for you in about a minute. You can go deeper afterwards." : midway ? "Your answers kept your place. Everything else here opens from this." : "About ten minutes of questions, and your report is written for you. Everything else here opens from it."}
+              onClick={hasReport || reportDue ? () => { track(reportDue ? "report_recover" : "view_report"); go("report"); } : state.paused ? () => { track("resume"); onResume(); } : () => { track("assessment_start"); startAssessment(); }}
+              art={<svg viewBox="0 0 60 40" className="hart"><circle cx="30" cy="20" r="12" fill="none" stroke={gold} strokeWidth="2"/><circle cx="30" cy="20" r="4" fill={gold}/></svg>}
+            /> },
+            { id: "companion", locked: !hasReport, rank: compLeft === 0 ? 3 : 0.5, node: (cls) => <HomeTile key="companion" cls={cls}
+              acc="#D4A547"
+              title="Your companion"
+              sub="Three voices that have read your report: one listens, one pushes, one takes the long view. Ten questions a day."
+              locked={!hasReport} lockNote="Opens after your report is written."
+              fresh={fresh.companion}
+              onClick={() => go("companion")}
+              badge={hasReport && compLeft != null ? `${compLeft} left today` : null}
+              art={<svg viewBox="0 0 60 40" className="hart"><circle cx="22" cy="20" r="9" fill="none" stroke={gold} strokeWidth="2"/><circle cx="38" cy="20" r="9" fill="none" stroke={faint} strokeWidth="2"/></svg>}
+            /> },
+            { id: "library", rank: strength.allParts ? 1 : 6, node: (cls) => <HomeTile key="library" cls={cls}
+              acc="#8A6FA0"
+              title="The Library of You"
+              sub={strength.allParts ? `Twelve lenses on relationships, drive, mind, money and purpose. ${strength.lenses} of ${strength.totalLenses} taken.` : "Twelve lenses on relationships, drive, mind, money and purpose. Browse now; they open at Full Portrait."}
+              badge={strength.allParts ? `${strength.lenses}/${strength.totalLenses} taken` : "Opens at Full Portrait"}
+              fresh={fresh.library}
+              onClick={() => { track("view_library"); go("library"); }}
+              art={<RotatingGlyphs />}
+            /> },
+            { id: "humans", locked: !hasReport, rank: 4, node: (cls) => <HomeTile key="humans" cls={cls}
+              acc="#C06B5C"
+              title="A human, when ready"
+              sub="Real people to talk to, later. You choose what they see of you."
+              locked={!hasReport} lockNote="Opens after your report is written."
+              fresh={fresh.humans}
+              onClick={() => { track("view_humans"); go("humans"); }}
+              art={<RotatingFaces />}
+            /> },
+            { id: "strength", rank: hasReport ? 5 : 1, node: (cls) => <HomeTile key="strength" cls={cls}
+              acc="#D4A547"
+              title="Your portrait so far"
+              badge={`${strength.score} / 100`}
+              sub={strengthStep ? `${strengthStep.what} to reach ${strengthStep.level.name}.` : "You've answered everything iSHKiY can ask."}
+              onClick={() => { track("view_strength"); go("strength"); }}
+              art={<svg viewBox="0 0 60 40" className="hart"><circle cx="30" cy="20" r="13" fill="none" stroke="currentColor" strokeWidth="3" opacity=".22"/><circle cx="30" cy="20" r="13" fill="none" stroke={gold} strokeWidth="3" strokeLinecap="round" strokeDasharray={`${(strength.score / 100) * 81.7} 81.7`} transform="rotate(-90 30 20)"/></svg>}
+            /> },
+          ];
+          const open = tiles.filter((t) => !t.locked).sort((x, y) => x.rank - y.rank);
+          const soon = tiles.filter((t) => t.locked);
+          const linked = (() => { const c = state.constellation || {}; return Object.values(c).filter((x) => x && x.linked).length; })();
+          return (<>
+            <div className="hgrid">{open.slice(0, 1).map((t) => t.node("lead"))}</div>
+            {!hasReport && <p className="hgroupk hthen">Also open now</p>}
+            <div className="hgrid">{open.slice(1).map((t) => t.node(!hasReport ? "compact" : ""))}</div>
+            {soon.length > 0 && (
+              <section className="hsoon">
+                <p className="hgroupk">Opens soon</p>
+                <div className="hgrid soon">{soon.map((t) => t.node("compact"))}</div>
+              </section>
+            )}
+            <section className="quiet">
+              <p className="hgroupk">Also here</p>
+              <div className="qlist">
+                {!hasReport && <QuietRow title="SOS" sub="If things feel like too much right now, people to talk to. Free, and open now." onClick={() => go("sos")} cls="qsos"
+                  art={<svg viewBox="0 0 24 24" className="qart" stroke="#C0504D"><SubjectGlyph id="sos" /></svg>} />}
+                <QuietRow title="The Constellation" sub="Your other iSHKiY apps, connected here. Only if you choose." badge={!state.constellationInvite ? "Invite only" : linked ? `${linked} connected` : null}
+                  onClick={() => go("constellation")}
+                  art={<svg viewBox="0 0 60 40" className="qart"><circle cx="30" cy="20" r="4" fill={gold}/><circle cx="13" cy="12" r="2.5" fill="none" stroke={gold} strokeWidth="1.6"/><circle cx="47" cy="10" r="2.5" fill="none" stroke="currentColor" strokeWidth="1.6" opacity=".4"/><circle cx="46" cy="31" r="2.5" fill="none" stroke={gold} strokeWidth="1.6"/><circle cx="12" cy="30" r="2.5" fill="none" stroke="currentColor" strokeWidth="1.6" opacity=".4"/><line x1="26.5" y1="18" x2="15.3" y2="13" stroke={gold} strokeWidth="1.2" opacity=".6"/><line x1="33.5" y1="22" x2="43.8" y2="30" stroke={gold} strokeWidth="1.2" opacity=".6"/></svg>} />
+                <QuietRow title="Your account" sub="Back up your profile online. Optional. Delete it any time."
+                  onClick={() => go("account")}
+                  art={<svg viewBox="0 0 60 40" className="qart"><circle cx="30" cy="13" r="6.5" fill="none" stroke={gold} strokeWidth="2"/><path d="M17 34 Q30 24 43 34" fill="none" stroke="currentColor" strokeWidth="2" opacity=".4"/></svg>} />
+                <QuietRow title="How iSHKiY works" sub="The short tour, any time you want it again."
+                  onClick={() => { track("view_explainer"); go("explainerAgain"); }}
+                  art={<svg viewBox="0 0 60 40" className="qart"><circle cx="30" cy="20" r="12" fill="none" stroke={gold} strokeWidth="2"/><path d="M30 17 V26" stroke="currentColor" strokeWidth="2" strokeLinecap="round" opacity=".55"/><circle cx="30" cy="13" r="1.6" fill={gold}/></svg>} />
+                <QuietRow title="Settings & your data" sub="Appearance, export, resets."
+                  onClick={() => go("settings")}
+                  art={<svg viewBox="0 0 60 40" className="qart"><circle cx="30" cy="20" r="5" fill="none" stroke={gold} strokeWidth="2"/><path d="M30 8 V11 M30 29 V32 M18 20 H21 M39 20 H42 M21.5 11.5 L23.6 13.6 M36.4 26.4 L38.5 28.5 M21.5 28.5 L23.6 26.4 M36.4 13.6 L38.5 11.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" opacity=".5"/></svg>} />
+              </div>
+            </section>
+          </>);
+        })()}
         <p className="hquote">The future is not artificial; it's authentically human.</p>
-        <p className="privline">Everything here lives on your device. No one — iSHKiY included — sees your answers or conversations without your explicit say-so. We count anonymous taps (like “assessment started”) to improve the app — never your words.</p>
+        <p className="privline">Everything here stays on your device. Your answers and conversations are yours alone. We count anonymous taps, like “assessment started”, to improve the app. Never your words.</p>
       </div>
     </Shell>
   );
@@ -1337,23 +1557,25 @@ const today = () => new Date().toISOString().slice(0, 10);
 const loadC = () => { try { const c = JSON.parse(localStorage.getItem(CKEY)) || {}; return c.day === today() ? c : { ...c, day: today(), count: 0 }; } catch { return { day: today(), count: 0 }; } };
 const saveC = (c) => { try { localStorage.setItem(CKEY, JSON.stringify(c)); } catch {} };
 
-const COMPANION_SYSTEM = `You are the Report Companion inside iSHKiY's Essence Recovery Assessment. You have read this person's full profile and you speak as someone who knows them properly — plain, warm, honest. UK English. Short sentences. Under 170 words per reply. Same banned words and constructions as the report voice: no leverage/optimise/journey/unlock/delve/navigate, no "it's worth noting", no "not just X but Y", no bullet lists, no exclamation marks.
+const COMPANION_SYSTEM = `You are the Companion inside iSHKiY's Essence Recovery Assessment. You have read this person's whole profile, and you talk with them the way a friend who knows them well would. Under 170 words per reply.
 
-Ground every answer in THEIR profile — their traits, values, interests, AND any Library lenses they have taken (attachment, closeness, conflict, drive, coping, pressure, resilience, money, aspiration, life story), plus their own words. If they have completed a lens, weave what it revealed into your answer when relevant. Describe what their profile shows in plain human language; never quote raw numbers or scores at them — they have no context for a number. Say "you lean toward the long view", not "your openness is 72". If a question can't be answered from the profile plus ordinary life-and-work wisdom, say so plainly rather than inventing.
+${VOICE}
 
-Hard boundaries: you are not a clinician and the assessment is not clinically validated — never diagnose, never advise on medication or medical or legal matters; suggest a proper professional instead. If they express serious distress or thoughts of harming themselves, respond with warmth and care, don't lecture, and gently encourage them to talk to someone they trust or a professional soon. You may be honest that some questions deserve a human. Whenever you state a boundary or disclaimer — that you are not a clinician, that this is not therapy or medical or legal advice, or that a professional is the right next step — wrap that exact sentence in [! and !] markers so it can be shown clearly.
+Ground every answer in THEIR profile: their traits, values and interests, any Library lenses they have taken (attachment, closeness, conflict, drive, coping, pressure, resilience, money, aspiration, life story), and their own words. If they have taken a lens, use what it showed when it helps. Describe what the profile shows in plain language and never quote raw numbers or scores; they have no context for a number. Say "you lean toward the long view" rather than "your openness is 72". If a question can't be answered from the profile and ordinary life-and-work wisdom, say so plainly instead of inventing.
 
-Always answer their newest message first — earlier turns are background only. If the newest message changes subject, follow the new subject fully; never drag the previous topic back in uninvited. You exist to help them think about decisions, work, and direction using what the assessment revealed.
+Hard boundaries: you are not a clinician and the assessment hasn't been clinically validated. Never diagnose, and never advise on medication or on medical or legal matters; suggest a proper professional instead. If they express serious distress or thoughts of harming themselves, switch fully to the QUIET register: warmth and care, no lecture, and a gentle encouragement to talk to someone they trust or a professional soon. You may say honestly that some questions deserve a human. Whenever you state a boundary or disclaimer (that you are not a clinician, that this is not therapy or medical or legal advice, or that a professional is the right next step), wrap that exact sentence in [! and !] markers so it can be shown clearly.
 
-FORMAT — always. Your first line must be a subject line in this exact form: ~three to five words naming what this exchange is about~ then a blank line, then your reply. The subject names THIS message's subject, not the conversation's history. End answers plainly, not with offers of further help.`;
+Always answer their newest message first; earlier turns are background. If the newest message changes subject, follow the new subject fully and never drag the old one back in uninvited. You are here to help them think about decisions, work and direction using what the assessment showed.
+
+FORMAT, always. Your first line is a subject line in this exact form: ~three to five words naming what this exchange is about~ then a blank line, then your reply. The subject names THIS message's subject. End plainly, without offering further help.`;
 
 const MODES = {
   /* Sounding is the old Guide and Sounding board merged — they were the same
      voice wearing two hats. A sounding is how you find the depth of the water
      you're actually in. It stays the default and the place you start. */
-  companion: { label: "Sounding", colour: "#D4A547", vibe: "Quiet and roomy. Space to hear yourself think.", slogan: "Start here. Listens first, and helps you find the depth.", desc: "Reads you back. Good for untangling, and for decisions.", add: "\n\nMODE — SOUNDING: You are in sounding mode, the voice they start with. Your job is to help them hear themselves. Reflect back what they've said in cleaner words than they managed. Name the feeling underneath it if it's visible. Ask gentle questions that untangle rather than steer. Give less advice than Coach or Mentor would — but when they ask a direct question, or when a decision is genuinely on the table, answer it properly rather than hiding behind another question. Be explicit when relevant that this is thinking out loud, not counselling or therapy. If, and only if, what they raise clearly runs deeper than a chat can hold, you may once mention — gently, without selling — that iSHKiY can match them to a real person suited to how they work. Never pitch it twice, and never when it does not fit." },
-  coach: { label: "Coach", colour: "#C06B5C", vibe: "Direct and kind. Believes in you enough to push.", slogan: "Pushes you to act. One step this week.", desc: "Forward motion. Expects you to act.", add: "\n\nMODE — COACH: You are in coach mode. Focus on the next concrete step, not the whole staircase. Hold them to what their profile says they're capable of — kindly, but without letting them off. Each reply should surface one specific action they could take this week, drawn from their scores and words. Ask at most one sharp question per reply. Do not comfort when a nudge serves better." },
-  mentor: { label: "Mentor", colour: "#5C7CA3", vibe: "Unhurried. Sees the years, not just the week.", slogan: "The long view. What usually happens next.", desc: "The longer view. Been there, seen it.", add: "\n\nMODE — MENTOR: You are in mentor mode. Speak from experience and pattern: what tends to happen to people shaped like this, over years not weeks. Offer perspective before advice. Occasionally tell a short, plausible general truth about working life ('people with your pattern often…'). Never invent personal anecdotes or claim a biography. The gift of this mode is patience and the long view." },
+  companion: { label: "Sounding", colour: "#D4A547", vibe: "Quiet and roomy. Space to hear yourself think.", slogan: "Start here. Listens first, and helps you find the depth.", desc: "Reads you back. Good for untangling, and for decisions.", add: "\n\nMODE: SOUNDING. You are the voice they start with, and you lean QUIET. Your job is to help them hear themselves. Reflect back what they've said in cleaner words than they managed. Name the feeling underneath if it's visible. Ask one gentle question that untangles, and leave it there. Give less advice than Coach or Mentor would, though when they ask a direct question or a decision is truly on the table, answer it properly. When it's relevant, say plainly that this is thinking out loud and that counselling is a different thing. If, and only if, what they raise clearly runs deeper than a chat can hold, you may once mention, gently and without selling, that iSHKiY can match them with a real person suited to how they work. Never twice, and never when it doesn't fit." },
+  coach: { label: "Coach", colour: "#C06B5C", vibe: "Direct and kind. Believes in you enough to push.", slogan: "Pushes you to act. One step this week.", desc: "Forward motion. Expects you to act.", add: "\n\nMODE: COACH. You lean SHARP. Find the next concrete step and leave the rest of the staircase for later. Hold them to what their profile says they're capable of, kindly and without letting them off. Each reply names one specific thing they could do this week, drawn from their answers and their words. One sharp question at most. When a nudge serves them better than comfort, nudge. If they sound low or overwhelmed, drop to QUIET first." },
+  mentor: { label: "Mentor", colour: "#5C7CA3", vibe: "Unhurried. Sees the years as well as the week.", slogan: "The long view. What usually happens next.", desc: "The longer view. Been there, seen it.", add: "\n\nMODE: MENTOR. SHARP, with patience. Speak from pattern: what tends to happen to people shaped like this over years. Offer perspective before advice. Now and then, share a short, plausible general truth about working life ('people with your pattern often…'). Never invent personal anecdotes or claim a biography. Your gift is the long view." },
 };
 const VOICES = Object.keys(MODES);
 
@@ -1415,24 +1637,53 @@ const centralMemory = (c, mode) => {
   return `\n\nSHARED MEMORY — everything this person has talked about with any voice:\n${bits.join("\n")}\n\nAll three voices share one memory. If something they raised elsewhere is relevant, use it as naturally as if they had told you directly — never announce that you are reading another conversation, never say "you mentioned to Coach". If they are picking up a thread from another voice, just continue it.`;
 };
 
+/* Read the router's reply. The API is asked for JSON, but this accepts any
+   reasonable shape: JSON (even wrapped in prose or a code fence), or plain
+   "VOICE: coach" lines with bold, display names or a sentence in front. */
+const VOICE_WORDS = { companion: "companion", sounding: "companion", coach: "coach", mentor: "mentor" };
+export function readRoute(raw) {
+  const text = String(raw || "");
+  if (!text.trim()) return null;
+  const j = text.match(/\{[\s\S]*\}/);
+  if (j) {
+    try {
+      const o = JSON.parse(j[0]);
+      const to = VOICE_WORDS[String(o.voice || "").toLowerCase().trim()];
+      if (to) return { to, fresh: o.new !== false && !/^(no|false)$/i.test(String(o.new)), why: typeof o.why === "string" && o.why.trim() ? o.why.trim().slice(0, 60) : null };
+    } catch {}
+  }
+  const v = text.match(/voice\W{0,6}(companion|sounding|coach|mentor)/i) || text.match(/\b(coach|mentor|sounding|companion)\b/i);
+  if (!v) return null;
+  return { to: VOICE_WORDS[v[1].toLowerCase()], fresh: !/new\W{0,6}(no|false)/i.test(text), why: null };
+}
+/* If the router can't be reached at all, read the question itself rather than
+   sending everything to one voice. A rough read, only ever a fallback. */
+export function guessVoice(q) {
+  const t = " " + String(q || "").toLowerCase() + " ";
+  if (/\b(career|years?|long[- ]term|future|in (five|ten|5|10)|path|where (will|does|is) (this|it|that) (go|lead|end)|usually|regret|retire|legacy|eventually|people like me)\b/.test(t)) return "mentor";
+  if (/\b(should i|how (do|can|should) i|what (do|should) i do|next step|decide|decision|choose|plan|stuck|start|stop (putting|procrastinating)|motivat|accountab|this week|today|tomorrow)\b/.test(t)) return "coach";
+  return "companion";
+}
+
 function Pulse({ mode, pulse, busy, onRefresh, canRefresh }) {
   return (
     <div className="pulse">
       <div className="pulsehead">
-        <span className="mlabel"><Avatar kind={mode} size={15} /> Summary — the latest from this conversation</span>
+        <span className="mlabel"><Avatar kind={mode} size={15} /> Where this conversation has got to</span>
         <button className="pulsebtn" disabled={busy || !canRefresh} onClick={onRefresh}>{busy ? "Listening…" : "Refresh"}</button>
       </div>
       {pulse
         ? <div className="pulsebody" dangerouslySetInnerHTML={{ __html: md(pulse) }} />
-        : <p className="pulsebody dimtext">{canRefresh ? "A few exchanges in, the essence of this conversation gathers here — what you're circling, what you've decided, what's worth keeping." : "Start the conversation. The essence gathers here as you go."}</p>}
+        : <p className="pulsebody dimtext">{canRefresh ? "A few exchanges in, the gist gathers here: what you're circling, what you've decided, what's worth keeping." : "Start talking. The gist gathers here as you go."}</p>}
     </div>
   );
 }
 
-function Companion({ scores, answers, reportText, start, onHuman }) {
+/* Members have the Companion for as long as they're members. Founding-code
+   holders keep the week they were promised. Anyone else sees the way back in. */
+function Companion({ scores, answers, reportText, start, onHuman, member, founder, lapsed, onJoin }) {
   const begun = start || Date.now();
-  const dayNum = Math.min(COMPANION_DAYS, Math.floor((Date.now() - begun) / DAY) + 1);
-  const ended = Date.now() - begun > COMPANION_DAYS * DAY;
+  const ended = member ? false : founder ? Date.now() - begun > COMPANION_DAYS * DAY : true;
   const [c, setC] = useState(() => loadCompanion());
   const [mode, setMode] = useState(() => c.mode || "companion");
   const [input, setInput] = useState("");
@@ -1455,9 +1706,9 @@ const pick = (m) => { setMode(m); commit((prev) => ({ ...prev, mode: m })); };
   if (ended) return (
     <section className="companion noprint">
       <p className="kicker gold">Your Report Companion</p>
-      <h2 className="ctitle">Your founding week has ended. Your report hasn't.</h2>
-      <p className="cexplain">The report on this page is yours for good. The Companion — the three voices that read you properly — returns with iSHKiY membership, which founding members will hear about first. If a week of it earned a place in your thinking, tell us and we'll keep your seat.</p>
-      <a className="rtbtn" href={"mailto:ops@ishkiy.com?subject=" + encodeURIComponent("Keep my Companion seat") + "&body=" + encodeURIComponent("My founding Companion week is over and I'd want it back when membership launches.")}>Keep my seat</a>
+      <h2 className="ctitle">{lapsed ? "Your membership has ended. Your report hasn't." : founder ? "Your founding week has ended. Your report hasn't." : "Your Companion comes with membership."}</h2>
+      <p className="cexplain">The report on this page is yours for good. The Companion is three voices that have read you properly and share one memory of you. It's part of iSHKiY membership{lapsed ? ". Rejoin and it picks up where you left off." : ", with the Library of You and real humans when you're ready."}</p>
+      <button className="btn gold" onClick={onJoin}>{lapsed ? `Rejoin · ${PRICE.monthly} a month` : "Become a member"}</button>
     </section>
   );
 
@@ -1494,7 +1745,7 @@ const pick = (m) => { setMode(m); commit((prev) => ({ ...prev, mode: m })); };
     setBusyPulse(true);
     const transcript = st.slice(-12).map((m) => (m.role === "user" ? "You said: " : "Voice: ") + m.content).join("\n");
     const text = await fetchAI({
-      system: "You summarise the LATEST part of a conversation for iSHKiY, speaking directly to the person it belongs to. Address them as \"you\" — never \"they\" or \"the user\". Weight the most recent exchanges heavily; older turns only if still live. UK English, plain, warm, no corporate words, no bullets, no headings. Return at most three short lines, each on its own line: what you just worked through; any decision or next step you named; one line worth keeping. If a line has nothing real to hold, leave it out. Nothing else.",
+      system: "You summarise the LATEST part of a conversation for iSHKiY, speaking directly to the person it belongs to. Address them as \"you\", never \"they\" or \"the user\". Same voice as iSHKiY everywhere: short whole sentences, no long dashes, no \"not X, but Y\". Weight the most recent exchanges heavily; older turns only if still live. UK English, plain, warm, no corporate words, no bullets, no headings. Return at most three short lines, each on its own line: what you just worked through; any decision or next step you named; one line worth keeping. If a line has nothing real to hold, leave it out. Nothing else.",
       messages: [{ role: "user", content: transcript }], max_tokens: 220,
     });
     if (text) commit((prev) => ({ ...prev, pulses: { ...(prev.pulses || {}), [target]: text } }));
@@ -1521,13 +1772,13 @@ const pick = (m) => { setMode(m); commit((prev) => ({ ...prev, mode: m })); };
        a React state updater, which has not run yet at this point. */
     const before = cRef.current;
     const st = opening(before.streams[tm] || []);
-    const ctx = profileCtx() + centralMemory(before, tm);
     const lastDiv = st.map((m, i) => (m.divider ? i : -1)).reduce((a, b) => Math.max(a, b), -1);
     const hist = st.slice(lastDiv + 1).filter((m) => !m.divider);
     track("ask", tm);
     const prevSubj = [...hist].reverse().find((m) => m.subj)?.subj || null;
     const focus = `\n\nTHE MESSAGE YOU MUST ANSWER NOW: "${q}"\nAnswer this and only this. Earlier turns are background. If this changes the subject${prevSubj ? ` from "${prevSubj}"` : ""}, follow it completely and do not return to the earlier subject unless asked.`;
-    const raw = await fetchAI({ system: COMPANION_SYSTEM + MODES[tm].add + "\n\n" + ctx + focus, messages: hist.slice(-4).map(({ role, content }) => ({ role, content })), max_tokens: 500 });
+    // Stable per person and voice, so it goes in the cached block; memory and the question change every time.
+    const raw = await fetchAI({ cached: COMPANION_SYSTEM + MODES[tm].add + "\n\n" + profileCtx(), system: centralMemory(before, tm) + focus, messages: hist.slice(-4).map(({ role, content }) => ({ role, content })), max_tokens: 500 });
     let subj = null, text = raw;
     if (raw) { const m0 = raw.match(/^\s*~([^~\n]{2,60})~\s*/); if (m0) { subj = m0[1].trim(); text = raw.slice(m0[0].length).trim(); } }
     if (text) {
@@ -1542,54 +1793,72 @@ const pick = (m) => { setMode(m); commit((prev) => ({ ...prev, mode: m })); };
       const after = closing(st);
       if (after.length % 6 === 0) refreshPulse({ ...before.streams, [tm]: after }, tm);
     } else {
-      commit((prev) => ({ ...prev, streams: { ...prev.streams, [tm]: [...(prev.streams[tm] || []), { role: "assistant", m: tm, err: true, content: "The line dropped before that reached me — a connection hiccup, not you. That question didn't use one of your ten. Give it a moment and ask again." }].slice(-40) } }));
+      commit((prev) => ({ ...prev, streams: { ...prev.streams, [tm]: [...(prev.streams[tm] || []), { role: "assistant", m: tm, err: true, content: "The line dropped before that reached me. It was the connection, and it didn't use one of your ten. Give it a moment and ask again." }].slice(-40) } }));
     }
     setBusy(false);
   };
 
   /* The router. One cheap call decides which voice suits the question and whether
      it belongs to a conversation already running. It does not spend one of the
-     ten — routing is plumbing, not an answer. If it fails for any reason we fall
-     through to Sounding on a fresh topic, which is the safe default. */
+     ten; routing is plumbing, not an answer.
+
+     It used to land on Sounding nearly every time, for two reasons. The prompt
+     told the model Sounding was the default whenever it wasn't sure, so anything
+     mixed went there. And the reply was read with a strict pattern, so a reply
+     in a slightly different shape (bold, a sentence first, a display name) read
+     as a failure, and every failure also fell to Sounding. Now the voices are
+     weighed evenly, the API returns a fixed JSON shape, the reply is read
+     leniently, and if the call fails altogether the fallback reads the question
+     itself rather than defaulting. */
   const routeQuestion = async (q) => {
     const running = VOICES.map((k) => {
       const real = ((cRef.current.streams || {})[k] || []).filter((m) => m.content && !m.divider);
       const lastDiv = ((cRef.current.streams || {})[k] || []).map((m, i) => (m.divider ? i : -1)).reduce((a, b) => Math.max(a, b), -1);
       const live = ((cRef.current.streams || {})[k] || []).slice(lastDiv + 1).filter((m) => m.content);
       const subj = [...live].reverse().find((m) => m.subj)?.subj;
-      return real.length ? `${k} (${MODES[k].label}) — current topic: ${subj || "unnamed"}; ${live.length} messages in it` : `${k} (${MODES[k].label}) — no conversation yet`;
+      return real.length ? `${k} (${MODES[k].label}): current topic "${subj || "unnamed"}", ${live.length} messages in it` : `${k} (${MODES[k].label}): no conversation yet`;
     }).join("\n");
     const raw = await fetchAI({
-      system: `You route a question to one of three voices inside iSHKiY, then decide whether it continues a conversation already running or deserves a fresh one.
+      system: `You choose which of three voices inside iSHKiY should answer a person's message, and whether it continues a conversation already running with that voice.
 
-THE VOICES
-companion (Sounding) — listening and untangling. Choose for feelings, confusion, "I don't know what I think", anything heavy, anything they need to hear themselves say. This is the default when it is not clearly one of the others.
-coach (Coach) — pushes toward action. Choose when they want a decision made, a next step, accountability, or they are stuck in circles and need moving.
-mentor (Mentor) — the long view. Choose for career shape, "where does this lead", patterns over years, questions about what usually happens to people like them.
+THE VOICES, equally weighted. None is the default; pick the one whose job best matches what the message is asking for.
+companion (Sounding): they want to be heard or to untangle something. Feelings, confusion, "I don't know what I think", something heavy they need to say out loud.
+coach (Coach): they want to move. A decision to make, a next step, how to do something, accountability, being stuck and wanting a push. Questions like "should I", "how do I", "what do I do about".
+mentor (Mentor): they want perspective over time. Career shape, where a path leads, what usually happens to people like them, the long view on a choice, patterns over years.
+
+Examples:
+"I feel flat every Sunday night and I can't say why" -> companion
+"Should I ask my manager for the project lead role this week?" -> coach
+"How do I stop putting off the application?" -> coach
+"Is staying in finance for another five years going to box me in?" -> mentor
+"What do people like me usually regret at fifty?" -> mentor
+"Everything at work feels pointless lately" -> companion
+
+When a message mixes things, choose by what it asks for most directly: a question about what to do now is coach; a question about where things lead is mentor; a feeling with no question is companion.
 
 CONVERSATIONS CURRENTLY RUNNING
 ${running}
 
-Reply with exactly two lines and nothing else:
-VOICE: <companion|coach|mentor>
-NEW: <yes|no>
-
-NEW is yes if the question opens a subject unrelated to that voice's current topic, or that voice has no conversation yet. NEW is no if it clearly continues the topic named above.`,
-      messages: [{ role: "user", content: q }], max_tokens: 24,
+new is true if the message opens a subject unrelated to that voice's current topic, or that voice has no conversation yet; false if it clearly continues the topic named above.
+why is at most eight plain words, addressed to them, saying what you heard them ask for (e.g. "you asked what to do next").`,
+      messages: [{ role: "user", content: q }], max_tokens: 120,
+      output_config: { format: { type: "json_schema", schema: {
+        type: "object", additionalProperties: false, required: ["voice", "new", "why"],
+        properties: { voice: { type: "string", enum: ["companion", "coach", "mentor"] }, new: { type: "boolean" }, why: { type: "string" } },
+      } } },
     });
-    const to = (String(raw || "").match(/VOICE:\s*(companion|coach|mentor)/i) || [])[1];
-    const fresh = /NEW:\s*yes/i.test(String(raw || ""));
-    const picked = to ? to.toLowerCase() : "companion";
-    return { to: picked, fresh: to ? fresh : true, guessed: !to };
+    const read = readRoute(raw);
+    if (read) return { ...read, guessed: false };
+    return { to: guessVoice(q), fresh: true, why: null, guessed: true };
   };
 
   const askAuto = async () => {
     const q = input.trim(); if (!q || busy || left === 0) return;
     setInput(""); setRouting(true);
-    const { to, fresh, guessed } = await routeQuestion(q);
+    const { to, fresh, why, guessed } = await routeQuestion(q);
     setRouting(false);
-    track("auto_route", guessed ? "fallback" : to);
-    setChoice({ to, fresh });
+    track("auto_route", guessed ? "fallback_" + to : to);
+    setChoice({ to, fresh, why });
     pick(to); setRoom(to);
     await ask({ q, to, fresh });
   };
@@ -1610,7 +1879,7 @@ NEW is yes if the question opens a subject unrelated to that voice's current top
           <p className="roomvibe">Say what's on your mind. We'll pick the voice that fits it.</p>
         </div>
       </div>
-      <p className="cexplain">You don't have to know whether you need listening, pushing, or the long view. Ask, and we'll send it to whichever of the three suits — and start a new conversation if it's a new subject. Choosing costs you nothing; only the answer uses one of your {Q_CAP}.</p>
+      <p className="cexplain">You don't have to know whether you need listening, pushing, or the long view. Ask, and we'll send it to whichever of the three suits, on a fresh page if it's a new subject. Choosing is free; only the answer uses one of your {Q_CAP}.</p>
       {left > 0 ? (
         <div className="askrow">
           <textarea className="tarea askta" rows={3} value={input} placeholder="What's on your mind?" onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); askAuto(); } }} />
@@ -1627,7 +1896,7 @@ NEW is yes if the question opens a subject unrelated to that voice's current top
     <section className="companion noprint">
       <p className="kicker gold">Your Companion</p>
       <h2 className="ctitle">Three voices. One memory between them.</h2>
-      <p className="cexplain">Each voice keeps its own conversation, but all three remember everything you've said to any of them. They share {Q_CAP} questions a day between them — {left} left today. Day {dayNum} of your 7. No one can read these conversations, iSHKiY included.</p>
+      <p className="cexplain">Each voice keeps its own conversation, but all three remember everything you've said to any of them. They share {Q_CAP} questions a day between them, and {left} are left today. Day {dayNum} of your 7. No one can read these conversations, iSHKiY included.</p>
       <div className="voicehub">
         <button className="vcard vcauto" style={{ "--acc": "#D4A547" }} onClick={() => enterRoom("auto")}>
           <Avatar kind="auto" size={40} />
@@ -1659,7 +1928,7 @@ NEW is yes if the question opens a subject unrelated to that voice's current top
         </div>
       </div>
       {choice && choice.to === mode && (
-        <p className="routed"><Avatar kind="auto" size={14} /> iSHKiY sent this to {M.label}{choice.fresh ? ", on a new page" : ", carrying on where you left off"}.</p>
+        <p className="routed"><Avatar kind="auto" size={14} /> iSHKiY sent this to {M.label}{choice.why ? ` (${choice.why.replace(/[.\s]+$/, "")})` : ""}{choice.fresh ? ", on a new page" : ", carrying on where you left off"}.</p>
       )}
       <Pulse mode={mode} pulse={(c.pulses || {})[mode]} busy={busyPulse} onRefresh={() => refreshPulse()} canRefresh={stream.length >= 2} />
       {mode === "companion" && stream.length >= 8 && !dismissHuman && (
@@ -1688,7 +1957,7 @@ NEW is yes if the question opens a subject unrelated to that voice's current top
           <textarea className="tarea askta" rows={3} value={input} placeholder={"Ask " + M.label + " anything…"} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); ask(); } }} />
           <button className="btn ink" disabled={busy || !input.trim()} onClick={() => ask()}>Ask</button>
         </div>
-        {stream.length > 0 && <button className="showold" onClick={newTopic}>Start a new topic — fresh page, same voice</button>}
+        {stream.length > 0 && <button className="showold" onClick={newTopic}>New topic: fresh page, same voice</button>}
         </>
       ) : (
         <p className="tnote">That's your {Q_CAP} for today. A night's thinking between conversations does more than an eleventh question would. It resets tomorrow.</p>
@@ -1743,27 +2012,27 @@ function matchScore(p, scores) {
 function Practitioners({ scores }) {
   const [tier, setTier] = useState("basic");
   const chosen = TIERS.find((t) => t.id === tier);
-  const mailto = (p) => `mailto:ops@ishkiy.com?subject=${encodeURIComponent(`Practitioner interest — ${p.role}`)}&body=${encodeURIComponent(`I'd like to be matched with a ${p.role.toLowerCase()} when iSHKiY practitioners launch.\n\nSharing preference: ${chosen.name}\n\nNothing is shared yet — this registers interest only, and I'll confirm consent before anything moves.`)}`;
+  const mailto = (p) => `mailto:ops@ishkiy.com?subject=${encodeURIComponent(`Practitioner interest — ${p.role}`)}&body=${encodeURIComponent(`I'd like to be matched with a ${p.role.toLowerCase()} when iSHKiY practitioners launch.\n\nSharing preference: ${chosen.name}\n\nNothing is shared yet. This registers interest only, and I'll confirm consent before anything moves.`)}`;
   return (
     <section className="pracs noprint">
       <p className="kicker gold">When you're ready for a human</p>
       <h2 className="ctitle">Some questions deserve a person across the table.</h2>
-      <p className="cexplain">We're building a vetted circle of counsellors, mentors, coaches and therapists who can read your profile — with your say-so, at the depth you choose — before you ever meet. The circle isn't live yet. The profiles below show how it will work, and registering interest shapes who we bring in first.</p>
+      <p className="cexplain">We're building a vetted circle of counsellors, mentors, coaches and therapists. With your say-so, they can read your profile at the depth you choose before you meet. It opens soon. The examples below show how it will work, and telling us you're interested shapes who we bring in first.</p>
       <div className="tierbox">
         <p className="tlabel">What would you be willing to share?</p>
         <div className="tierrow">{TIERS.map((t) => (<button key={t.id} className={"tierbtn" + (tier === t.id ? " sel" : "")} onClick={() => setTier(t.id)}>{t.name}</button>))}</div>
         <ul className="tierlist">{chosen.shares.map((s) => (<li key={s}>{s}</li>))}</ul>
-        <p className="tnote">Nothing leaves this device today. This sets your preference for when the circle is real — and you'd confirm again before anything is shared.</p>
+        <p className="tnote">This only sets your preference for later. Nothing leaves this device, and you'd confirm again before anything was shared.</p>
       </div>
       {scores && scores.measured
-        ? <p className="tnote">Your matches below are worked out from your profile — and we show you why. The better we know you, the sharper they get.</p>
+        ? <p className="tnote">Your matches are worked out from your profile, and each one shows why. The more parts you finish, the sharper they get.</p>
         : <p className="tnote">Finish your assessment and we'll match you to the people who fit how you actually work.</p>}
       <div className="praclist">
         {[...PRACTITIONERS].map((p) => ({ p, m: matchScore(p, scores) }))
           .sort((a, b) => (b.m?.pct ?? -1) - (a.m?.pct ?? -1))
           .map(({ p, m }) => (
           <div key={p.name} className="prac">
-            <span className="demobadge">Illustrative profile — not yet a real practitioner</span>
+            <span className="demobadge">Example profile. Real practitioners join soon.</span>
             <div className="pmatchrow">
               <p className="pname">{p.name} <span className="prole">· {p.role}</span></p>
               {m && m.band && <span className="pmatch">{m.band}</span>}
@@ -1772,11 +2041,11 @@ function Practitioners({ scores }) {
             {m && m.reasons.length
               ? <p className="pwhy">Why you: {m.reasons.join("; ")}.</p>
               : <p className="pfit">For {p.suits.forWho}.</p>}
-            <a className="rtbtn" href={mailto(p)}>Register interest</a>
+            <a className="rtbtn" href={mailto(p)}>I'm interested</a>
           </div>
         ))}
       </div>
-      <p className="tnote">When the circle is real, any booking fee will be built into the session price — never charged on top. Practitioners join free to begin with.</p>
+      <p className="tnote">When the circle opens, any booking fee is built into the session price, with nothing added on top. Practitioners join free to begin with.</p>
     </section>
   );
 }
@@ -1790,7 +2059,7 @@ function Retakes({ completedAt, onRetake }) {
       <button className="ghost inkghost" onClick={() => setOpenList(!openList)}>{openList ? "Hide retakes" : "Retake a part"}</button>
       {openList && (
         <div className="rtlist">
-          <p className="tnote">A part can be retaken 24 hours after you last completed it — a night's sleep between attempts keeps the answers honest. Retaking rewrites your report.</p>
+          <p className="tnote">You can retake a part 24 hours after you last finished it. A night's sleep between attempts keeps the answers honest. Retaking rewrites your report.</p>
           {PARTS.map((p, idx) => {
             const done = completedAt[p.id]; if (!done) return null;
             const ready = now - done > DAY;
@@ -1811,7 +2080,7 @@ function Retakes({ completedAt, onRetake }) {
 }
 
 
-function CompanionScreen({ state, scores, onBack, onRegenerate, onHuman }) {
+function CompanionScreen({ state, scores, onBack, onRegenerate, onHuman, onSOS, onJoin }) {
   try {
     const mr = state.miniResults || {};
     window.__eraMinis = Object.keys(mr).length ? Object.fromEntries(Object.keys(mr).filter((id) => MINIS[id]).map((id) => { const r = readMini(id, mr[id]); return [id, { lens: MINIS[id].name, pattern: r && r.tag, read: r && r.headline, detail: r && r.bars.filter(([, v]) => v != null).map(([l, v]) => `${l}: ${bandOf("lens", v)}`).join("; ") }]; })) : null;
@@ -1822,19 +2091,20 @@ function CompanionScreen({ state, scores, onBack, onRegenerate, onHuman }) {
       <div className="rhead noprint">
         <button className="ghost inkghost" onClick={onBack}>← Home</button>
         <Wordmark />
-        <span />
+        <a className="sosjump" href="#sos" aria-label="SOS: urgent support">SOS</a>
       </div>
       <article className="report">
         <p className="kicker gold">The Companion</p>
         <h1 className="display ink"><Words text="Three voices that read you." delay={150} /></h1>
-        <p className="lede inkdim">Sounding, Coach, Mentor — ten questions a day, answered by voices that know your report line by line and remember everything you've told any of them.</p>
+        <p className="lede inkdim">Sounding, Coach and Mentor. Ten questions a day, answered by voices that know your report line by line and remember everything you've told any of them.</p>
         <div className="teamrow">
           <Avatar kind="companion" /><Avatar kind="coach" /><Avatar kind="mentor" />
         </div>
-        <p className="teamline">You don't have to know which one you need — iSHKiY can choose. Three voices, one memory, no judgement, and they've read every word you gave.</p>
+        <p className="teamline">Not sure which one you need? Let iSHKiY choose. All three share one memory, and they've read every word you gave.</p>
         {state.report.preview
-          ? <div className="previewnote"><p>Your report didn't finish writing, so the Companion is waiting. Your answers are safe — one tap tries again.</p><button className="btn gold" onClick={onRegenerate}>Write my real report</button></div>
-          : <Companion scores={scores} answers={state.answers || {}} reportText={state.report.text} start={state.companionStart} onHuman={onHuman} />}
+          ? <div className="previewnote"><p>Your report didn't finish writing, so the Companion is waiting. Your answers are safe. One tap tries again.</p><button className="btn gold" onClick={onRegenerate}>Write my real report</button></div>
+          : <Companion scores={scores} answers={state.answers || {}} reportText={state.report.text} start={state.companionStart} onHuman={onHuman} member={isMember(state)} founder={!!state.unlocked} lapsed={!!state.hadMembership} onJoin={onJoin} />}
+        <SOSSection />
         <p className="hquote">The future is not artificial; it's authentically human.</p>
       </article>
     </div>
@@ -1853,13 +2123,13 @@ const SIBLINGS = [
     url: "https://ishkiy-haven.netlify.app", accent: "#4E7A5A",
     offers: [
       { id: "mindset", label: "Money mindset", desc: "Your archetype and how it shifts." },
-      { id: "goals", label: "Goals & pots", desc: "What you're building towards — names and progress, not balances." },
+      { id: "goals", label: "Goals & pots", desc: "What you're building towards. Names and progress only; balances stay private." },
       { id: "rhythm", label: "Engagement rhythm", desc: "When you lean in and when you look away." },
     ],
   },
   {
     id: "kite", name: "Kite", tag: "One thing. Not the list.",
-    line: "A companion for ADHD days — task untangling, gentle focus, wins that count.",
+    line: "A companion for ADHD days: task untangling, gentle focus, wins that count.",
     url: "https://shiny-zabaione-08b761.netlify.app", accent: "#4A7BA6",
     offers: [
       { id: "wins", label: "Wins & strengths", desc: "The patterns in what you finish." },
@@ -1907,11 +2177,11 @@ function ConstellationScreen({ state, update, onBack }) {
       <article className="report" style={{ maxWidth: 480 }}>
         <p className="kicker gold">The Constellation</p>
         <h1 className="display ink">Invitation only, for now.</h1>
-        <p className="lede inkdim">The Constellation connects your other iSHKiY apps to ERA. While it's in beta, it opens by invitation — a small circle, on purpose, so we get the trust architecture right before the doors widen.</p>
+        <p className="lede inkdim">The Constellation connects your other iSHKiY apps to ERA. While it's in beta it opens by invitation. A small circle, on purpose, so we get the privacy right before the doors widen.</p>
         <input className="codeinput" value={code} onChange={(e) => { setCode(e.target.value); setErr(false); }} placeholder="ORBIT-XXXX" autoCapitalize="characters" onKeyDown={(e) => e.key === "Enter" && tryInvite()} />
         {err && <p className="codeerr">That code didn't open the door. Check it and try once more.</p>}
         <button className="btn gold" disabled={busy || !code.trim()} onClick={tryInvite}>{busy ? "Checking…" : "Open the Constellation"}</button>
-        <p className="cfoot" style={{ marginTop: 20 }}>No code? Nothing else in ERA is held back — your assessment, report and Companion are all yours already. Invites come from Tarang directly.</p>
+        <p className="cfoot" style={{ marginTop: 20 }}>No code? Everything else in ERA is already yours: your assessment, report and Companion. Invites come from Tarang directly.</p>
       </article>
     </div>
   );
@@ -1925,7 +2195,7 @@ function ConstellationScreen({ state, update, onBack }) {
       <article className="report">
         <p className="kicker gold">The Constellation</p>
         <h1 className="display ink">One family. Your say-so.</h1>
-        <p className="lede inkdim">Each iSHKiY app does one job well, and each keeps its data on your device. Connect them here and ERA becomes the place where the whole of you comes into view — but nothing joins unless you say it may, and you can unsay it any time.</p>
+        <p className="lede inkdim">Each iSHKiY app does one job well, and each keeps its data on your device. Connect them here and ERA becomes the place where the whole of you comes into view. Nothing joins unless you say so, and you can change your mind any time.</p>
         <div className="constgrid">
           {SIBLINGS.map((s) => {
             const l = links[s.id];
@@ -1937,13 +2207,13 @@ function ConstellationScreen({ state, update, onBack }) {
                 <span className="ctag">{s.tag}</span>
                 <span className="cstate">{linked
                   ? `Sharing: ${(l.shares || []).length ? s.offers.filter((o) => l.shares.includes(o.id)).map((o) => o.label).join(", ") : "nothing yet"}${l.enhance ? " · teaching your Companion" : ""}`
-                  : "Not yet connected — tap to begin."}</span>
+                  : "Not connected yet. Tap to begin."}</span>
               </button>
             );
           })}
         </div>
-        <p className="cbridge">Honesty first: your choices are recorded on this device today, and live sharing switches on when the iSHKiY bridge ships. Until then, the only way anything crosses is if you carry it — each app will offer a small export file you can bring here yourself.</p>
-        <p className="integrity">Every iSHKiY app keeps your data on your device. Nothing moves between them without your explicit permission, and iSHKiY never sees any of it. Connection is always reversible. The data is yours — that isn't a feature, it's the deal.</p>
+        <p className="cbridge">To be straight with you: your choices are saved on this device today, and live sharing switches on when the iSHKiY bridge ships. Until then, data only crosses if you carry it. Each app will offer a small export file you can bring here yourself.</p>
+        <p className="integrity">Every iSHKiY app keeps your data on your device. Nothing moves between them without your explicit permission, and iSHKiY never sees any of it. Connection is always reversible. The data is yours. That's the deal.</p>
       </article>
       {app && <ConnectSheet app={app} link={links[app.id]} onClose={() => setOpen(null)} onSave={(patch) => { setLink(app.id, patch); setOpen(null); }} />}
     </div>
@@ -1966,8 +2236,8 @@ function ConnectSheet({ app, link, onClose, onSave }) {
         <p className="kicker" style={{ color: app.accent }}>{app.name}</p>
         <p className="cline">{app.line}</p>
         {app.url
-          ? <button className="btn ink cfull" onClick={() => window.open(app.url, "_blank")}>{"Open " + app.name + (app.native ? "" : " — installs if it isn't on this device")}</button>
-          : <button className="btn ink cfull" disabled>Link coming — {app.name} isn't live at a public address yet</button>}
+          ? <button className="btn ink cfull" onClick={() => window.open(app.url, "_blank")}>{"Open " + app.name + (app.native ? "" : ". It installs if it isn't on this device")}</button>
+          : <button className="btn ink cfull" disabled>Link coming. {app.name} isn't at a public address yet</button>}
         <p className="csheethead">What may flow into ERA?</p>
         <p className="csub">Nothing is ticked for you. Choose only what you want ERA to know.</p>
         {app.offers.map((o) => (
@@ -2013,7 +2283,41 @@ function SectionHead({ kicker, title, line }) {
 
 
 /* ---------------- settings ---------------- */
-function SettingsScreen({ state, update, onBack }) {
+function MembershipGroup({ state, update, onJoin }) {
+  const m = state.membership;
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState("");
+  const manage = async () => {
+    setBusy(true); setNote("");
+    try { const d = await postJSON("/api/portal", { token: m.token }); window.location.href = d.url; }
+    catch (e) { setNote(e.message); setBusy(false); }
+  };
+  const refresh = async () => {
+    setBusy(true); setNote("");
+    try { const d = await postJSON("/api/membership", { token: m.token }); update({ membership: { ...d, checkedAt: Date.now() } }); setNote("Up to date."); }
+    catch (e) { setNote(e.message); }
+    setBusy(false);
+  };
+  const line = !m || m.status === "none" ? (state.unlocked ? "Founding access (code)" : "Not a member")
+    : m.live ? `${m.plan === "annual" ? "Annual" : "Monthly"} · ${m.status === "past_due" ? "payment needs attention" : m.cancelAtPeriodEnd ? "ends" : "renews"}${m.periodEnd ? " " + fmtDate(m.periodEnd) : ""}`
+    : `Ended${m.periodEnd ? " " + fmtDate(m.periodEnd) : ""}`;
+  return (
+    <div className="setgroup">
+      <p className="setlabel">Membership</p>
+      <div className="setrow"><span>Status</span><span className="tnum">{line}</span></div>
+      {m && m.token
+        ? <>
+            <button className="setbtn" disabled={busy} onClick={manage}>Manage, switch plan or cancel →</button>
+            <button className="setbtn" disabled={busy} onClick={refresh}>Check my membership again</button>
+          </>
+        : <button className="setbtn" onClick={onJoin}>Become a member →</button>}
+      {(!m || !m.live) && m && m.token && <button className="setbtn" onClick={onJoin}>Rejoin →</button>}
+      {note && <p className="tnote">{note}</p>}
+    </div>
+  );
+}
+
+function SettingsScreen({ state, update, onBack, onJoin }) {
   const st = profileStrength(state);
   const done = st.parts;
   const level = levelFor(st);
@@ -2026,13 +2330,15 @@ function SettingsScreen({ state, update, onBack }) {
   };
   const resetAssessment = () => { if (confirm("Reset your main assessment? Your answers, report and badges are cleared from this device. Your Library lenses stay. This can't be undone.")) { const n = { ...state, answers: {}, completedAt: {}, report: null, arc: null, part: 0, item: 0 }; save(n); location.reload(); } };
   const resetMini = (id) => { if (confirm("Reset this lens?")) { const mr = { ...(state.miniResults || {}) }; delete mr[id]; const ma = { ...(state.miniAnswers || {}) }; delete ma[id]; update({ miniResults: mr, miniAnswers: ma }); } };
-  const resetAll = () => { if (confirm("Clear EVERYTHING on this device — assessment, report, lenses, conversations? This cannot be undone.")) { localStorage.clear(); location.reload(); } };
+  const resetAll = () => { if (confirm("Clear everything on this device: assessment, report, lenses and conversations? This can't be undone.")) { localStorage.clear(); location.reload(); } };
   return (
     <div className="reportpage tint-sage">
       <div className="rhead noprint"><button className="ghost inkghost" onClick={onBack}>← Home</button><Wordmark /><span /></div>
       <article className="report">
         <p className="kicker gold">Settings</p>
         <h1 className="display ink"><Words text="Your space, your say." delay={150} /></h1>
+
+        <MembershipGroup state={state} update={update} onJoin={onJoin} />
 
         <div className="setgroup">
           <p className="setlabel">Your assessment</p>
@@ -2060,7 +2366,7 @@ function SettingsScreen({ state, update, onBack }) {
 
         <div className="setgroup">
           <p className="setlabel">Your data</p>
-          <p className="tnote">Everything lives on this device. No one — iSHKiY included — can read your answers or conversations. We count anonymous taps to improve the app, never your words.</p>
+          <p className="tnote">Everything stays on this device, private to you. We count anonymous taps to improve the app. Never your words.</p>
           <button className="setbtn" onClick={exportAll}>Export my data (a file I keep)</button>
           <button className="setbtn warn" onClick={resetAll}>Delete everything from this device</button>
         </div>
@@ -2071,7 +2377,7 @@ function SettingsScreen({ state, update, onBack }) {
   );
 }
 
-function AccountScreen({ state, scores, onBack }) {
+function AccountScreen({ state, scores, onBack, onMembership }) {
   const sb = getSupa();
   const session = useSession();
   const [email, setEmail] = useState("");
@@ -2080,14 +2386,21 @@ function AccountScreen({ state, scores, onBack }) {
   const sendLink = async () => {
     if (!email.trim() || busy) return; setBusy(true);
     const { error } = await sb.auth.signInWithOtp({ email: email.trim(), options: { emailRedirectTo: window.location.origin } });
-    setNote(error ? "That didn't send — check the address and try again." : "A sign-in link is on its way to your inbox. Tap it and you'll land back here, signed in.");
+    setNote(error ? "That didn't send. Check the address and try again." : "A sign-in link is on its way to your inbox. Tap it and you'll land back here, signed in.");
     setBusy(false);
   };
   const syncUp = async () => {
     if (busy) return; setBusy(true);
     const payload = { report: state.report ? { text: state.report.text, preview: !!state.report.preview } : null, scores, name: (state.answers || {})["AR-1"] || null, savedAt: Date.now() };
     const { error } = await sb.from("living_profiles").upsert({ user_id: session.user.id, payload, updated_at: new Date().toISOString() });
-    setNote(error ? "The copy didn't take — try again in a moment." : "Backed up. Your device is still home; the cloud is just a copy.");
+    setNote(error ? "The copy didn't save. Try again in a moment." : "Backed up. Your device is still home; the cloud is just a copy.");
+    setBusy(false);
+  };
+  // Brings a membership bought on another device onto this one, by the signed-in email.
+  const restore = async () => {
+    if (busy) return; setBusy(true);
+    try { const m = await postJSON("/api/restore", { access_token: session.access_token }); onMembership(m); setNote(m.live ? "Membership restored on this device." : "Found your membership, but it has ended. You can rejoin from Settings."); }
+    catch (e) { setNote(e.message); }
     setBusy(false);
   };
   const burn = async () => {
@@ -2095,15 +2408,15 @@ function AccountScreen({ state, scores, onBack }) {
     if (!confirm("Delete your cloud copy? Your device keeps everything.")) return;
     setBusy(true);
     const { error } = await sb.from("living_profiles").delete().eq("user_id", session.user.id);
-    setNote(error ? "That didn't delete — try again." : "Gone. Nothing of you remains in the cloud.");
+    setNote(error ? "That didn't delete. Try again." : "Gone. Nothing of you remains in the cloud.");
     setBusy(false);
   };
   return (
     <div className="reportpage">
       <div className="rhead noprint"><button className="ghost inkghost" onClick={onBack}>← Home</button><Wordmark /><span /></div>
       <article className="report" style={{ maxWidth: 520 }}>
-        <SectionHead kicker="Your account" title="A copy you can burn." line="ERA lives on your device — that doesn't change. An account adds one thing: a cloud copy of your profile, so a lost phone doesn't mean a lost you. Optional. Deletable. Yours." />
-        {!sb && <p className="cbridge">Accounts are coming online shortly. Everything else in ERA works fully without one — this screen simply isn't wired to the cloud yet.</p>}
+        <SectionHead kicker="Your account" title="A copy you can burn." line="ERA lives on your device, and that stays true. An account adds one thing: a cloud copy of your profile, so a lost phone doesn't mean a lost you. Optional, deletable and yours." />
+        {!sb && <p className="cbridge">Accounts are coming online shortly. Everything else in ERA works fully without one.</p>}
         {sb && !session && (<>
           <input className="codeinput" style={{ textTransform: "none", letterSpacing: 0, maxWidth: 320 }} type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" onKeyDown={(e) => e.key === "Enter" && sendLink()} />
           <button className="btn gold" disabled={busy || !email.trim()} onClick={sendLink}>{busy ? "Sending…" : "Email me a sign-in link"}</button>
@@ -2113,13 +2426,14 @@ function AccountScreen({ state, scores, onBack }) {
           <p className="cline">Signed in as <b>{session.user.email}</b>.</p>
           <div className="cactions" style={{ justifyContent: "flex-start" }}>
             <button className="btn gold" disabled={busy || !state.report} onClick={syncUp}>Back up my profile</button>
+            {!isMember(state) && <button className="ghost inkghost" disabled={busy} onClick={restore}>Restore my membership</button>}
             <button className="ghost inkghost" disabled={busy} onClick={burn}>Delete cloud copy</button>
             <button className="ghost inkghost" onClick={() => sb.auth.signOut()}>Sign out</button>
           </div>
           {!state.report && <p className="cfoot" style={{ textAlign: "left" }}>Complete your assessment first and there'll be something worth copying.</p>}
         </>)}
         {note && <p className="cbridge" style={{ marginTop: 18 }}>{note}</p>}
-        <p className="integrity">Your email is used for sign-in and nothing else. Your cloud copy is readable by you alone — not practitioners, not iSHKiY — until the day you explicitly share it, and it deletes the moment you say so.</p>
+        <p className="integrity">Your email is used for sign-in and nothing else. Only you can read your cloud copy until the day you choose to share it, and it deletes the moment you say so.</p>
       </article>
     </div>
   );
@@ -2135,7 +2449,7 @@ function Directory({ state, scores }) {
   const [picks, setPicks] = useState([]);
   useEffect(() => { if (!sb) return; sb.from("practitioners").select("*").then(({ data }) => setRows(data || [])); }, []);
   if (!sb || rows === null) return null;
-  if (!rows.length) return <p className="cbridge">The first vetted humans are being welcomed now — this space fills as each one is approved by hand.</p>;
+  if (!rows.length) return <p className="cbridge">The first vetted practitioners are joining now. This space fills as each one is approved by hand.</p>;
   const SECTIONS = [
     { id: "scores", label: "My dimension scores" },
     { id: "report", label: "My full written report" },
@@ -2169,7 +2483,7 @@ function Directory({ state, scores }) {
                 <label key={sec.id} className="crow"><input type="checkbox" checked={picks.includes(sec.id)} onChange={() => setPicks((v) => v.includes(sec.id) ? v.filter((x) => x !== sec.id) : [...v, sec.id])} /><span><b>{sec.label}</b></span></label>
               ))}
               <button className="btn gold" style={{ marginTop: 12 }} disabled={!picks.length} onClick={() => buildPack(p)}>Download the share pack</button>
-              <p className="cfoot" style={{ textAlign: "left" }}>The pack downloads to your device and you hand it over yourself — by email, in person, however you choose. Nothing is sent anywhere automatically.{session ? " A record of this consent is kept in your account." : ""}</p>
+              <p className="cfoot" style={{ textAlign: "left" }}>The pack downloads to your device and you hand it over yourself, by email or in person. Nothing is sent automatically.{session ? " A record of this consent is kept in your account." : ""}</p>
             </div>
           )}
         </div>
@@ -2194,9 +2508,9 @@ function ApplyScreen({ onBack }) {
     <div className="reportpage">
       <div className="rhead noprint"><button className="ghost inkghost" onClick={onBack}>← Back</button><Wordmark /><span /></div>
       <article className="report" style={{ maxWidth: 520 }}>
-        <SectionHead kicker="For practitioners" title="Join the human layer." line="iSHKiY introduces people to vetted humans — therapists, coaches, mentors, advisers — at the moment they're ready. Every application is read and approved by a person. That's the point." />
-        {!sb && <p className="cbridge">Applications open shortly — this form isn't wired to the backend yet.</p>}
-        {sb && sent && <p className="cbridge">Received, with thanks. Every application is read personally — you'll hear back by email either way. What you build with people from here matters to us.</p>}
+        <SectionHead kicker="For practitioners" title="Join the human layer." line="iSHKiY introduces people to vetted therapists, coaches, mentors and advisers at the moment they're ready. Every application is read and approved by a person." />
+        {!sb && <p className="cbridge">Applications open shortly.</p>}
+        {sb && sent && <p className="cbridge">Received, with thanks. Every application is read personally, and you'll hear back by email either way. What you build with people from here matters to us.</p>}
         {sb && !sent && (<>
           <input className="codeinput" style={{ textTransform: "none", letterSpacing: 0, maxWidth: "100%" }} placeholder="Your name" value={f.name} onChange={(e) => set("name", e.target.value)} />
           <input className="codeinput" style={{ textTransform: "none", letterSpacing: 0, maxWidth: "100%" }} type="email" placeholder="Email" value={f.email} onChange={(e) => set("email", e.target.value)} />
@@ -2206,7 +2520,7 @@ function ApplyScreen({ onBack }) {
           <input className="codeinput" style={{ textTransform: "none", letterSpacing: 0, maxWidth: "100%" }} placeholder="Professional body (e.g. BACP, UKCP, EMCC, ICF)" value={f.registration_body} onChange={(e) => set("registration_body", e.target.value)} />
           <input className="codeinput" style={{ textTransform: "none", letterSpacing: 0, maxWidth: "100%" }} placeholder="Registration number" value={f.registration_number} onChange={(e) => set("registration_number", e.target.value)} />
           <input className="codeinput" style={{ textTransform: "none", letterSpacing: 0, maxWidth: "100%" }} placeholder="Booking link (Calendly or similar)" value={f.booking_url} onChange={(e) => set("booking_url", e.target.value)} />
-          <textarea className="codeinput" style={{ textTransform: "none", letterSpacing: 0, maxWidth: "100%", minHeight: 90, resize: "vertical" }} placeholder="A few lines on how you work, in your own voice — this is what people will read." value={f.bio} onChange={(e) => set("bio", e.target.value)} />
+          <textarea className="codeinput" style={{ textTransform: "none", letterSpacing: 0, maxWidth: "100%", minHeight: 90, resize: "vertical" }} placeholder="A few lines on how you work, in your own voice. This is what people will read." value={f.bio} onChange={(e) => set("bio", e.target.value)} />
           <label className="crow"><input type="checkbox" checked={f.insurance_confirmed} onChange={(e) => set("insurance_confirmed", e.target.checked)} /><span><b>I hold current professional indemnity insurance</b></span></label>
           <button className="btn gold" style={{ marginTop: 14 }} disabled={busy || !f.name.trim() || !f.email.trim()} onClick={submit}>{busy ? "Sending…" : "Send my application"}</button>
         </>)}
@@ -2215,7 +2529,7 @@ function ApplyScreen({ onBack }) {
   );
 }
 
-function HumansScreen({ scores, state, onBack, onApply }) {
+function HumansScreen({ scores, state, onBack, onApply, onJoin }) {
   return (
     <div className="reportpage tint-clay">
       <div className="rhead noprint">
@@ -2226,7 +2540,14 @@ function HumansScreen({ scores, state, onBack, onApply }) {
       <article className="report">
         <p className="kicker gold">A human, when ready</p>
         <h1 className="display ink"><Words text="Real people, on your terms." delay={150} /></h1>
-        <p className="lede inkdim">Counsellors, mentors and coaches — because human connection brings what AI never can. You choose who sees what, and when. Or no one, and that's fine too.</p>
+        <p className="lede inkdim">Counsellors, mentors and coaches, for the things a person does best. You choose who sees what, and when. Or no one, and that's fine too.</p>
+        {!hasAccess(state) && (
+          <div className="liblock">
+            <p className="liblockk">Members only, for now</p>
+            <p className="liblockt">Counsellors, coaches and mentors are open to iSHKiY members at launch. Members get free fit calls, and can share their profile with the person they choose, so the first session starts where it matters.</p>
+            <button className="btn gold" onClick={onJoin}>{state.hadMembership ? `Rejoin · ${PRICE.monthly} a month` : "Become a member"}</button>
+          </div>
+        )}
         <Directory state={state} scores={scores} />
         <Practitioners scores={scores} />
         <p className="cfoot" style={{ marginTop: 26 }}>Are you a therapist, coach, mentor or adviser? <button className="cimport" style={{ display: "inline", margin: 0 }} onClick={onApply}>Apply to join the human layer →</button></p>
@@ -2241,15 +2562,15 @@ function HumansScreen({ scores, state, onBack, onApply }) {
    says how it works — nobody cares how a thing is built until they know which
    of their problems it answers. */
 const EXPLAIN = [
-  { art: "orb", line: "iSHKiY is a place to understand yourself.", sub: "Not to fix you. You were never broken." },
-  { art: "storm", line: "For getting back up.", sub: "A setback is easier to carry when you know how you're built — what steadies you, what drains you, what you reach for when it's hard." },
-  { art: "shield", line: "For protecting your mind.", sub: "Most of what wears people down at work isn't the work. It's doing it in a shape that doesn't fit them. Knowing your shape is how you stop paying that tax." },
+  { art: "orb", line: "iSHKiY is a place to understand yourself.", sub: "You'll come away knowing how you work, and what to do with it." },
+  { art: "storm", line: "For getting back up.", sub: "A setback is easier to carry when you know how you're built: what steadies you, what drains you, what you reach for when it's hard." },
+  { art: "shield", line: "For protecting your mind.", sub: "Most of what wears people down at work is doing it in a shape that doesn't fit them. Knowing your shape is how you stop paying that tax." },
   { art: "fork", line: "For the choices that keep you up.", sub: "Hard decisions are usually hard because you don't yet know what you actually want. This is how you find out." },
   { art: "mirror", line: "It starts with a few honest questions.", sub: "What you're for. How you work. What pulls you." },
   { art: "report", line: "You get a report written just for you.", sub: "Yours to keep. No one else can read it." },
   { art: "library", line: "Finish it, and the Library opens.", sub: "Twelve more lenses across Relationships, Drive, Mind, Money and Purpose. How you attach. How you fight. Where your idea of ‘enough’ came from. They unlock when your portrait is full." },
-  { art: "voices", line: "Then a team who have read it — standing behind you.", sub: "One to listen, one to push, one for the long view. They share one memory of you, and they don't forget." },
-  { art: "heart", line: "And, when you're ready, a real human to talk to.", sub: "Chosen to fit you — because they understand how you work." },
+  { art: "voices", line: "Then a team who have read it, standing behind you.", sub: "One to listen, one to push, one for the long view. They share one memory of you, and they don't forget." },
+  { art: "heart", line: "And, when you're ready, a real human to talk to.", sub: "Chosen to fit you, because they understand how you work." },
 ];
 function ExplainArt({ kind }) {
   if (kind === "orb") return <Orb size={104} />;
@@ -2369,35 +2690,57 @@ function Explainer({ onDone, done = "Begin" }) {
   );
 }
 
-/* ---------------- choose your depth ---------------- */
+/* ---------------- choose your depth ----------------
+   The same five stages as the badges, top to bottom. The first three are
+   depths of the assessment you can choose; the last two happen in the
+   Library. Each says what it opens, so the reason to go further is on the
+   card rather than a surprise afterwards. */
+function Unlocks({ items, got }) {
+  return (
+    <ul className={"unlocks" + (got ? " got" : "")}>
+      {items.map((u) => <li key={u}><LockIcon open={got} size={13} /><span>{u}</span></li>)}
+    </ul>
+  );
+}
 function ChooseDepth({ state, onPick, onBack }) {
-  const done = partsDone(state.completedAt);
-  const hasStarter = (state.completedAt || {})["values"] && (state.completedAt || {})["big5"];
+  const st = profileStrength(state);
+  const done = st.parts;
+  const next = nextLevel(st);
+  const arcFor = { starter: "starter", core: "core", full: done ? "more" : "full" };
   return (
     <Shell>
       <div className="intro">
         <button className="ghost inkghost" onClick={onBack}>← Home</button>
         <p className="kicker gold">How deep, today?</p>
         <h1 className="display ink"><Words text="Start small. Go deeper when you want." delay={150} /></h1>
-        <p className="lede inkdim">You don't have to do it all at once. Every part you finish makes your report truer — and you can always come back.</p>
-        <div className="depthgrid">
-          <button className="depthcard" onClick={() => onPick("starter")}>
-            <span className="depthtime">10–15 min</span>
-            <span className="depthname">A first look</span>
-            <span className="depthsub">Your values and how you work. Enough for a real report and your first badge.</span>
-          </button>
-          <button className="depthcard" onClick={() => onPick("core")}>
-            <span className="depthtime">+15 min</span>
-            <span className="depthname">A fuller picture</span>
-            <span className="depthsub">Adds how you think, how you feel, and what pulls you.</span>
-          </button>
-          <button className="depthcard" onClick={() => onPick("full")}>
-            <span className="depthtime">+15–20 min</span>
-            <span className="depthname">The whole portrait</span>
-            <span className="depthsub">Every part. The deepest, truest mirror.</span>
-          </button>
-        </div>
-        <p className="tnote">Most people start with the first look and come back. Nothing is lost between visits, and each part you add makes the report truer.</p>
+        <p className="lede inkdim">Five stages, one road. The first three are the assessment, and you choose how far to go today. The last two are in the Library. Every stage opens something new, and nothing you've done is lost between visits.</p>
+        <ol className="ladder">
+          {LEVELS.map((L, k) => {
+            const got = meets(L, st);
+            const isNext = next && next.id === L.id;
+            const choosable = !!arcFor[L.id] && !got;
+            const inner = (<>
+              <span className="ladnum" aria-hidden="true">{got ? "✓" : k + 1}</span>
+              <span className="ladbody">
+                <span className="ladtop">
+                  <span className="depthtime">{L.depth} · {L.time}</span>
+                  {got ? <span className="ladstate got">Reached</span> : isNext ? <span className="ladstate next">{done ? "Next" : "Start here"}</span> : null}
+                </span>
+                <span className="depthname">{L.name}</span>
+                <span className="depthsub">{got ? "Done." : L.lenses ? `Take ${L.how}. They open at Full Portrait.` : `Finish ${L.how}.`} It opens:</span>
+                <Unlocks items={L.unlocks} got={got} />
+              </span>
+            </>);
+            return (
+              <li key={L.id} className={"ladrung" + (got ? " got" : "") + (isNext ? " next" : "")}>
+                {choosable
+                  ? <button className="depthcard" onClick={() => onPick(arcFor[L.id])}>{inner}</button>
+                  : <div className={"depthcard static" + (L.lenses ? " lib" : "")}>{inner}</div>}
+              </li>
+            );
+          })}
+        </ol>
+        <p className="tnote">Most people start with the first look and come back. Every part you add makes your report truer.</p>
       </div>
     </Shell>
   );
@@ -2411,7 +2754,7 @@ function StrengthMeter({ score }) {
   const r = 54, c = 2 * Math.PI * r;
   const shown = useCountUp(score, 1700, 350);
   return (
-    <svg viewBox="0 0 130 130" className="smeter" role="img" aria-label={`Profile strength ${score} out of 100`}>
+    <svg viewBox="0 0 130 130" className="smeter" role="img" aria-label={`Your portrait: ${score} out of 100`}>
       <defs><linearGradient id="smgrad" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor="#F2D58E" /><stop offset=".55" stopColor="#D4A547" /><stop offset="1" stopColor="#A87A26" /></linearGradient></defs>
       <circle cx="65" cy="65" r={r} fill="none" stroke="var(--ink12)" strokeWidth="9" />
       <circle cx="65" cy="65" r={r} fill="none" stroke="url(#smgrad)" strokeWidth="9" strokeLinecap="round" className="smarc"
@@ -2431,7 +2774,7 @@ function StrengthScreen({ state, onBack, onAssessment, onLibrary }) {
     <div className="reportpage tint-heather">
       <div className="rhead noprint"><button className="ghost inkghost" onClick={onBack}>← Home</button><Wordmark /><span /></div>
       <article className="report">
-        <p className="kicker gold">Profile strength</p>
+        <p className="kicker gold">Your portrait so far</p>
         <h1 className="display ink"><Words text={level ? level.name : "Not started yet"} delay={150} step={90} /></h1>
         <StrengthMeter score={st.score} />
         <p className="lede inkdim">{level ? level.blurb : "Answer your first part and the picture begins."}</p>
@@ -2439,7 +2782,7 @@ function StrengthScreen({ state, onBack, onAssessment, onLibrary }) {
         {step && (
           <div className="nextrung">
             <p className="nextrungk">Next</p>
-            <p className="nextrungn">{step.level.name} — {step.level.accuracy}</p>
+            <p className="nextrungn">{step.level.name}: {step.level.accuracy}</p>
             <p className="nextrungw">{step.what}.</p>
             {step.kind === "parts" && <button className="rtbtn" onClick={onAssessment}>Continue the assessment</button>}
             {step.kind === "lens" && <button className="rtbtn" onClick={onLibrary}>Open the Library</button>}
@@ -2450,12 +2793,12 @@ function StrengthScreen({ state, onBack, onAssessment, onLibrary }) {
           <div className="sbrow">
             <div className="sbhead"><span>The assessment</span><span className="tnum">{st.parts} of {st.totalParts} parts</span></div>
             <div className="track"><div className="fill" style={{ width: `${partPct}%` }} /></div>
-            <p className="sbnote">Worth {PARTS_WEIGHT} of your 100. This is the spine of the profile — every part adds a dimension your report and your Companion can actually use.</p>
+            <p className="sbnote">Worth {PARTS_WEIGHT} of your 100. The spine of your profile: every part adds something your report and your Companion can use.</p>
           </div>
           <div className="sbrow">
             <div className="sbhead"><span>The Library</span><span className="tnum">{st.lenses} of {st.totalLenses} lenses</span></div>
             <div className="track"><div className="fill" style={{ width: `${lensPct}%` }} /></div>
-            <p className="sbnote">Worth {LENS_WEIGHT} of your 100. Lenses reach where the assessment can't — relationships, drive, mind, money and purpose. They open at Full Portrait.</p>
+            <p className="sbnote">Worth {LENS_WEIGHT} of your 100. Lenses reach where the assessment can't: relationships, drive, mind, money and purpose. They open at Full Portrait.</p>
           </div>
         </div>
 
@@ -2467,14 +2810,15 @@ function StrengthScreen({ state, onBack, onAssessment, onLibrary }) {
               <div key={L.id} className={"rung" + (got ? " got" : "") + (here ? " here" : "")}>
                 <i className="rungdot" />
                 <div>
-                  <p className="rungn">{L.name}{here ? <em className="rungyou"> — you are here</em> : null}</p>
-                  <p className="rungb">{got ? L.next : L.blurb}</p>
+                  <p className="rungn">{L.name}{here ? <em className="rungyou"> · you are here</em> : null}</p>
+                  <p className="rungb">{got ? "Reached." : `Reach it with ${L.how}.`} {L.blurb}</p>
+                  <Unlocks items={L.unlocks} got={got} />
                 </div>
               </div>
             );
           })}
         </div>
-        <p className="integrity">Strength measures how much of yourself you've put in — not how well you scored. There are no good or bad profiles here, only fuller and thinner ones.</p>
+        <p className="integrity">This number shows how much of yourself you've put in. It says nothing about how well you scored. Profiles here are fuller or thinner, never better or worse.</p>
       </article>
     </div>
   );
@@ -2493,8 +2837,8 @@ function BadgeScreen({ state, onDone }) {
         <p className="kicker gold">Badge earned</p>
         <p className="gline badgename"><Words text={level ? level.name : "First steps"} delay={500} step={120} /></p>
         <p className="gsub">{level ? level.blurb : "You've begun."}</p>
-        <p className="badgestrength">Profile strength <strong><Count to={st.score} /></strong> / 100</p>
-        {step && <p className="badgenext">{step.what} to earn <strong>{step.level.name}</strong> — {step.level.accuracy}.</p>}
+        <p className="badgestrength">Your portrait: <strong><Count to={st.score} /></strong> / 100</p>
+        {step && <p className="badgenext">{step.what} to earn <strong>{step.level.name}</strong>: {step.level.accuracy}.</p>}
         <button className="btn gold" onClick={onDone}>See my report</button>
       </div>
     </Shell>
@@ -2548,7 +2892,7 @@ function MiniResult({ miniId, result, onBack, onRetake }) {
         <button className="setbtn" onClick={again}>Reveal this insight again</button>
         <button className="setbtn" onClick={onRetake}>Take this lens again</button>
         {readMini(miniId, result)?.care && <div className="noprint"><SOSSection /></div>}
-        <p className="integrity">A short lens, {m.from.toLowerCase()}. It adds to your profile — your Companion now knows this about you too. A self-discovery tool, not a clinical measure.</p>
+        <p className="integrity">A short lens, {m.from.toLowerCase()}. It adds to your profile, and your Companion now knows this about you too. It's for self-discovery and hasn't been clinically validated.</p>
       </article>
     </div>
   );
@@ -2605,27 +2949,27 @@ function Report({ report, name, answers, scores, companionStart, completedAt, st
             <div className="badgechips">
               {LEVELS.map((L) => (<span key={L.id} className={"bchip" + (meets(L, strength) ? " earned" : "")}><i className="bchipdot" />{L.name}</span>))}
             </div>
-            <p className="badgeexplain">{lvl ? `You've earned ${lvl.name} — ${lvl.accuracy}.` : "Answer a few parts to earn your first badge."}{step ? ` ${step.what} to unlock ${step.level.name}.` : ""}</p>
-            <button className="strengthlink" onClick={onStrength}>Profile strength {strength.score} / 100 — see what's next</button>
+            <p className="badgeexplain">{lvl ? `You've reached ${lvl.name}: ${lvl.accuracy}.` : "Answer a few parts to earn your first badge."}{step ? ` ${step.what} to unlock ${step.level.name}.` : ""}</p>
+            <button className="strengthlink" onClick={onStrength}>Your portrait: {strength.score} / 100. See what's next</button>
           </div>
         ); })()}
         <p className="kicker gold noprint">Essence Recovery Assessment</p>
         <h1 className="display ink"><Words text={name ? `${name}, this is you.` : "This is you."} delay={200} step={80} /></h1>
-        <p className="lede inkdim noprint">Your report, your dimension tiles, your share card — the centre everything else here orbits.</p>
-        {report.preview && <div className="previewnote"><p>Your real report didn't finish writing — usually just a connection blip. Your answers are safe on this phone. One tap tries again.</p><button className="btn gold" onClick={onRegenerate}>Write my real report</button></div>}
+        <p className="lede inkdim noprint">Your report, your scores and your share card. Everything else here grows from this.</p>
+        {report.preview && <div className="previewnote"><p>Your report didn't finish writing. Usually that's a connection blip. Your answers are safe on this phone. One tap tries again.</p><button className="btn gold" onClick={onRegenerate}>Write my real report</button></div>}
         {partial && <ViewIntro strength={strength} completedAt={completedAt} onDeeper={onDeeper} />}
         {scores && <Tiles scores={scores} />}
         <div className="rbody" dangerouslySetInnerHTML={{ __html: md(partial ? dropOpener(report.text) : report.text) }} />
-        <p className="integrity">Grounded in established psychological frameworks — CHC, Big Five, Goleman EI, RIASEC and Schwartz Values. A structured self-discovery tool, not a clinical or validated psychometric instrument. Your answers never left your device, and no one — iSHKiY included — can see them or your conversations without your explicit permission. This report was written for you alone, and it belongs to you.</p>
+        <p className="integrity">Grounded in established psychological frameworks: CHC, Big Five, Goleman EI, RIASEC and Schwartz Values. It's a structured self-discovery tool and hasn't been clinically validated. Your answers never left your device, and nobody can see them or your conversations without your permission. This report was written for you alone, and it belongs to you.</p>
         {!partial && onDeeper && scores && scores.measured && !(scores.measured.thinking && scores.measured.ei && scores.measured.riasec && scores.measured.values && scores.measured.big5) && (
           <button className="deeperband noprint" onClick={onDeeper}>
-            <span className="libctak">Your report is real — and it can go deeper</span>
+            <span className="libctak">Your report is real, and it can go deeper</span>
             <span className="libctat">Answer more parts to sharpen it. Each one earns a badge. →</span>
           </button>
         )}
         <button className="libcta noprint" onClick={onLibrary}>
           <span className="libctak">The Library of You</span>
-          <span className="libctat">Take more assessments — new lenses, one deepening profile →</span>
+          <span className="libctat">Twelve more lenses, one deepening profile →</span>
         </button>
         <p className="printonly printfoot">ishkiy-era.netlify.app · #NotBuiltForABox · <em>The box was never you.</em></p>
         <Retakes completedAt={completedAt} onRetake={onRetake} />

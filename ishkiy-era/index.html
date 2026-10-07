@@ -506,6 +506,28 @@
   .viewmeta{font-size:12.5px; font-weight:600; letter-spacing:.06em; text-transform:uppercase; color:var(--ink60)}
   .viewintro .btn{margin:4px 0 14px}
   .viewthen{font-family:Lora,serif; font-style:italic; color:var(--ink60); margin:0 !important}
+  /* join: membership plans on the dark shell */
+  .join{max-width:560px}
+  .joinnote{background:rgba(212,165,71,.14); border:1.5px solid rgba(212,165,71,.45); border-radius:12px; padding:12px 14px; color:#F5F1E8; font-size:14.5px; line-height:1.5; margin:4px 0 10px}
+  .plans{display:grid; grid-template-columns:1fr; gap:12px; margin:14px 0 16px}
+  @media (min-width:520px){ .plans{grid-template-columns:1fr 1fr} }
+  .plan{position:relative; display:flex; flex-direction:column; align-items:flex-start; gap:4px; text-align:left; padding:16px; border-radius:16px; border:1.5px solid rgba(245,241,232,.22); background:rgba(245,241,232,.05); color:#F5F1E8}
+  .plan.sel{border-color:#D4A547; background:rgba(212,165,71,.14)}
+  .plan:focus-visible{outline:2px solid #D4A547; outline-offset:2px}
+  .planname{font-size:12px; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:rgba(245,241,232,.72)}
+  .planprice{font-family:Lora,serif; font-weight:700; font-size:30px; line-height:1.1}
+  .planprice small{font-family:Inter,sans-serif; font-weight:500; font-size:14px; color:rgba(245,241,232,.72)}
+  .planline{font-size:13.5px; line-height:1.5; color:rgba(245,241,232,.8)}
+  .plansave{position:absolute; top:12px; right:12px; font-size:11px; font-weight:700; letter-spacing:.06em; color:#0F1E3D; background:#D4A547; border-radius:999px; padding:3px 9px}
+  .agree{display:flex; gap:10px; align-items:flex-start; font-size:13.5px; line-height:1.55; color:rgba(245,241,232,.82); margin:0 0 14px; cursor:pointer}
+  .agree input{margin-top:3px; width:18px; height:18px; accent-color:#D4A547; flex:none}
+  .joinalt{display:flex; flex-direction:column; align-items:flex-start; gap:10px; margin-top:18px}
+  .join .cimport{color:rgba(245,241,232,.85); margin:0}
+  .codebox{margin-top:12px}
+  .codebox .code{margin-bottom:10px}
+  .codebox .btn{margin-top:0}
+  .join .tnote{color:rgba(245,241,232,.6)}
+  .btn.ghostlight{background:transparent; border:1.5px solid rgba(245,241,232,.35); color:#F5F1E8}
   /* save & pick up later */
   .exitrow{width:100%; max-width:560px; display:flex; justify-content:flex-end; margin:0 auto 6px}
   .saveexit{font-size:13px; font-weight:600; color:var(--ink60); border:1.5px solid var(--ink12); border-radius:999px; padding:7px 14px}
@@ -1175,6 +1197,118 @@
   .resi{transition:transform 2s cubic-bezier(.45,0,.25,1), background-color 1.6s}
   .resbtn[aria-expanded="true"] .resi{transform:rotate(180deg); background:rgba(212,165,71,.18)}
   .tilehead + .unfold .tbody{padding-top:2px}
+
+  /* --- Home, in order of what can be done now --- */
+  /* the lead: the one thing to do next, full width and a size up */
+  .hgrid > .htile.lead{grid-column:1 / -1; padding:30px 26px 28px; gap:12px}
+  .htile.lead .httitle{font-size:clamp(26px, 6.4vw, 32px); letter-spacing:-.02em}
+  .htile.lead .htsub{font-size:16.5px; max-width:480px}
+  .htile.lead .hart{width:78px}
+  .htile.lead:not(.pulse):not(.fresh){box-shadow:0 0 0 1px rgba(212,165,71,.28), 0 22px 50px -24px rgba(15,30,61,.4)}
+  body.dm .htile.lead:not(.pulse):not(.fresh){box-shadow:0 0 0 1px rgba(212,165,71,.28), 0 24px 54px -24px rgba(0,0,0,.85)}
+  .htile.lead::after{content:"\2192"; position:absolute; right:24px; bottom:22px; width:38px; height:38px; border-radius:50%; pointer-events:none;
+    display:grid; place-items:center; font:600 18px/1 Inter, sans-serif; color:#0F1E3D;
+    background:linear-gradient(140deg, var(--gold-hi), #D4A547 50%, #B98A33); box-shadow:inset 0 1px 0 rgba(255,255,255,.5), 0 8px 22px -8px rgba(212,165,71,.9);
+    transition:transform 1s var(--ease-spring)}
+  @media (hover:hover){ .htile.lead:hover::after{transform:translateX(4px)} }
+  .htile.lead.pulse::after, .htile.lead.locked::after{display:none}
+  .htile.lead > .htsub{padding-right:46px}
+  @media (hover:hover){ .htile.lead:hover{transform:translateY(-5px)} }
+
+  /* group labels */
+  .hgroupk{font-size:12.5px; font-weight:700; letter-spacing:.2em; text-transform:uppercase; color:var(--ink60); margin:0 0 12px; display:flex; align-items:center; gap:12px}
+  .hgroupk::after{content:""; flex:1; height:1px; background:var(--ink06)}
+  .hsoon{margin-top:34px}
+  .quiet{margin-top:38px}
+
+  /* not open yet: smaller, quieter, still answering a tap */
+  .hgrid.soon{gap:12px}
+  .htile.compact{padding:16px 18px; gap:6px; border-radius:20px}
+  .htile.compact .hart{width:42px}
+  .htile.compact .httitle{font-size:18px}
+  .htile.compact .htsub{font-size:14px}
+  .htile.compact .htlock{top:14px; right:14px}
+
+  /* also here: a slim list, one tap away */
+  .qlist{border-radius:22px; background:var(--card); box-shadow:0 0 0 1px var(--ring); overflow:hidden}
+  .qrow{position:relative; overflow:hidden; display:flex; align-items:center; gap:14px; width:100%; text-align:left; padding:14px 18px; background:transparent;
+    transition:background-color .8s ease}
+  .qrow + .qrow{border-top:1px solid var(--ink06)}
+  .qrow::before{content:""; position:absolute; inset:0; pointer-events:none; opacity:0; transition:opacity .8s;
+    background:radial-gradient(300px circle at var(--mx,50%) var(--my,50%), var(--spot), transparent 50%)}
+  .qrow.lit::before{opacity:1}
+  .qicon{flex:none; width:38px; display:flex; justify-content:center; opacity:.85}
+  .qart{width:38px; height:auto}
+  .qtext{flex:1; min-width:0; display:flex; flex-direction:column; gap:2px}
+  .qtitle{font-family:var(--serif); font-weight:560; font-size:16.5px; color:var(--ink); letter-spacing:-.008em}
+  .qsub{font-size:14px; font-weight:500; line-height:1.45; color:var(--ink60)}
+  .qbadge{flex:none; font-size:12px; font-weight:700; color:#8a6d1f; background:rgba(212,165,71,.14); border:1px solid rgba(212,165,71,.35); border-radius:999px; padding:3px 10px}
+  body.dm .qbadge{color:var(--gold)}
+  .qchev{flex:none; font-size:22px; line-height:1; color:var(--ink60); transition:transform 1s var(--ease-spring), color .8s}
+  @media (hover:hover){ .qrow:hover{background:rgba(212,165,71,.06)} .qrow:hover .qchev{transform:translateX(4px); color:#C49236} }
+  .qrow:focus-visible{outline:2px solid #D4A547; outline-offset:-3px; border-radius:18px}
+  .quiet + .hquote{margin-top:40px}
+
+  /* --- step one, unmistakable --- */
+  .htkick{font-size:12.5px; font-weight:700; letter-spacing:.2em; text-transform:uppercase; color:#8a6d1f; display:inline-flex; align-items:center; gap:10px}
+  .htkick::before{content:""; width:9px; height:9px; border-radius:50%; background:#D4A547; box-shadow:0 0 0 4px rgba(212,165,71,.2); animation:nowpulse 3.8s ease-in-out infinite}
+  body.dm .htkick{color:var(--gold)}
+  .htile.lead.firststep{padding:32px 26px 28px; background:
+      linear-gradient(90deg, transparent 6%, var(--acc) 50%, transparent 94%) top / 100% 2px no-repeat,
+      radial-gradient(120% 90% at 100% 0%, rgba(212,165,71,.22), transparent 60%),
+      radial-gradient(130% 90% at 0% 0%, color-mix(in srgb, var(--acc) 16%, transparent), transparent 62%), var(--card);
+    box-shadow:0 0 0 1.5px rgba(212,165,71,.55), 0 26px 60px -26px rgba(212,165,71,.65)}
+  .htile.lead.firststep::after{display:none}
+  .htile.lead.firststep .httitle{font-size:clamp(30px, 7.4vw, 38px)}
+  .htile.lead.firststep > .htsub{padding-right:0}
+  .leadbtn{margin-top:6px; pointer-events:none; align-self:stretch; text-align:center; font-size:17px; padding:17px 26px}
+  @media (min-width:560px){ .leadbtn{align-self:flex-start} }
+  .journey{display:grid; grid-template-columns:repeat(4, 1fr); gap:6px; width:100%; margin:8px 0 4px; position:relative}
+  .journey::before{content:""; position:absolute; left:12%; right:12%; top:13px; height:1.5px; background:linear-gradient(90deg, #D4A547, var(--ink12) 30%)}
+  .jstep{position:relative; display:flex; flex-direction:column; align-items:center; text-align:center; gap:6px}
+  .jdot{width:27px; height:27px; border-radius:50%; display:grid; place-items:center; font-size:12.5px; font-weight:700; background:var(--bone); color:var(--ink60); box-shadow:0 0 0 1.5px var(--ink12)}
+  .jstep.now .jdot{background:linear-gradient(140deg, var(--gold-hi), #D4A547 50%, #B98A33); color:#0F1E3D; box-shadow:0 0 0 4px rgba(212,165,71,.22), 0 0 16px rgba(212,165,71,.6)}
+  .jstep.done .jdot{background:rgba(212,165,71,.2); color:#8a6d1f; box-shadow:0 0 0 1.5px rgba(212,165,71,.6)}
+  .jtext{display:flex; flex-direction:column; gap:1px}
+  .jt{font-size:13px; font-weight:650; color:var(--ink); line-height:1.25}
+  .js{font-size:12px; font-weight:500; color:var(--ink60); line-height:1.3}
+  .jstep:not(.now):not(.done) .jt{color:var(--ink60)}
+  .hthen{margin:30px 0 12px}
+
+  /* --- the ladder: five stages, what each opens --- */
+  .ladder{list-style:none; margin:20px 0 10px; padding:0; display:flex; flex-direction:column; gap:12px; position:relative}
+  .ladder::before{content:""; position:absolute; left:33px; top:30px; bottom:30px; width:1.5px; background:linear-gradient(180deg, #D4A547, var(--ink12) 60%)}
+  .ladrung .depthcard{display:flex; flex-direction:row; align-items:flex-start; gap:16px; width:100%; padding:20px 20px 18px}
+  .depthcard.static{cursor:default}
+  .depthcard.static.lib{opacity:.8}
+  .ladnum{flex:none; position:relative; z-index:1; width:28px; height:28px; border-radius:50%; display:grid; place-items:center; font-size:13px; font-weight:700; background:var(--bone); color:var(--ink60); box-shadow:0 0 0 1.5px var(--ink12)}
+  .ladrung.next .ladnum{background:linear-gradient(140deg, var(--gold-hi), #D4A547 50%, #B98A33); color:#0F1E3D; box-shadow:0 0 0 4px rgba(212,165,71,.22), 0 0 16px rgba(212,165,71,.6)}
+  .ladrung.got .ladnum{background:rgba(212,165,71,.2); color:#8a6d1f; box-shadow:0 0 0 1.5px rgba(212,165,71,.6)}
+  .ladbody{flex:1; min-width:0; display:flex; flex-direction:column; gap:5px}
+  .ladtop{display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap}
+  .ladstate{font-size:12px; font-weight:700; letter-spacing:.06em; border-radius:999px; padding:3px 10px}
+  .ladstate.next{color:#0F1E3D; background:linear-gradient(140deg, var(--gold-hi), #D4A547)}
+  .ladstate.got{color:#5d7a4e; background:rgba(111,143,94,.16); box-shadow:0 0 0 1px rgba(111,143,94,.4)}
+  body.dm .ladstate.got{color:#9CC08A}
+  .ladrung.next .depthcard{box-shadow:0 0 0 1.5px rgba(212,165,71,.6), 0 20px 46px -22px rgba(212,165,71,.6)}
+  .ladrung.got .depthname{opacity:.75}
+  .unlocks{list-style:none; margin:4px 0 0; padding:0; display:flex; flex-direction:column; gap:6px}
+  .unlocks li{display:flex; align-items:flex-start; gap:9px; font-size:14.5px; font-weight:500; line-height:1.45; color:var(--ink)}
+  .unlocks .lockic{flex:none; margin-top:3px; color:var(--ink60)}
+  .unlocks.got .lockic{color:#C49236}
+  .unlocks.got li{color:var(--ink60)}
+  .rung .unlocks{margin-top:8px}
+
+  /* --- SOS on Home, before the Companion opens --- */
+  .qrow.qsos .qtitle{color:#B8453F; letter-spacing:.06em}
+  body.dm .qrow.qsos .qtitle{color:#E58A84}
+  .qrow.qsos{background:rgba(192,80,77,.05)}
+  button.sosjump{border:none; cursor:pointer; font:inherit; font-size:12px; font-weight:700; letter-spacing:.12em}
+
+  .intro > .inkghost{align-self:flex-start}
+
+  .codebox .btn{margin-top:14px}
+  .shell.dark .tnote{color:var(--bone70)} .shell.dark .tnote strong{color:#F5F1E8}
 
   /* --- quieter when asked for --- */
   @media (prefers-reduced-motion: reduce){
