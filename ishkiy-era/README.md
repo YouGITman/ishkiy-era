@@ -25,17 +25,11 @@ The project URL and anon key are already pasted into `src/app.jsx` (the anon key
 ### 4. Test with the founder code
 Open a **deploy preview** (any Netlify preview or branch URL, or `npm run preview` locally), tap **Begin**, enter code `PREVIEW`. That code works only where the hostname is not the live site, so it can never be used against production. Run the whole assessment yourself, end to end, and generate a real report. This is Gate 2's true review — the item bank read differently on paper than it will on your phone.
 
-### 5. Stripe
-People pay on Stripe's own checkout page and come straight back unlocked. Card details never touch iSHKiY. Two Netlify functions do the work: `netlify/functions/checkout.js` starts the checkout, and `netlify/functions/verify-payment.js` confirms it when they return, then ties the payment to that device so a shared link can't unlock a second phone. No database, no webhooks.
-
-Netlify needs two environment variables, set separately per deploy context so previews use test mode and the live site takes real money:
-
-| Variable | Deploy Previews / Branch deploys | Production |
-|---|---|---|
-| `STRIPE_SECRET_KEY` | test restricted key (`rk_test_…`) | live restricted key (`rk_live_…`) |
-| `STRIPE_PRICE_ID` | test price (`price_…`) | live price (`price_…`) |
-
-The restricted key needs **Checkout Sessions: Write** and **PaymentIntents: Write**, nothing else. Discount codes created in Stripe (Products → Coupons → promotion codes) work at checkout automatically. Until both variables exist, the Pay button says payments are being set up and codes still work. The price shown in the app is `PRICE_LABEL` in `src/app.jsx`; keep it the same as the Stripe price.
+### 5. Stripe (when price is decided)
+1. Stripe Dashboard → **Payment Links** → new link, one-off price, GBP.
+2. Under *After payment*, choose **Show a confirmation page** and put the customer's access code in the custom message (see codes below).
+3. Tick **Allow promotion codes** — your discount codes are then created under Products → Coupons, zero code changes here.
+4. Copy the payment link URL and replace `STRIPE_PAYMENT_LINK` in `src/app.jsx` (one place, in the `Unlock` component). Commit → auto-deploys.
 
 ### 6. Founding access codes
 ```
@@ -43,7 +37,7 @@ node gen-codes.mjs 10
 ```
 prints ten codes and their hashes. Paste the hashes into `CODE_HASHES` in `src/app.jsx`, commit, deploy. Send one code per customer with their payment confirmation.
 
-**Codes are now for giveaways and founders.** Paying customers unlock through Stripe automatically; hand a code to anyone you want to let in free.
+**Simplest founding flow:** one code per Stripe confirmation message, rotated manually after each sale (you'll have five to ten customers — thirty seconds each). Automation comes when volume justifies a backend, not before.
 
 The `PREVIEW` code is not in `CODE_HASHES` and needs no removing before launch — it is gated on the hostname instead. See the note above `CODE_HASHES` in `src/app.jsx`.
 
@@ -59,7 +53,6 @@ The `PREVIEW` code is not in `CODE_HASHES` and needs no removing before launch �
 | `src/mini.js` | Mini-assessments and their scoring |
 | `VOICE.md` | How iSHKiY talks: the Sharp and Quiet registers, and what to avoid. The AI follows the same rules (`VOICE` in `src/app.jsx`) |
 | `src/fx.jsx` | Motion and light: the starfield, word reveals, screen transitions, scroll reveals, sparks, count-ups. Decoration only; reduced-motion users get a still version |
-| `netlify/functions/checkout.js` / `verify-payment.js` | Stripe checkout and payment confirmation (keys server-side) |
 | `netlify/functions/claude.js` | The shared iSHKiY AI proxy (key server-side; the model is pinned here) |
 | `supabase/schema.sql` | Tables and row-level security — paste into the Supabase SQL editor |
 | `admin.html` / `dist/admin.js` | Admin view for the practitioner approval queue |
@@ -69,7 +62,7 @@ The `PREVIEW` code is not in `CODE_HASHES` and needs no removing before launch �
 
 ## Housekeeping before launch
 - [ ] Replace placeholder icons with the canonical ii sub-mark from the rebrand kit
-- [ ] Stripe keys and price set in Netlify (test for previews, live for production), and one test purchase made on a preview
+- [ ] Replace `STRIPE_PAYMENT_LINK` with the real link
 - [ ] Generate real codes
 - [ ] Run one full assessment on the Pixel and one on Chrome desktop
 - [ ] Read one full generated report out loud — the voice test
