@@ -346,8 +346,11 @@ function FramesSvg() {
 }
 
 /* ---------------- app ---------------- */
+/* Arriving back from Stripe: ?paid=cs_... after paying, ?checkout=cancelled if not. */
+const RETURN = (() => { try { const q = new URLSearchParams(location.search); const p = q.get("paid"); return { paid: p && /^cs_(test|live)_[A-Za-z0-9]+$/.test(p) ? p : null, cancelled: q.get("checkout") === "cancelled" }; } catch { return {}; } })();
 function App() {
-  const [state, setState] = useState(() => ({ part: 0, item: 0, answers: {}, unlocked: false, report: null, ...load(), phase: "breath" }));
+  const [state, setState] = useState(() => ({ part: 0, item: 0, answers: {}, unlocked: false, report: null, ...load(), phase: RETURN.paid ? "verifying" : RETURN.cancelled ? "unlock" : "breath" }));
+  useEffect(() => { if (RETURN.paid || RETURN.cancelled) { try { history.replaceState(null, "", location.pathname); } catch {} } }, []);
   const apply = (patch) => setState((s) => { const n = { ...s, ...patch }; save(n); return n; });
   /* A new screen, or a new theme, arrives through a view transition. Everything
      else (an answer, a seed) applies straight away. */
@@ -388,7 +391,8 @@ function App() {
   /* Answers save on every tap already; "Save & pick up later" also remembers
      exactly where someone was, so Home can drop them straight back in. */
   const saveExit = (at) => { track("save_exit", PARTS[state.part] && PARTS[state.part].id); update({ phase: "home", paused: { at, part: state.part, item: at === "run" ? state.item : 0, arc: state.arc } }); };
-  if (state.phase === "unlock") return <Unlock onUnlock={() => update({ unlocked: true, phase: "warmup" })} onHome={() => update({ phase: "home" })} />;
+  if (state.phase === "unlock") return <Unlock cancelled={RETURN.cancelled} onUnlock={(access) => update({ unlocked: true, access: { ...access, at: Date.now() }, phase: "warmup" })} onHome={() => update({ phase: "home" })} />;
+  if (state.phase === "verifying") return <Verifying sessionId={RETURN.paid} onDone={(access) => update({ unlocked: true, access, phase: state.unlocked ? "home" : "warmup" })} onHome={() => update({ phase: "home" })} />;
   if (state.phase === "warmup") return <Warmup onDone={() => update({ phase: "intro" })} onExit={() => saveExit("intro")} />;
   if (state.phase === "explainer") return <Explainer onDone={() => update({ phase: "home", seenExplainer: true })} />;
   // Same deck, reachable any time from Home or Settings.
@@ -473,24 +477,83 @@ function Welcome({ onStart, resumable }) {
   );
 }
 
-function Unlock({ onUnlock, onHome }) {
+/* ---------------- founding access: Stripe, or a code ----------------
+   "Pay £29" opens Stripe's own checkout page (netlify/functions/checkout.js).
+   Stripe sends people back with ?paid=cs_..., the Verifying screen confirms it
+   with Stripe (verify-payment.js) and the app unlocks on this device. Card
+   details never touch iSHKiY. Codes still work, for founders and giveaways. */
+const PRICE_LABEL = "£29";
+async function startCheckout() {
+  const res = await fetch("/api/checkout", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ device: sid }) });
+  const data = await res.json().catch(() => ({}));
+  if (res.ok && data.url) { location.assign(data.url); return null; }
+  return data.error === "not_configured" ? "setup" : "failed";
+}
+function Unlock({ onUnlock, onHome, cancelled }) {
   const [code, setCode] = useState(""); const [err, setErr] = useState(false); const [busy, setBusy] = useState(false);
+  const [paying, setPaying] = useState(false); const [payNote, setPayNote] = useState(cancelled ? "cancelled" : null);
   const check = async () => {
     setBusy(true); const h = await sha256(code); setBusy(false);
-    if (CODE_HASHES.includes(h) || (isPreviewHost() && h === PREVIEW_HASH)) onUnlock(); else setErr(true);
+    if (CODE_HASHES.includes(h) || (isPreviewHost() && h === PREVIEW_HASH)) { track("unlock_code"); onUnlock({ via: "code" }); } else setErr(true);
+  };
+  const pay = async () => {
+    setPaying(true); setPayNote(null); track("checkout_start");
+    const r = await startCheckout().catch(() => "failed");
+    if (r) { setPaying(false); setPayNote(r); }
+  };
+  const notes = {
+    cancelled: "No payment was taken. Whenever you're ready.",
+    setup: "Payments are being set up. If you have an access code, use it below.",
+    failed: "Stripe didn't open just then. Give it a moment and try again.",
   };
   return (
     <Shell dark>
       <div className="welcome">
         <button className="saveexit light" onClick={onHome}>← Home</button>
         <p className="kicker">Founding access</p>
-        <h1 className="display sm">Enter your access code</h1>
-        <p className="lede dim">Your code came with your payment confirmation. £29 gets you: the full assessment, your written report (yours to keep), a share card, and 7 days with your AI Companion: a coach, a mentor and a listener who have actually read you.</p>
-        <input className="code" value={code} onChange={(e) => { setCode(e.target.value); setErr(false); }} onKeyDown={(e) => e.key === "Enter" && code && check()} placeholder="e.g. ERA-XXXX-XXXX" autoFocus spellCheck="false" />
+        <h1 className="display sm">Become a founding member</h1>
+        <p className="lede dim">{PRICE_LABEL}, once. You get the full assessment, a written report that's yours to keep, a share card, and 7 days with your Companion: a coach, a mentor and a listener who have actually read you.</p>
+        <button className="btn gold paybtn" disabled={paying} onClick={pay}>{paying ? "Opening Stripe…" : `Pay ${PRICE_LABEL} securely`}</button>
+        {payNote && <p className="err" role="status">{notes[payNote]}</p>}
+        <p className="paysafe"><LockIcon size={13} /> Card payment by Stripe. Your card details never reach iSHKiY.</p>
+        {isPreviewHost() && <p className="tnote">Preview build: Stripe is in test mode. Pay with card <strong>4242 4242 4242 4242</strong>, any future date, any CVC. The founder code <strong>PREVIEW</strong> also works here, and never on the live site.</p>}
+        <div className="codesplit"><span>Have an access code?</span></div>
+        <input className="code" value={code} onChange={(e) => { setCode(e.target.value); setErr(false); }} onKeyDown={(e) => e.key === "Enter" && code && check()} placeholder="e.g. ERA-XXXX-XXXX" spellCheck="false" aria-label="Access code" />
         {err && <p className="err">That code didn't work. Check for typos. Capitals don't matter.</p>}
-        {isPreviewHost() && <p className="tnote">This is a preview build, so the founder code <strong>PREVIEW</strong> works here. It does not work on the live site.</p>}
-        <button className="btn gold" disabled={!code || busy} onClick={check}>{busy ? "Checking…" : "Continue"}</button>
-        <a className="paylink" href="STRIPE_PAYMENT_LINK" target="_blank" rel="noreferrer">Don't have a code? Become a founding member →</a>
+        <button className="btn ink" disabled={!code || busy} onClick={check}>{busy ? "Checking…" : "Use my code"}</button>
+      </div>
+    </Shell>
+  );
+}
+
+/* Back from Stripe: confirm the payment, then carry straight on. */
+function Verifying({ sessionId, onDone, onHome }) {
+  const [state, setState] = useState("checking");
+  const run = async () => {
+    setState("checking");
+    try {
+      const res = await fetch("/api/verify-payment", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ session_id: sessionId, device: sid }) });
+      const data = await res.json().catch(() => ({}));
+      if (data.ok) { track("paid", data.live ? "live" : "test"); onDone({ via: "stripe", receipt: data.receipt, email: data.email, at: Date.now() }); return; }
+      setState(data.reason || "failed");
+    } catch { setState("failed"); }
+  };
+  useEffect(() => { run(); }, []);
+  const msg = {
+    unpaid: "Stripe hasn't confirmed this payment yet. Give it a minute, then try again.",
+    claimed: "This payment is already linked to another device. Email ops@ishkiy.com with your Stripe receipt and we'll sort it out.",
+    not_found: "We couldn't find this payment. If you were charged, email ops@ishkiy.com with your Stripe receipt.",
+    failed: "We couldn't reach Stripe just now. Your payment is safe. Try again in a moment.",
+  };
+  return (
+    <Shell dark>
+      <div className="glimmer">
+        <div className="orbwrap"><Orb size={96} /></div>
+        {state === "checking"
+          ? <><p className="gline"><Words text="Confirming your payment." delay={200} /></p><p className="gsub fadein">This takes a few seconds.</p></>
+          : <><p className="gline">One moment.</p><p className="gsub">{msg[state] || msg.failed}</p>
+              <button className="btn gold" onClick={run}>Try again</button>
+              <button className="exskip" onClick={onHome}>Back to Home</button></>}
       </div>
     </Shell>
   );
@@ -2216,6 +2279,14 @@ function SettingsScreen({ state, update, onBack }) {
             </div>
           ))}
         </div>
+
+        {state.unlocked && (
+          <div className="setgroup">
+            <p className="setlabel">Your access</p>
+            <div className="setrow"><span>Founding member</span><span className="tnum">{state.access && state.access.via === "stripe" ? "Paid with Stripe" : state.access && state.access.via === "code" ? "Access code" : "Active"}</span></div>
+            {state.access && state.access.receipt && <p className="tnote">Receipt reference: <span className="tnum">{state.access.receipt}</span>{state.access.email ? ` · ${state.access.email}` : ""}. Quote it if you ever need help.</p>}
+          </div>
+        )}
 
         <div className="setgroup">
           <p className="setlabel">Appearance</p>

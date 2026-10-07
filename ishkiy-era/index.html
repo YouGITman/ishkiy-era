@@ -1285,6 +1285,15 @@
 
   .intro > .inkghost{align-self:flex-start}
 
+  /* --- founding access --- */
+  .paybtn{align-self:stretch; text-align:center; font-size:17px; padding:18px 26px; margin-top:22px}
+  @media (min-width:560px){ .paybtn{align-self:flex-start; min-width:280px} }
+  .paysafe{display:flex; align-items:center; gap:8px; font-size:13.5px; font-weight:500; color:var(--bone70); margin:12px 0 0}
+  .codesplit{display:flex; align-items:center; gap:12px; margin:34px 0 4px; font-size:12.5px; font-weight:700; letter-spacing:.16em; text-transform:uppercase; color:rgba(245,241,232,.6)}
+  .codesplit::before, .codesplit::after{content:""; flex:1; height:1px; background:rgba(245,241,232,.16)}
+  .shell.dark .tnote{color:var(--bone70)} .shell.dark .tnote strong{color:#F5F1E8}
+  .welcome .btn.ink{background:rgba(245,241,232,.1); color:#F5F1E8; box-shadow:inset 0 0 0 1px rgba(245,241,232,.22)}
+
   /* --- quieter when asked for --- */
   @media (prefers-reduced-motion: reduce){
     *, *::before, *::after{animation-duration:.01ms !important; animation-iteration-count:1 !important; animation-delay:0ms !important; transition-duration:.01ms !important}
