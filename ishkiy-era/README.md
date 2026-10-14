@@ -25,13 +25,24 @@ The project URL and anon key are already pasted into `src/app.jsx` (the anon key
 ### 4. Test with the founder code
 Open a **deploy preview** (any Netlify preview or branch URL, or `npm run preview` locally), tap **Begin**, enter code `PREVIEW`. That code works only where the hostname is not the live site, so it can never be used against production. Run the whole assessment yourself, end to end, and generate a real report. This is Gate 2's true review — the item bank read differently on paper than it will on your phone.
 
-### 5. Stripe (when price is decided)
-1. Stripe Dashboard → **Payment Links** → new link, one-off price, GBP.
-2. Under *After payment*, choose **Show a confirmation page** and put the customer's access code in the custom message (see codes below).
-3. Tick **Allow promotion codes** — your discount codes are then created under Products → Coupons, zero code changes here.
-4. Copy the payment link URL and replace `STRIPE_PAYMENT_LINK` in `src/app.jsx` (one place, in the `Unlock` component). Commit → auto-deploys.
+### 5. Stripe — membership
+**Pricing:** £9.99 for the first month (assessment, report, Companion), then £12.99 a month. Or £89.99 a year (shown as "Save 42%"). The report stays the customer's whatever they decide later. Access-code holders keep everything, with no time limit.
 
-### 6. Founding access codes
+Checkout runs on Stripe's own page through Netlify functions (`/api/checkout`, `/api/verify`, `/api/portal`, `/api/reward`). No webhook and no database: Stripe sends the customer back to `/?paid=<session>`, the app confirms it with Stripe, and the device keeps the session as its receipt. Membership is re-checked once a day, so a cancellation winds down by itself.
+
+1. Stripe → **Product catalogue → Add product** "iSHKiY membership" with two recurring prices: **£12.99 / month** and **£89.99 / year**. Copy both price ids (`price_…`).
+2. **Coupons:** create `INTRO3`, **£3 off, duration Once** (makes the first month £9.99; the app only offers it on a first membership). For the tester survey, create a second one, **100% off, duration Once** (the free month).
+3. **Settings → Billing → Customer portal** → turn it on, and allow switching between the two prices. **Settings → Emails** → tick successful payments and upcoming renewals.
+4. Netlify → **Environment variables** (live values for **Production**, test-mode values for **Deploy previews / Branch deploys**; test card `4242 4242 4242 4242`):
+   - `STRIPE_SECRET_KEY`
+   - `STRIPE_PRICE_MONTHLY`, `STRIPE_PRICE_ANNUAL`
+   - `STRIPE_INTRO_COUPON` (the £3 coupon id)
+   - `STRIPE_SURVEY_COUPON` (the 100% coupon id)
+5. Redeploy. The join screen asks for the 14-day cancellation consent before payment (UK rules for digital content delivered straight away).
+
+**Refunds.** The join screen promises "if you don't think it was worth it, tell me and I'll refund you". Refund from the payment in the Stripe Dashboard and cancel the subscription there.
+
+### 6. Founding access codes (comps and testers)
 ```
 node gen-codes.mjs 10
 ```
@@ -43,6 +54,22 @@ The `PREVIEW` code is not in `CODE_HASHES` and needs no removing before launch �
 
 ---
 
+### 7. Tester survey
+The tester version asks seven open questions (first five minutes, what nearly made them quit, the one feature to keep, where they had to guess, monthly vs one-off, would they keep paying). Members who finish it get their next month free, applied to their subscription automatically (`/api/reward`, once per subscription). Entry points: a card on Home once the report exists, and Settings.
+
+1. Supabase → SQL Editor → paste `supabase/tester-feedback.sql` → Run. Answers land in `tester_feedback`, readable only by the admin email.
+2. If `STRIPE_SURVEY_COUPON` isn't set, the app tells members their free month will be added by hand: in Stripe, open their subscription → **Add coupon**.
+3. At full launch set `TESTER_MODE = false` in `src/app.jsx` — survey, consent card and tester settings all go with it.
+
+### 8. Behavioural analytics (PostHog)
+Screen views, time on each screen (and on each question of the assessment), hover dwell on key buttons, and the screen someone was on when they left. Off until the tester taps "Yes, that's fine" on Home (or turns it on in Settings).
+
+1. posthog.com → sign up → create a project on **EU cloud** (free tier is plenty).
+2. Project settings → copy the **Project API key** (`phc_…`, public by design) into `POSTHOG_KEY` in `src/analytics.js`. Commit → deploys.
+3. In PostHog: **Paths** (event `$screen`) shows routes through the app; a **Trends** insight on `screen_time` broken down by `$screen_name` shows dwell; `app_hidden` broken down by `$screen_name` and `item` shows exit points.
+
+It deliberately doesn't use the posthog-js library: its autocapture and session replay would record the text people tap, which here means their answers. `src/analytics.js` sends only screen names, part ids, question numbers and timings.
+
 ## Files
 
 | File | What it is |
@@ -53,6 +80,9 @@ The `PREVIEW` code is not in `CODE_HASHES` and needs no removing before launch �
 | `src/mini.js` | Mini-assessments and their scoring |
 | `src/fx.jsx` | Motion and light: the starfield, word reveals, screen transitions, scroll reveals, sparks, count-ups. Decoration only; reduced-motion users get a still version |
 | `netlify/functions/claude.js` | The shared iSHKiY AI proxy (key server-side; the model is pinned here) |
+| `netlify/functions/checkout.js`, `verify.js`, `portal.js`, `reward.js` | Stripe Checkout, membership check, billing portal, the survey's free month. Shared helpers in `netlify/lib/stripe.js` |
+| `src/analytics.js` | Consent-gated PostHog events: screens, timings, hovers, exit points |
+| `supabase/tester-feedback.sql` | The tester survey table — run once |
 | `supabase/schema.sql` | Tables and row-level security — paste into the Supabase SQL editor |
 | `admin.html` / `dist/admin.js` | Admin view for the practitioner approval queue |
 | `gen-codes.mjs` | Access-code generator |
@@ -61,12 +91,14 @@ The `PREVIEW` code is not in `CODE_HASHES` and needs no removing before launch �
 
 ## Housekeeping before launch
 - [ ] Replace placeholder icons with the canonical ii sub-mark from the rebrand kit
-- [ ] Replace `STRIPE_PAYMENT_LINK` with the real link
+- [ ] Stripe prices, coupons and env vars set (live in Production, test in previews); one real £9.99 join made, then refunded and cancelled
+- [ ] `tester-feedback.sql` run; PostHog key pasted
+- [ ] At full launch: `TESTER_MODE = false`
 - [ ] Generate real codes
 - [ ] Run one full assessment on the Pixel and one on Chrome desktop
 - [ ] Read one full generated report out loud — the voice test
 
 ## What v1 deliberately does not have
-Subscriptions, the free Glimpse tier, dashboards. All of that waits behind the first paying customers — by design, per the roadmap.
+The free Glimpse tier, dashboards. All of that waits behind the first paying customers — by design, per the roadmap.
 
 Accounts and the practitioner layer arrived after the original v1 scope: sign-in is a Supabase email magic link, the cloud copy of the profile is opt-in, and sharing with a practitioner requires an explicit grant recorded in `share_grants`. The default path through the app still touches none of it.

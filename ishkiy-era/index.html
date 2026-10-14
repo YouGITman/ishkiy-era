@@ -516,6 +516,35 @@
   body.dm .resumek{color:var(--gold)}
   .resumet{font-family:Lora,serif; font-weight:700; font-size:20px; color:var(--ink)}
   .resumes{font-size:14px; color:var(--ink60)}
+  /* purchase, tester survey, analytics consent */
+  .join{max-width:560px}
+  .plans{display:grid; grid-template-columns:1fr; gap:12px; margin:14px 0 16px}
+  @media (min-width:520px){ .plans{grid-template-columns:1fr 1fr} }
+  .plan{position:relative; display:flex; flex-direction:column; align-items:flex-start; gap:4px; text-align:left; padding:16px; border-radius:16px; border:1.5px solid rgba(245,241,232,.22); background:rgba(245,241,232,.05); color:#F5F1E8; transition:border-color .3s, background-color .3s}
+  .plan.sel{border-color:#D4A547; background:rgba(212,165,71,.14)}
+  .plan:focus-visible{outline:2px solid #D4A547; outline-offset:2px}
+  .planname{font-size:12px; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:rgba(245,241,232,.72)}
+  .planprice{font-family:var(--serif, Lora, serif); font-weight:700; font-size:30px; line-height:1.1}
+  .planprice small{font-family:Inter,sans-serif; font-weight:500; font-size:14px; color:rgba(245,241,232,.72)}
+  .planline{font-size:13.5px; line-height:1.5; color:rgba(245,241,232,.8)}
+  .plansave{position:absolute; top:12px; right:12px; font-size:11px; font-weight:700; letter-spacing:.06em; color:#0F1E3D; background:#D4A547; border-radius:999px; padding:3px 9px}
+  .agree{display:flex; gap:10px; align-items:flex-start; font-size:13.5px; line-height:1.55; color:rgba(245,241,232,.82); margin:0 0 4px; cursor:pointer}
+  .agree input{margin-top:3px; width:18px; height:18px; accent-color:#D4A547; flex:none}
+  .btn.ghostlight{background:transparent; color:#F5F1E8; border:1.5px solid var(--bone22); margin-top:10px; text-align:left; font-weight:500; font-size:15px}
+  .tnote.light{color:var(--bone70)}
+  .paylinkin{color:inherit; border-bottom:1px solid var(--bone22); text-decoration:none}
+  .glimmer .paylink{align-self:center}
+  .consentcard{width:100%; margin:4px 0 18px; padding:16px 18px; border-radius:16px; border:1.5px solid var(--ink12); background:rgba(255,255,255,.5)}
+  body.dm .consentcard{background:rgba(245,241,232,.05)}
+  .consentcard p{font-size:14.5px; color:var(--ink60); line-height:1.55; margin:6px 0 0}
+  .consentrow{display:flex; gap:10px; margin-top:12px; flex-wrap:wrap}
+  .consentrow .rtbtn{cursor:pointer}
+  .sq{margin:26px 0 0}
+  .sq .tlabel{display:block; margin-bottom:4px}
+  .sq .sqtext{font-family:var(--serif); font-size:19px; font-weight:600; color:var(--ink); line-height:1.35; margin:0 0 10px}
+  .sq .tarea{min-height:96px; font-size:16px; color:var(--ink)}
+  body.dm .sq .tarea{background:rgba(245,241,232,.05)}
+  .sqhint{font-size:13px; color:var(--ink60); margin-top:6px}
   /* library: subject symbols, tallies, the lock */
   .subjicon{flex:none; display:block}
   .subjchip .subjicon{margin-left:-3px}
