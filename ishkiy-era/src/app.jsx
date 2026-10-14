@@ -31,7 +31,6 @@ const track = (e, d) => { capture(e, d == null ? {} : { d: String(d).slice(0, 40
    testing: the feedback survey (and its free-month reward) and the analytics
    consent card on Home. Set to false at full launch. */
 const TESTER_MODE = true;
-const SURVEY_BONUS_DAYS = 30;
 
 /* ---------------- profile strength, levels & badges ----------------
    Strength is one number out of 100, and it is deliberately not reachable by
@@ -133,19 +132,25 @@ async function sha256(text) {
    customer back to /?paid=<session id>; /api/verify confirms the payment with
    Stripe and the device keeps the session id as its receipt. Monthly members
    are re-checked once a day so a cancelled membership winds down by itself.
-   Access codes still work alongside this, for comps and testers. */
-const FALLBACK_PRICES = { once: { amount: 999, currency: "gbp" }, monthly: null };
+   Access codes still work alongside this, for comps and testers.
+
+   Pricing: £9.99 for the first month (assessment, report, Companion), then
+   £12.99 a month; or £89.99 a year. The report is theirs whatever happens. */
+const FALLBACK_PRICES = { intro: { amount: 999, currency: "gbp" }, monthly: { amount: 1299, currency: "gbp" }, annual: { amount: 8999, currency: "gbp" } };
 const money = (p) => p ? new Intl.NumberFormat("en-GB", { style: "currency", currency: (p.currency || "gbp").toUpperCase(), minimumFractionDigits: p.amount % 100 ? 2 : 0 }).format(p.amount / 100) : "";
-const isMember = (state) => !!(state.purchase && state.purchase.plan === "monthly" && state.purchase.active);
+const isMember = (state) => !!(state.purchase && state.purchase.active);
+/* The Companion is part of membership. Access-code holders (comps, testers)
+   have it too, with no clock on it; a lapsed member sees the way back in. */
+const companionOpen = (state) => isMember(state) || (!state.purchase && !!state.unlocked);
 const verifyPurchase = async (session) => {
   const r = await fetch("/api/verify?session_id=" + encodeURIComponent(session));
   const d = await r.json();
   if (!r.ok) throw new Error(d.error || "verify failed");
   return d;
 };
-const startCheckout = async (plan) => {
+const startCheckout = async (plan, intro) => {
   track("checkout_start", plan);
-  const r = await fetch("/api/checkout", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ plan }) });
+  const r = await fetch("/api/checkout", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ plan, intro }) });
   const d = await r.json().catch(() => ({}));
   if (!r.ok || !d.url) throw new Error(d.error || "checkout failed");
   location.href = d.url;
@@ -160,7 +165,7 @@ function usePrices() {
   const [prices, setPrices] = useState(FALLBACK_PRICES);
   useEffect(() => {
     let alive = true;
-    fetch("/api/checkout").then((r) => r.ok ? r.json() : null).then((d) => { if (alive && d && d.once) setPrices(d); }).catch(() => {});
+    fetch("/api/checkout").then((r) => r.ok ? r.json() : null).then((d) => { if (alive && d && d.monthly) setPrices({ ...FALLBACK_PRICES, ...d, intro: d.intro || d.monthly }); }).catch(() => {});
     return () => { alive = false; };
   }, []);
   return prices;
@@ -401,7 +406,7 @@ function App() {
 
   if (state.phase === "breath") return <Breath onEnter={() => update({ phase: state.seenExplainer ? "home" : "explainer" })} />;
   if (state.phase === "home") return <Home state={state} onAnalytics={(v) => { apply({ analytics: v }); if (v === "yes") track("analytics_yes"); }} onResume={() => { const p = state.paused; update({ part: p.part, item: p.item, arc: p.arc, paused: null, phase: p.at === "run" ? "run" : "intro" }); }} onTheme={() => update({ dark: !state.dark })} go={(p) => update({ phase: p })} startAssessment={() => update({ phase: Object.keys(answers).length ? "chooseDepth" : "chooseDepth" })} />;
-  if (state.phase === "companion") return <CompanionScreen state={state} scores={scores} onBack={() => update({ phase: "home" })} onRegenerate={() => update({ phase: "generating" })} onHuman={() => update({ phase: "humans" })} onSurvey={() => update({ phase: "survey" })} />;
+  if (state.phase === "companion") return <CompanionScreen state={state} scores={scores} onBack={() => update({ phase: "home" })} onRegenerate={() => update({ phase: "generating" })} onHuman={() => update({ phase: "humans" })} onJoin={() => update({ phase: "unlock" })} />;
   if (state.phase === "constellation") return <ConstellationScreen state={state} update={update} onBack={() => update({ phase: "home" })} />;
   if (state.phase === "humans") return <HumansScreen scores={scores} state={state} onBack={() => update({ phase: "home" })} onApply={() => update({ phase: "apply" })} />;
   if (state.phase === "account") return <AccountScreen state={state} scores={scores} onBack={() => update({ phase: "home" })} />;
@@ -415,11 +420,11 @@ function App() {
   /* Answers save on every tap already; "Save & pick up later" also remembers
      exactly where someone was, so Home can drop them straight back in. */
   const saveExit = (at) => { track("save_exit", PARTS[state.part] && PARTS[state.part].id); update({ phase: "home", paused: { at, part: state.part, item: at === "run" ? state.item : 0, arc: state.arc } }); };
-  if (state.phase === "unlock") return <Unlock pending={state.pendingSession} onPending={() => update({ phase: "paid" })} onUnlock={() => update({ unlocked: true, phase: "warmup" })} onHome={() => update({ phase: "home" })} />;
+  if (state.phase === "unlock") return <Unlock intro={!state.purchase} pending={state.pendingSession} onPending={() => update({ phase: "paid" })} onUnlock={() => update({ unlocked: true, phase: "warmup" })} onHome={() => update({ phase: "home" })} />;
   /* After paying: straight into the assessment if it hasn't been started, Home otherwise. */
   const afterPay = () => update({ phase: Object.keys(answers).length ? "home" : "warmup" });
   if (state.phase === "paid") return <Paid session={state.pendingSession} onVerified={(d) => apply({ unlocked: true, pendingSession: null, purchase: { session: state.pendingSession, plan: d.plan, active: !!d.active, renews: d.renews || null, checkedAt: Date.now() } })} purchase={state.purchase} onContinue={afterPay} onHome={() => update({ phase: "unlock" })} />;
-  if (state.phase === "survey") return <Survey state={state} onBack={() => update({ phase: "home" })} onRewarded={() => apply({ surveyDone: Date.now(), companionBonusDays: (state.companionBonusDays || 0) + SURVEY_BONUS_DAYS })} />;
+  if (state.phase === "survey") return <Survey state={state} onBack={() => update({ phase: "home" })} onRewarded={(rewarded) => apply({ surveyDone: Date.now(), surveyRewarded: !!rewarded })} />;
   if (state.phase === "warmup") return <Warmup onDone={() => update({ phase: "intro" })} onExit={() => saveExit("intro")} />;
   if (state.phase === "explainer") return <Explainer onDone={() => update({ phase: "home", seenExplainer: true })} />;
   // Same deck, reachable any time from Home or Settings.
@@ -495,7 +500,7 @@ function Welcome({ onStart, resumable }) {
         <div className="steps">
           <div className="step"><span className="stepn">1</span><span>Answer questions about yourself. Ten to fifteen minutes for your first profile, and you can go deeper whenever you want. It saves as you go.</span></div>
           <div className="step"><span className="stepn">2</span><span>Get a written report about you — how you think, what you enjoy, what matters to you. Yours to keep.</span></div>
-          <div className="step"><span className="stepn">3</span><span>Talk it over with your AI Companion for 7 days. Ask it anything about your life and work.</span></div>
+          <div className="step"><span className="stepn">3</span><span>Talk it over with your AI Companion, part of membership. Ask it anything about your life and work.</span></div>
         </div>
         <p className="lede dim">Built on trusted psychology (Big Five, CHC, Goleman EI, RIASEC, Schwartz Values). A self-discovery tool, not a medical test. Your answers stay on your phone — no one can read them, iSHKiY included.</p>
         <button className="btn gold" onClick={onStart}>{resumable ? "Continue where you left off" : "Begin"}</button>
@@ -504,38 +509,61 @@ function Welcome({ onStart, resumable }) {
   );
 }
 
-function Unlock({ onUnlock, onHome, pending, onPending }) {
+function Unlock({ onUnlock, onHome, pending, onPending, intro }) {
   const prices = usePrices();
+  const [plan, setPlan] = useState("monthly");
+  const [agree, setAgree] = useState(false);
   const [code, setCode] = useState(""); const [err, setErr] = useState(false); const [busy, setBusy] = useState(false);
-  const [paying, setPaying] = useState(null); const [payErr, setPayErr] = useState(false);
+  const [paying, setPaying] = useState(false); const [payErr, setPayErr] = useState(false);
   const [showCode, setShowCode] = useState(false);
+  const renewOn = new Date(Date.now() + 30 * DAY).toLocaleDateString("en-GB", { day: "numeric", month: "long" });
+  const perMonth = prices.annual ? money({ ...prices.annual, amount: Math.round(prices.annual.amount / 12) }) : "";
+  const save = prices.annual && prices.monthly ? Math.round((1 - prices.annual.amount / (prices.monthly.amount * 12)) * 100) : 0;
+  const today = plan === "annual" ? prices.annual : intro ? prices.intro : prices.monthly;
   const check = async () => {
     setBusy(true); const h = await sha256(code); setBusy(false);
     if (CODE_HASHES.includes(h) || (isPreviewHost() && h === PREVIEW_HASH)) { track("code_unlock"); onUnlock(); } else setErr(true);
   };
-  const buy = async (plan) => {
-    setPaying(plan); setPayErr(false);
-    try { await startCheckout(plan); } catch { setPaying(null); setPayErr(true); }
+  const buy = async () => {
+    if (!agree || paying) return;
+    setPaying(true); setPayErr(false);
+    try { await startCheckout(plan, intro); } catch { setPaying(false); setPayErr(true); }
   };
   return (
     <Shell dark>
-      <div className="welcome">
+      <div className="welcome join">
         <button className="saveexit light" onClick={onHome}>← Home</button>
-        <p className="kicker">Founding access</p>
-        <h1 className="display sm">Everything iSHKiY knows how to give you</h1>
-        <p className="lede dim">The full assessment, your written report (yours to keep), a share card, and 7 days with your AI Companion — a coach, a mentor and a sounding voice that have actually read you.</p>
-        <button className="btn gold" data-hover="buy_once" disabled={!!paying} onClick={() => buy("once")}>{paying === "once" ? "Opening secure checkout…" : `Get started · ${money(prices.once)}`}</button>
-        {prices.monthly && <button className="btn ghostlight" data-hover="buy_monthly" disabled={!!paying} onClick={() => buy("monthly")}>{paying === "monthly" ? "Opening secure checkout…" : `Or ${money(prices.monthly)} a month, with the Companion for as long as you stay`}</button>}
+        <p className="kicker">Membership</p>
+        <h1 className="display sm">Start with your report.</h1>
+        <p className="lede dim">The full assessment, your written report (yours to keep, whatever you decide later), a share card, and your AI Companion — a coach, a mentor and a sounding voice that have actually read you.</p>
+        <div className="plans" role="radiogroup" aria-label="Choose a plan">
+          <button role="radio" aria-checked={plan === "monthly"} data-hover="plan_monthly" className={"plan" + (plan === "monthly" ? " sel" : "")} onClick={() => setPlan("monthly")}>
+            <span className="planname">Monthly</span>
+            <span className="planprice">{money(intro ? prices.intro : prices.monthly)}<small>{intro ? " today" : " a month"}</small></span>
+            <span className="planline">{intro ? `Then ${money(prices.monthly)} a month from ${renewOn}.` : "Rolling monthly."} Cancel any time.</span>
+          </button>
+          {prices.annual && <button role="radio" aria-checked={plan === "annual"} data-hover="plan_annual" className={"plan" + (plan === "annual" ? " sel" : "")} onClick={() => setPlan("annual")}>
+            {save > 0 && <span className="plansave">Save {save}%</span>}
+            <span className="planname">Annual</span>
+            <span className="planprice">{money(prices.annual)}<small> a year</small></span>
+            <span className="planline">About {perMonth} a month. We'll email you before it renews.</span>
+          </button>}
+        </div>
+        <label className="agree">
+          <input type="checkbox" checked={agree} onChange={(e) => setAgree(e.target.checked)} />
+          <span>Start my membership now. I understand my report is delivered straight away, so my 14-day right to cancel ends once it is, and that I can cancel membership at any time from Settings.</span>
+        </label>
         {payErr && <p className="err">Checkout didn't open. Check your connection and try again — nothing has been charged.</p>}
+        <button className="btn gold" data-hover="pay" disabled={!agree || paying} onClick={buy}>{paying ? "Opening secure checkout…" : `Continue to payment · ${money(today)}`}</button>
         <p className="tnote light">If you don't think it was worth it, tell me and I'll refund you. No forms, no questions. <a className="paylinkin" href={"mailto:ops@ishkiy.com?subject=" + encodeURIComponent("Refund")}>ops@ishkiy.com</a> — Tarang</p>
-        <p className="tnote light">Payment is handled by Stripe. Your answers never go anywhere near it.</p>
+        <p className="tnote light">Secure payment by Stripe. Your answers never go anywhere near it.</p>
         {pending && <button className="paylink" onClick={onPending}>Paid already but not in yet? Check my payment again →</button>}
         {!showCode && <button className="paylink" data-hover="have_code" onClick={() => setShowCode(true)}>I have an access code →</button>}
         {showCode && (<>
           <input className="code" value={code} onChange={(e) => { setCode(e.target.value); setErr(false); }} onKeyDown={(e) => e.key === "Enter" && code && check()} placeholder="e.g. ERA-XXXX-XXXX" autoFocus spellCheck="false" />
           {err && <p className="err">That code isn't recognised. Check for typos — codes aren't case-sensitive.</p>}
           {isPreviewHost() && <p className="tnote">This is a preview build, so the founder code <strong>PREVIEW</strong> works here. It does not work on the live site.</p>}
-          <button className="btn gold" disabled={!code || busy} onClick={check}>{busy ? "Checking…" : "Continue"}</button>
+          <button className="btn ghostlight" disabled={!code || busy} onClick={check}>{busy ? "Checking…" : "Use code"}</button>
         </>)}
       </div>
     </Shell>
@@ -554,7 +582,7 @@ function Paid({ session, purchase, onVerified, onContinue, onHome }) {
     }, () => setSt("error"));
   };
   useEffect(() => { if (session) run(); }, []);
-  const monthly = (purchase && purchase.plan === "monthly");
+  const annual = purchase && purchase.plan === "annual";
   return (
     <Shell dark>
       <div className="glimmer">
@@ -562,7 +590,7 @@ function Paid({ session, purchase, onVerified, onContinue, onHome }) {
         {st === "checking" && <p className="gline">Confirming your payment with Stripe…</p>}
         {st === "ok" && (<>
           <p className="gline"><Words text="You're in. Thank you." delay={150} /></p>
-          <p className="gsub fadein">{monthly ? "Your membership is live. The Companion stays with you for as long as it runs, and you can cancel any time from Settings." : "The full assessment, your report and 7 days with the Companion are yours. A receipt is on its way to your inbox."} If it doesn't earn the money, tell me and I'll refund you. — Tarang</p>
+          <p className="gsub fadein">{annual ? "Your year of membership has started." : "Your membership is live."} The full assessment, your report and the Companion are yours, and the report stays yours whatever you decide later. Cancel any time from Settings; a receipt is on its way to your inbox. If it doesn't earn the money, tell me and I'll refund you. — Tarang</p>
           <button className="btn gold" onClick={onContinue}>Begin</button>
         </>)}
         {st === "unpaid" && (<>
@@ -1388,7 +1416,7 @@ function Home({ state, go, startAssessment, onTheme, onResume, onAnalytics }) {
           <button className="resumecard" data-hover="survey_card" onClick={() => { track("survey_open", "home"); go("survey"); }}>
             <span className="resumek">Seven questions · about five minutes</span>
             <span className="resumet">Tell us what it was really like</span>
-            <span className="resumes">Honest answers earn you a free month with the Companion →</span>
+            <span className="resumes">{isMember(state) ? "Honest answers earn you your next month free →" : "Help shape what iSHKiY becomes →"}</span>
           </button>
         )}
         <div className="hgrid">
@@ -1506,7 +1534,6 @@ const MODES = {
 };
 const VOICES = Object.keys(MODES);
 
-const COMPANION_DAYS = 7;
 /* Two migrations, both idempotent and both safe to run on every load.
    v1 -> v2: one flat msgs array became a stream per voice.
    v2 -> v3: Guide and Sounding board merged into Sounding. Messages carry no
@@ -1578,12 +1605,8 @@ function Pulse({ mode, pulse, busy, onRefresh, canRefresh }) {
   );
 }
 
-function Companion({ scores, answers, reportText, start, onHuman, member, extraDays = 0, surveyDone, onSurvey }) {
-  const begun = start || Date.now();
-  // A founding week, plus any month earned through the tester survey; monthly members have no end.
-  const days = COMPANION_DAYS + extraDays;
-  const dayNum = Math.min(days, Math.floor((Date.now() - begun) / DAY) + 1);
-  const ended = !member && Date.now() - begun > days * DAY;
+function Companion({ scores, answers, reportText, onHuman, open, intro, onJoin }) {
+  const ended = !open;
   const [c, setC] = useState(() => loadCompanion());
   const [mode, setMode] = useState(() => c.mode || "companion");
   const [input, setInput] = useState("");
@@ -1606,12 +1629,9 @@ const pick = (m) => { setMode(m); commit((prev) => ({ ...prev, mode: m })); };
   if (ended) return (
     <section className="companion noprint">
       <p className="kicker gold">Your Report Companion</p>
-      <h2 className="ctitle">{extraDays ? "Your Companion time has ended." : "Your founding week has ended."} Your report hasn't.</h2>
-      <p className="cexplain">The report on this page is yours for good. The Companion — the three voices that read you properly — carries on with iSHKiY membership.{TESTER_MODE && !surveyDone ? ` Or tell us honestly how the app treated you, and we'll give you another ${SURVEY_BONUS_DAYS} days free.` : ""}</p>
-      <div className="consentrow">
-        {TESTER_MODE && !surveyDone && <button className="rtbtn" onClick={() => { track("survey_open", "companion_end"); onSurvey(); }}>Give feedback, get a free month</button>}
-        <button className="rtbtn" onClick={() => { track("join_from_companion"); startCheckout("monthly").catch(() => alert("Membership isn't open just yet. Email ops@ishkiy.com and we'll keep your seat.")); }}>Become a member</button>
-      </div>
+      <h2 className="ctitle">Your membership has ended. Your report hasn't.</h2>
+      <p className="cexplain">The report on this page is yours for good. The Companion — three voices that have read you properly, sharing one memory of you — is part of iSHKiY membership. Rejoin and it picks up where you left off.</p>
+      <button className="btn gold" onClick={() => { track("join_from_companion"); onJoin(); }}>Rejoin</button>
     </section>
   );
 
@@ -1781,7 +1801,7 @@ NEW is yes if the question opens a subject unrelated to that voice's current top
     <section className="companion noprint">
       <p className="kicker gold">Your Companion</p>
       <h2 className="ctitle">Three voices. One memory between them.</h2>
-      <p className="cexplain">Each voice keeps its own conversation, but all three remember everything you've said to any of them. They share {Q_CAP} questions a day between them — {left} left today. {member ? "Yours while your membership runs." : `Day ${dayNum} of your ${days}.`} No one can read these conversations, iSHKiY included.</p>
+      <p className="cexplain">Each voice keeps its own conversation, but all three remember everything you've said to any of them. They share {Q_CAP} questions a day between them — {left} left today. No one can read these conversations, iSHKiY included.</p>
       <div className="voicehub">
         <button className="vcard vcauto" style={{ "--acc": "#D4A547" }} onClick={() => enterRoom("auto")}>
           <Avatar kind="auto" size={40} />
@@ -1965,7 +1985,7 @@ function Retakes({ completedAt, onRetake }) {
 }
 
 
-function CompanionScreen({ state, scores, onBack, onRegenerate, onHuman, onSurvey }) {
+function CompanionScreen({ state, scores, onBack, onRegenerate, onHuman, onJoin }) {
   try {
     const mr = state.miniResults || {};
     window.__eraMinis = Object.keys(mr).length ? Object.fromEntries(Object.keys(mr).filter((id) => MINIS[id]).map((id) => { const r = readMini(id, mr[id]); return [id, { lens: MINIS[id].name, pattern: r && r.tag, read: r && r.headline, detail: r && r.bars.filter(([, v]) => v != null).map(([l, v]) => `${l}: ${bandOf("lens", v)}`).join("; ") }]; })) : null;
@@ -1988,7 +2008,7 @@ function CompanionScreen({ state, scores, onBack, onRegenerate, onHuman, onSurve
         <p className="teamline">You don't have to know which one you need — iSHKiY can choose. Three voices, one memory, no judgement, and they've read every word you gave.</p>
         {state.report.preview
           ? <div className="previewnote"><p>Your report didn't finish writing, so the Companion is waiting. Your answers are safe — one tap tries again.</p><button className="btn gold" onClick={onRegenerate}>Write my real report</button></div>
-          : <Companion scores={scores} answers={state.answers || {}} reportText={state.report.text} start={state.companionStart} onHuman={onHuman} member={isMember(state)} extraDays={state.companionBonusDays || 0} surveyDone={!!state.surveyDone} onSurvey={onSurvey} />}
+          : <Companion scores={scores} answers={state.answers || {}} reportText={state.report.text} onHuman={onHuman} open={companionOpen(state)} onJoin={onJoin} />}
         <p className="hquote">The future is not artificial; it's authentically human.</p>
       </article>
     </div>
@@ -2209,15 +2229,15 @@ function SettingsScreen({ state, update, onBack }) {
         {state.purchase && (
           <div className="setgroup">
             <p className="setlabel">Your purchase</p>
-            <div className="setrow"><span>{state.purchase.plan === "monthly" ? "Monthly membership" : "Founding access"}</span><span className="tnum">{state.purchase.plan === "monthly" ? (state.purchase.active ? (state.purchase.cancelAt ? "Ends " + new Date(state.purchase.cancelAt * 1000).toLocaleDateString("en-GB") : "Active") : "Ended") : "Paid"}</span></div>
-            <button className="setbtn" onClick={() => openPortal(state.purchase.session).catch(() => alert("Couldn't open billing just now. Email ops@ishkiy.com and we'll sort it."))}>{state.purchase.plan === "monthly" ? "Manage or cancel membership" : "Receipts and billing"}</button>
+            <div className="setrow"><span>{state.purchase.plan === "annual" ? "Annual membership" : "Monthly membership"}</span><span className="tnum">{!state.purchase.active ? "Ended" : state.purchase.cancelAt ? "Ends " + new Date(state.purchase.cancelAt * 1000).toLocaleDateString("en-GB") : state.purchase.renews ? "Renews " + new Date(state.purchase.renews * 1000).toLocaleDateString("en-GB") : "Active"}</span></div>
+            <button className="setbtn" onClick={() => openPortal(state.purchase.session).catch(() => alert("Couldn't open billing just now. Email ops@ishkiy.com and we'll sort it."))}>Manage, switch plan or cancel</button>
             <p className="tnote">Not worth it? Tell us at ops@ishkiy.com and you'll get your money back.</p>
           </div>
         )}
         {TESTER_MODE && (
           <div className="setgroup">
             <p className="setlabel">Testing iSHKiY</p>
-            {!state.surveyDone && <button className="setbtn" onClick={() => update({ phase: "survey" })}>Give feedback, get a free month →</button>}
+            {!state.surveyDone && <button className="setbtn" onClick={() => update({ phase: "survey" })}>{isMember(state) ? "Give feedback, get a free month →" : "Give feedback →"}</button>}
             {analyticsReady() && <button className="setbtn" onClick={() => update({ analytics: state.analytics === "yes" ? "no" : "yes" })}>{state.analytics === "yes" ? "Stop measuring how I use the app" : "Let iSHKiY measure how I use the app"}</button>}
             {analyticsReady() && <p className="tnote">{state.analytics === "yes" ? "On: which screens you visit, how long you stay, where you stop. Never your answers or words." : "Off. Nothing about how you move through the app is sent."}</p>}
           </div>
@@ -2275,16 +2295,22 @@ function Survey({ state, onBack, onRewarded }) {
     let ok = false;
     try { if (sb) { const { error } = await sb.from("tester_feedback").insert(payload()); ok = !error; } } catch {}
     setBusy(false);
-    if (ok) { track("survey_done"); onRewarded(); try { localStorage.removeItem(DRAFT_KEY); } catch {} setSt("done"); }
+    if (ok) {
+      track("survey_done");
+      // Members: the free month goes straight onto their next bill in Stripe.
+      let rewarded = false;
+      if (isMember(state)) { try { const r = await fetch("/api/reward", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ session_id: state.purchase.session }) }); rewarded = r.ok; } catch {} }
+      onRewarded(rewarded); try { localStorage.removeItem(DRAFT_KEY); } catch {} setSt("done");
+    }
     else setSt("failed");
   };
   return (
     <div className="reportpage tint-sage">
       <div className="rhead noprint"><button className="ghost inkghost" onClick={onBack}>← Home</button><Wordmark /><span /></div>
       <article className="report" style={{ maxWidth: 560 }}>
-        <SectionHead kicker="For our testers" title="Tell us what it was really like." line={`Seven questions, about five minutes. The hard, specific answers help most — "the button on the third screen made no sense" beats "it was great". Finish and you get ${SURVEY_BONUS_DAYS} more days with the Companion, free.`} />
+        <SectionHead kicker="For our testers" title="Tell us what it was really like." line={`Seven questions, about five minutes. The hard, specific answers help most — "the button on the third screen made no sense" beats "it was great". ${isMember(state) ? " Finish and your next month of membership is free." : ""}`} />
         {st === "done" && (<>
-          <p className="cbridge">Thank you. Every answer gets read, by Tarang, properly. Your extra {SURVEY_BONUS_DAYS} days with the Companion have started.{isMember(state) ? " As a member, we'll credit a free month to your membership by hand — look out for an email." : ""}</p>
+          <p className="cbridge">Thank you. Every answer gets read, by Tarang, properly.{state.surveyRewarded ? " Your next month of membership is free — it shows on your next bill." : isMember(state) ? " We'll add your free month to your membership by hand and email you when it's on." : ""}</p>
           <button className="btn gold" onClick={onBack}>Back to Home</button>
         </>)}
         {st === "failed" && (<>
@@ -2309,7 +2335,7 @@ function Survey({ state, onBack, onRewarded }) {
             <input id="sq-email" className="tin" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" />
           </div>
           {short.length > 0 && <p className="sqhint">{short.length === 1 ? "One answer" : `${short.length} answers`} still need{short.length === 1 ? "s" : ""} a sentence or so ({short.map((x) => SURVEY.indexOf(x) + 1).join(", ")}).</p>}
-          <button className="btn gold" disabled={busy || short.length > 0} onClick={submit}>{busy ? "Sending…" : "Send and claim my free month"}</button>
+          <button className="btn gold" disabled={busy || short.length > 0} onClick={submit}>{busy ? "Sending…" : isMember(state) ? "Send and claim my free month" : "Send my answers"}</button>
         </>)}
       </article>
     </div>
