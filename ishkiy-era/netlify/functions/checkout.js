@@ -26,7 +26,8 @@ export default async (req) => {
     try { body = await req.json(); } catch {}
     const plan = PLANS[body.plan] ? body.plan : null;
     const price = plan && process.env[PLANS[plan].env];
-    if (!price) return json({ error: "Membership isn't switched on yet." }, 400);
+    if (!process.env.STRIPE_SECRET_KEY) return json({ error: "Stripe isn't set up on this site yet (STRIPE_SECRET_KEY is missing in Netlify)." }, 503);
+    if (!price) return json({ error: `Membership isn't switched on yet (${plan ? PLANS[plan].env : "plan"} is missing in Netlify).` }, 503);
 
     // The intro price is for a first membership only; the app says whether this is one.
     const intro = plan === "monthly" && body.intro !== false && process.env.STRIPE_INTRO_COUPON;

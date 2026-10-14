@@ -150,9 +150,11 @@ const verifyPurchase = async (session) => {
 };
 const startCheckout = async (plan, intro) => {
   track("checkout_start", plan);
-  const r = await fetch("/api/checkout", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ plan, intro }) });
+  let r;
+  try { r = await fetch("/api/checkout", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ plan, intro }) }); }
+  catch { throw Object.assign(new Error("offline"), { offline: true }); }
   const d = await r.json().catch(() => ({}));
-  if (!r.ok || !d.url) throw new Error(d.error || "checkout failed");
+  if (!r.ok || !d.url) throw new Error(d.error || `checkout failed (${r.status})`);
   location.href = d.url;
 };
 const openPortal = async (session) => {
@@ -514,7 +516,7 @@ function Unlock({ onUnlock, onHome, pending, onPending, intro }) {
   const [plan, setPlan] = useState("monthly");
   const [agree, setAgree] = useState(false);
   const [code, setCode] = useState(""); const [err, setErr] = useState(false); const [busy, setBusy] = useState(false);
-  const [paying, setPaying] = useState(false); const [payErr, setPayErr] = useState(false);
+  const [paying, setPaying] = useState(false); const [payErr, setPayErr] = useState("");
   const [showCode, setShowCode] = useState(false);
   const renewOn = new Date(Date.now() + 30 * DAY).toLocaleDateString("en-GB", { day: "numeric", month: "long" });
   const perMonth = prices.annual ? money({ ...prices.annual, amount: Math.round(prices.annual.amount / 12) }) : "";
@@ -526,8 +528,15 @@ function Unlock({ onUnlock, onHome, pending, onPending, intro }) {
   };
   const buy = async () => {
     if (!agree || paying) return;
-    setPaying(true); setPayErr(false);
-    try { await startCheckout(plan, intro); } catch { setPaying(false); setPayErr(true); }
+    setPaying(true); setPayErr("");
+    /* Say why. On preview builds the server's own reason is shown (a missing
+       Stripe key, a wrong price id) so setup problems are visible at a glance. */
+    try { await startCheckout(plan, intro); } catch (e) {
+      setPaying(false);
+      setPayErr(e.offline ? "Couldn't reach iSHKiY. Check your connection and try again — nothing has been charged."
+        : isPreviewHost() ? `Checkout didn't open: ${e.message} Nothing has been charged.`
+        : "Payment couldn't start just now — nothing has been charged. Try again in a minute, or email ops@ishkiy.com and we'll sort it.");
+    }
   };
   return (
     <Shell dark>
@@ -553,7 +562,7 @@ function Unlock({ onUnlock, onHome, pending, onPending, intro }) {
           <input type="checkbox" checked={agree} onChange={(e) => setAgree(e.target.checked)} />
           <span>Start my membership now. I understand my report is delivered straight away, so my 14-day right to cancel ends once it is, and that I can cancel membership at any time from Settings.</span>
         </label>
-        {payErr && <p className="err">Checkout didn't open. Check your connection and try again — nothing has been charged.</p>}
+        {payErr && <p className="err">{payErr}</p>}
         <button className="btn gold" data-hover="pay" disabled={!agree || paying} onClick={buy}>{paying ? "Opening secure checkout…" : `Continue to payment · ${money(today)}`}</button>
         <p className="tnote light">If you don't think it was worth it, tell me and I'll refund you. No forms, no questions. <a className="paylinkin" href={"mailto:ops@ishkiy.com?subject=" + encodeURIComponent("Refund")}>ops@ishkiy.com</a> — Tarang</p>
         <p className="tnote light">Secure payment by Stripe. Your answers never go anywhere near it.</p>
