@@ -5,6 +5,7 @@ import { PARTS, L5, E5, RIASEC_PHRASES } from "./items.js";
 import { MINIS, scoreMini, readMini } from "./mini.js";
 import { createClient } from "@supabase/supabase-js";
 import { Sky, Words, Burst, LockIcon, useCountUp, transition, installFx, TEMPO } from "./fx.jsx";
+import { capture, configure as configureAnalytics, setScreen, analyticsReady } from "./analytics.js";
 
 /* ---------------- backend (Supabase, connect-only v1) ----------------
    Paste your project URL and anon public key below (Settings -> API).
@@ -23,7 +24,14 @@ const getSupa = () => {
    We count taps (e.g. "assessment_start"), never words. No answers, no
    conversations, no names ever leave the device. */
 const sid = (() => { try { let x = localStorage.getItem("era-sid"); if (!x) { x = Math.random().toString(36).slice(2, 10); localStorage.setItem("era-sid", x); } return x; } catch { return "anon"; } })();
-const track = (e, d) => { try { const sp = getSupa(); if (!sp) return; sp.from("era_events").insert({ e, d: d == null ? null : String(d).slice(0, 40), sid, v: "1.10" }).then(() => {}, () => {}); } catch {} };
+const track = (e, d) => { capture(e, d == null ? {} : { d: String(d).slice(0, 40) }); try { const sp = getSupa(); if (!sp) return; sp.from("era_events").insert({ e, d: d == null ? null : String(d).slice(0, 40), sid, v: "1.10" }).then(() => {}, () => {}); } catch {} };
+
+/* ---------------- tester version ----------------
+   One switch for everything that exists only while friends and family are
+   testing: the feedback survey (and its free-month reward) and the analytics
+   consent card on Home. Set to false at full launch. */
+const TESTER_MODE = true;
+const SURVEY_BONUS_DAYS = 30;
 
 /* ---------------- profile strength, levels & badges ----------------
    Strength is one number out of 100, and it is deliberately not reachable by
@@ -118,6 +126,44 @@ const CODE_HASHES = [
 async function sha256(text) {
   const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text.trim().toUpperCase()));
   return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+/* ---------------- purchase (Stripe) ----------------
+   Checkout runs on Stripe's own page via /api/checkout. Stripe sends the
+   customer back to /?paid=<session id>; /api/verify confirms the payment with
+   Stripe and the device keeps the session id as its receipt. Monthly members
+   are re-checked once a day so a cancelled membership winds down by itself.
+   Access codes still work alongside this, for comps and testers. */
+const FALLBACK_PRICES = { once: { amount: 999, currency: "gbp" }, monthly: null };
+const money = (p) => p ? new Intl.NumberFormat("en-GB", { style: "currency", currency: (p.currency || "gbp").toUpperCase(), minimumFractionDigits: p.amount % 100 ? 2 : 0 }).format(p.amount / 100) : "";
+const isMember = (state) => !!(state.purchase && state.purchase.plan === "monthly" && state.purchase.active);
+const verifyPurchase = async (session) => {
+  const r = await fetch("/api/verify?session_id=" + encodeURIComponent(session));
+  const d = await r.json();
+  if (!r.ok) throw new Error(d.error || "verify failed");
+  return d;
+};
+const startCheckout = async (plan) => {
+  track("checkout_start", plan);
+  const r = await fetch("/api/checkout", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ plan }) });
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok || !d.url) throw new Error(d.error || "checkout failed");
+  location.href = d.url;
+};
+const openPortal = async (session) => {
+  const r = await fetch("/api/portal", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ session_id: session }) });
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok || !d.url) throw new Error(d.error || "portal failed");
+  location.href = d.url;
+};
+function usePrices() {
+  const [prices, setPrices] = useState(FALLBACK_PRICES);
+  useEffect(() => {
+    let alive = true;
+    fetch("/api/checkout").then((r) => r.ok ? r.json() : null).then((d) => { if (alive && d && d.once) setPrices(d); }).catch(() => {});
+    return () => { alive = false; };
+  }, []);
+  return prices;
 }
 
 /* ---------------- scoring ---------------- */
@@ -324,11 +370,38 @@ function App() {
   const scores = useMemo(() => (["glimmer", "generating", "report", "companion", "humans", "library", "account", "settings", "constellation"].includes(state.phase) && Object.keys(answers).length) ? computeScores(answers) : null, [state.phase, answers]);
 
   useLayoutEffect(() => { window.scrollTo(0, 0); }, [state.phase, state.part, state.item]);
+
+  /* Analytics: off until someone says yes. Screen names are phases; inside the
+     assessment the part id and question number ride along, never the answer. */
+  useEffect(() => {
+    configureAnalytics({ consent: state.analytics, distinctId: sid, props: { tester: TESTER_MODE, plan: state.purchase ? state.purchase.plan : state.unlocked ? "code" : "none" } });
+  }, [state.analytics, state.purchase, state.unlocked]);
+  useEffect(() => {
+    const inPart = ["intro", "run", "glimmer"].includes(state.phase) && PARTS[state.part];
+    const props = inPart ? { part: PARTS[state.part].id, ...(state.phase === "run" ? { item: state.item + 1 } : {}) } : ["miniRun", "miniResult"].includes(state.phase) ? { lens: state.miniId } : {};
+    setScreen(state.phase, props);
+  }, [state.phase, state.part, state.item, state.miniId]);
+
+  /* Back from Stripe Checkout: ?paid=<session> or ?checkout=cancelled. */
+  useEffect(() => {
+    const q = new URLSearchParams(location.search);
+    const paid = q.get("paid"), cancelled = q.get("checkout") === "cancelled";
+    if (!paid && !cancelled) return;
+    history.replaceState(null, "", location.pathname);
+    if (cancelled) { track("checkout_cancel"); update({ phase: "unlock" }); }
+    else update({ pendingSession: paid, phase: "paid" });
+  }, []);
+  /* Monthly members: ask Stripe once a day whether the membership still runs. */
+  useEffect(() => {
+    const p = state.purchase;
+    if (!p || p.plan !== "monthly" || Date.now() - (p.checkedAt || 0) < DAY) return;
+    verifyPurchase(p.session).then((d) => apply({ purchase: { ...p, active: !!d.active, renews: d.renews, cancelAt: d.cancelAt, checkedAt: Date.now() } }), () => {});
+  }, []);
   useEffect(() => { document.body.classList.toggle("dm", !!state.dark); }, [state.dark]);
 
   if (state.phase === "breath") return <Breath onEnter={() => update({ phase: state.seenExplainer ? "home" : "explainer" })} />;
-  if (state.phase === "home") return <Home state={state} onResume={() => { const p = state.paused; update({ part: p.part, item: p.item, arc: p.arc, paused: null, phase: p.at === "run" ? "run" : "intro" }); }} onTheme={() => update({ dark: !state.dark })} go={(p) => update({ phase: p })} startAssessment={() => update({ phase: Object.keys(answers).length ? "chooseDepth" : "chooseDepth" })} />;
-  if (state.phase === "companion") return <CompanionScreen state={state} scores={scores} onBack={() => update({ phase: "home" })} onRegenerate={() => update({ phase: "generating" })} onHuman={() => update({ phase: "humans" })} />;
+  if (state.phase === "home") return <Home state={state} onAnalytics={(v) => { apply({ analytics: v }); if (v === "yes") track("analytics_yes"); }} onResume={() => { const p = state.paused; update({ part: p.part, item: p.item, arc: p.arc, paused: null, phase: p.at === "run" ? "run" : "intro" }); }} onTheme={() => update({ dark: !state.dark })} go={(p) => update({ phase: p })} startAssessment={() => update({ phase: Object.keys(answers).length ? "chooseDepth" : "chooseDepth" })} />;
+  if (state.phase === "companion") return <CompanionScreen state={state} scores={scores} onBack={() => update({ phase: "home" })} onRegenerate={() => update({ phase: "generating" })} onHuman={() => update({ phase: "humans" })} onSurvey={() => update({ phase: "survey" })} />;
   if (state.phase === "constellation") return <ConstellationScreen state={state} update={update} onBack={() => update({ phase: "home" })} />;
   if (state.phase === "humans") return <HumansScreen scores={scores} state={state} onBack={() => update({ phase: "home" })} onApply={() => update({ phase: "apply" })} />;
   if (state.phase === "account") return <AccountScreen state={state} scores={scores} onBack={() => update({ phase: "home" })} />;
@@ -342,7 +415,11 @@ function App() {
   /* Answers save on every tap already; "Save & pick up later" also remembers
      exactly where someone was, so Home can drop them straight back in. */
   const saveExit = (at) => { track("save_exit", PARTS[state.part] && PARTS[state.part].id); update({ phase: "home", paused: { at, part: state.part, item: at === "run" ? state.item : 0, arc: state.arc } }); };
-  if (state.phase === "unlock") return <Unlock onUnlock={() => update({ unlocked: true, phase: "warmup" })} onHome={() => update({ phase: "home" })} />;
+  if (state.phase === "unlock") return <Unlock pending={state.pendingSession} onPending={() => update({ phase: "paid" })} onUnlock={() => update({ unlocked: true, phase: "warmup" })} onHome={() => update({ phase: "home" })} />;
+  /* After paying: straight into the assessment if it hasn't been started, Home otherwise. */
+  const afterPay = () => update({ phase: Object.keys(answers).length ? "home" : "warmup" });
+  if (state.phase === "paid") return <Paid session={state.pendingSession} onVerified={(d) => apply({ unlocked: true, pendingSession: null, purchase: { session: state.pendingSession, plan: d.plan, active: !!d.active, renews: d.renews || null, checkedAt: Date.now() } })} purchase={state.purchase} onContinue={afterPay} onHome={() => update({ phase: "unlock" })} />;
+  if (state.phase === "survey") return <Survey state={state} onBack={() => update({ phase: "home" })} onRewarded={() => apply({ surveyDone: Date.now(), companionBonusDays: (state.companionBonusDays || 0) + SURVEY_BONUS_DAYS })} />;
   if (state.phase === "warmup") return <Warmup onDone={() => update({ phase: "intro" })} onExit={() => saveExit("intro")} />;
   if (state.phase === "explainer") return <Explainer onDone={() => update({ phase: "home", seenExplainer: true })} />;
   // Same deck, reachable any time from Home or Settings.
@@ -427,24 +504,79 @@ function Welcome({ onStart, resumable }) {
   );
 }
 
-function Unlock({ onUnlock, onHome }) {
+function Unlock({ onUnlock, onHome, pending, onPending }) {
+  const prices = usePrices();
   const [code, setCode] = useState(""); const [err, setErr] = useState(false); const [busy, setBusy] = useState(false);
+  const [paying, setPaying] = useState(null); const [payErr, setPayErr] = useState(false);
+  const [showCode, setShowCode] = useState(false);
   const check = async () => {
     setBusy(true); const h = await sha256(code); setBusy(false);
-    if (CODE_HASHES.includes(h) || (isPreviewHost() && h === PREVIEW_HASH)) onUnlock(); else setErr(true);
+    if (CODE_HASHES.includes(h) || (isPreviewHost() && h === PREVIEW_HASH)) { track("code_unlock"); onUnlock(); } else setErr(true);
+  };
+  const buy = async (plan) => {
+    setPaying(plan); setPayErr(false);
+    try { await startCheckout(plan); } catch { setPaying(null); setPayErr(true); }
   };
   return (
     <Shell dark>
       <div className="welcome">
         <button className="saveexit light" onClick={onHome}>← Home</button>
         <p className="kicker">Founding access</p>
-        <h1 className="display sm">Enter your access code</h1>
-        <p className="lede dim">Your code came with your payment confirmation. £29 gets you: the full assessment, your written report (yours to keep), a share card, and 7 days with your AI Companion — a coach, a mentor and a sounding voice that have actually read you.</p>
-        <input className="code" value={code} onChange={(e) => { setCode(e.target.value); setErr(false); }} onKeyDown={(e) => e.key === "Enter" && code && check()} placeholder="e.g. ERA-XXXX-XXXX" autoFocus spellCheck="false" />
-        {err && <p className="err">That code isn't recognised. Check for typos — codes aren't case-sensitive.</p>}
-        {isPreviewHost() && <p className="tnote">This is a preview build, so the founder code <strong>PREVIEW</strong> works here. It does not work on the live site.</p>}
-        <button className="btn gold" disabled={!code || busy} onClick={check}>{busy ? "Checking…" : "Continue"}</button>
-        <a className="paylink" href="STRIPE_PAYMENT_LINK" target="_blank" rel="noreferrer">Don't have a code? Become a founding member →</a>
+        <h1 className="display sm">Everything iSHKiY knows how to give you</h1>
+        <p className="lede dim">The full assessment, your written report (yours to keep), a share card, and 7 days with your AI Companion — a coach, a mentor and a sounding voice that have actually read you.</p>
+        <button className="btn gold" data-hover="buy_once" disabled={!!paying} onClick={() => buy("once")}>{paying === "once" ? "Opening secure checkout…" : `Get started · ${money(prices.once)}`}</button>
+        {prices.monthly && <button className="btn ghostlight" data-hover="buy_monthly" disabled={!!paying} onClick={() => buy("monthly")}>{paying === "monthly" ? "Opening secure checkout…" : `Or ${money(prices.monthly)} a month, with the Companion for as long as you stay`}</button>}
+        {payErr && <p className="err">Checkout didn't open. Check your connection and try again — nothing has been charged.</p>}
+        <p className="tnote light">If you don't think it was worth it, tell me and I'll refund you. No forms, no questions. <a className="paylinkin" href={"mailto:ops@ishkiy.com?subject=" + encodeURIComponent("Refund")}>ops@ishkiy.com</a> — Tarang</p>
+        <p className="tnote light">Payment is handled by Stripe. Your answers never go anywhere near it.</p>
+        {pending && <button className="paylink" onClick={onPending}>Paid already but not in yet? Check my payment again →</button>}
+        {!showCode && <button className="paylink" data-hover="have_code" onClick={() => setShowCode(true)}>I have an access code →</button>}
+        {showCode && (<>
+          <input className="code" value={code} onChange={(e) => { setCode(e.target.value); setErr(false); }} onKeyDown={(e) => e.key === "Enter" && code && check()} placeholder="e.g. ERA-XXXX-XXXX" autoFocus spellCheck="false" />
+          {err && <p className="err">That code isn't recognised. Check for typos — codes aren't case-sensitive.</p>}
+          {isPreviewHost() && <p className="tnote">This is a preview build, so the founder code <strong>PREVIEW</strong> works here. It does not work on the live site.</p>}
+          <button className="btn gold" disabled={!code || busy} onClick={check}>{busy ? "Checking…" : "Continue"}</button>
+        </>)}
+      </div>
+    </Shell>
+  );
+}
+
+/* Landing back from Stripe. Confirms with Stripe before opening anything —
+   the URL alone proves nothing. */
+function Paid({ session, purchase, onVerified, onContinue, onHome }) {
+  const [st, setSt] = useState(session ? "checking" : "ok");
+  const run = () => {
+    setSt("checking");
+    verifyPurchase(session).then((d) => {
+      if (d.active) { track("purchase_ok", d.plan); onVerified(d); setSt("ok"); }
+      else setSt("unpaid");
+    }, () => setSt("error"));
+  };
+  useEffect(() => { if (session) run(); }, []);
+  const monthly = (purchase && purchase.plan === "monthly");
+  return (
+    <Shell dark>
+      <div className="glimmer">
+        <div className="breath" aria-hidden="true"><span /></div>
+        {st === "checking" && <p className="gline">Confirming your payment with Stripe…</p>}
+        {st === "ok" && (<>
+          <p className="gline"><Words text="You're in. Thank you." delay={150} /></p>
+          <p className="gsub fadein">{monthly ? "Your membership is live. The Companion stays with you for as long as it runs, and you can cancel any time from Settings." : "The full assessment, your report and 7 days with the Companion are yours. A receipt is on its way to your inbox."} If it doesn't earn the money, tell me and I'll refund you. — Tarang</p>
+          <button className="btn gold" onClick={onContinue}>Begin</button>
+        </>)}
+        {st === "unpaid" && (<>
+          <p className="gline">Stripe hasn't confirmed this payment yet.</p>
+          <p className="gsub">Bank checks sometimes take a minute. Nothing is lost — try again shortly, or email ops@ishkiy.com and we'll sort it by hand.</p>
+          <button className="btn gold" onClick={run}>Check again</button>
+          <button className="paylink" onClick={onHome}>← Back</button>
+        </>)}
+        {st === "error" && (<>
+          <p className="gline">We couldn't reach Stripe just now.</p>
+          <p className="gsub">If you were charged, your payment is safe. Check your connection and try again, or email ops@ishkiy.com.</p>
+          <button className="btn gold" onClick={run}>Try again</button>
+          <button className="paylink" onClick={onHome}>← Back</button>
+        </>)}
       </div>
     </Shell>
   );
@@ -1157,7 +1289,7 @@ function HomeTile({ title, sub, locked, lockNote, onClick, art, badge, acc, puls
   const opened = fresh && !locked;
   return (
     <button className={"htile" + (locked ? " locked" : "") + (pulse ? " pulse" : "") + (denied ? " denied" : "") + (opened ? " fresh" : "")} style={acc ? { "--acc": acc } : undefined}
-      onClick={locked ? () => { track("locked_tap", title); deny(); } : onClick} aria-disabled={locked}>
+      onClick={locked ? () => { track("locked_tap", title); deny(); } : onClick} aria-disabled={locked} data-hover={"tile: " + title}>
       {opened && <span className="opened" aria-hidden="true"><Burst n={18} spread={130} /></span>}
       {opened
         ? <span className="htbadge openbadge"><LockIcon open /> Now open</span>
@@ -1215,7 +1347,7 @@ const GLYPHS = [
 ];
 function RotatingFaces() { return <Rotator items={FACES} every={3600 * TEMPO} />; }
 function RotatingGlyphs() { return <Rotator items={GLYPHS} every={4200 * TEMPO} />; }
-function Home({ state, go, startAssessment, onTheme, onResume }) {
+function Home({ state, go, startAssessment, onTheme, onResume, onAnalytics }) {
   const name = (state.answers["AR-1"] || "").trim();
   let compLeft = null;
   try { const cc = loadCompanion(); compLeft = Math.max(0, Q_CAP - (cc.count || 0)); } catch {}
@@ -1240,6 +1372,23 @@ function Home({ state, go, startAssessment, onTheme, onResume }) {
             <span className="resumek">Saved for later</span>
             <span className="resumet">Pick up where you left off</span>
             <span className="resumes">{PARTS[state.paused.part].title}{state.paused.at === "run" ? ` · question ${state.paused.item + 1}` : ""} →</span>
+          </button>
+        )}
+        {TESTER_MODE && analyticsReady() && !state.analytics && (
+          <div className="consentcard">
+            <span className="resumek">You're testing iSHKiY</span>
+            <p>Can we watch how you move through the app — which screens, how long you stay, where you stop? It shows us what's confusing far better than asking. Never your answers, never your words.</p>
+            <div className="consentrow">
+              <button className="rtbtn" onClick={() => onAnalytics("yes")}>Yes, that's fine</button>
+              <button className="rtbtn ghostbtn" onClick={() => onAnalytics("no")}>No thanks</button>
+            </div>
+          </div>
+        )}
+        {TESTER_MODE && hasReport && !state.surveyDone && (
+          <button className="resumecard" data-hover="survey_card" onClick={() => { track("survey_open", "home"); go("survey"); }}>
+            <span className="resumek">Seven questions · about five minutes</span>
+            <span className="resumet">Tell us what it was really like</span>
+            <span className="resumes">Honest answers earn you a free month with the Companion →</span>
           </button>
         )}
         <div className="hgrid">
@@ -1429,10 +1578,12 @@ function Pulse({ mode, pulse, busy, onRefresh, canRefresh }) {
   );
 }
 
-function Companion({ scores, answers, reportText, start, onHuman }) {
+function Companion({ scores, answers, reportText, start, onHuman, member, extraDays = 0, surveyDone, onSurvey }) {
   const begun = start || Date.now();
-  const dayNum = Math.min(COMPANION_DAYS, Math.floor((Date.now() - begun) / DAY) + 1);
-  const ended = Date.now() - begun > COMPANION_DAYS * DAY;
+  // A founding week, plus any month earned through the tester survey; monthly members have no end.
+  const days = COMPANION_DAYS + extraDays;
+  const dayNum = Math.min(days, Math.floor((Date.now() - begun) / DAY) + 1);
+  const ended = !member && Date.now() - begun > days * DAY;
   const [c, setC] = useState(() => loadCompanion());
   const [mode, setMode] = useState(() => c.mode || "companion");
   const [input, setInput] = useState("");
@@ -1455,9 +1606,12 @@ const pick = (m) => { setMode(m); commit((prev) => ({ ...prev, mode: m })); };
   if (ended) return (
     <section className="companion noprint">
       <p className="kicker gold">Your Report Companion</p>
-      <h2 className="ctitle">Your founding week has ended. Your report hasn't.</h2>
-      <p className="cexplain">The report on this page is yours for good. The Companion — the three voices that read you properly — returns with iSHKiY membership, which founding members will hear about first. If a week of it earned a place in your thinking, tell us and we'll keep your seat.</p>
-      <a className="rtbtn" href={"mailto:ops@ishkiy.com?subject=" + encodeURIComponent("Keep my Companion seat") + "&body=" + encodeURIComponent("My founding Companion week is over and I'd want it back when membership launches.")}>Keep my seat</a>
+      <h2 className="ctitle">{extraDays ? "Your Companion time has ended." : "Your founding week has ended."} Your report hasn't.</h2>
+      <p className="cexplain">The report on this page is yours for good. The Companion — the three voices that read you properly — carries on with iSHKiY membership.{TESTER_MODE && !surveyDone ? ` Or tell us honestly how the app treated you, and we'll give you another ${SURVEY_BONUS_DAYS} days free.` : ""}</p>
+      <div className="consentrow">
+        {TESTER_MODE && !surveyDone && <button className="rtbtn" onClick={() => { track("survey_open", "companion_end"); onSurvey(); }}>Give feedback, get a free month</button>}
+        <button className="rtbtn" onClick={() => { track("join_from_companion"); startCheckout("monthly").catch(() => alert("Membership isn't open just yet. Email ops@ishkiy.com and we'll keep your seat.")); }}>Become a member</button>
+      </div>
     </section>
   );
 
@@ -1627,7 +1781,7 @@ NEW is yes if the question opens a subject unrelated to that voice's current top
     <section className="companion noprint">
       <p className="kicker gold">Your Companion</p>
       <h2 className="ctitle">Three voices. One memory between them.</h2>
-      <p className="cexplain">Each voice keeps its own conversation, but all three remember everything you've said to any of them. They share {Q_CAP} questions a day between them — {left} left today. Day {dayNum} of your 7. No one can read these conversations, iSHKiY included.</p>
+      <p className="cexplain">Each voice keeps its own conversation, but all three remember everything you've said to any of them. They share {Q_CAP} questions a day between them — {left} left today. {member ? "Yours while your membership runs." : `Day ${dayNum} of your ${days}.`} No one can read these conversations, iSHKiY included.</p>
       <div className="voicehub">
         <button className="vcard vcauto" style={{ "--acc": "#D4A547" }} onClick={() => enterRoom("auto")}>
           <Avatar kind="auto" size={40} />
@@ -1811,7 +1965,7 @@ function Retakes({ completedAt, onRetake }) {
 }
 
 
-function CompanionScreen({ state, scores, onBack, onRegenerate, onHuman }) {
+function CompanionScreen({ state, scores, onBack, onRegenerate, onHuman, onSurvey }) {
   try {
     const mr = state.miniResults || {};
     window.__eraMinis = Object.keys(mr).length ? Object.fromEntries(Object.keys(mr).filter((id) => MINIS[id]).map((id) => { const r = readMini(id, mr[id]); return [id, { lens: MINIS[id].name, pattern: r && r.tag, read: r && r.headline, detail: r && r.bars.filter(([, v]) => v != null).map(([l, v]) => `${l}: ${bandOf("lens", v)}`).join("; ") }]; })) : null;
@@ -1834,7 +1988,7 @@ function CompanionScreen({ state, scores, onBack, onRegenerate, onHuman }) {
         <p className="teamline">You don't have to know which one you need — iSHKiY can choose. Three voices, one memory, no judgement, and they've read every word you gave.</p>
         {state.report.preview
           ? <div className="previewnote"><p>Your report didn't finish writing, so the Companion is waiting. Your answers are safe — one tap tries again.</p><button className="btn gold" onClick={onRegenerate}>Write my real report</button></div>
-          : <Companion scores={scores} answers={state.answers || {}} reportText={state.report.text} start={state.companionStart} onHuman={onHuman} />}
+          : <Companion scores={scores} answers={state.answers || {}} reportText={state.report.text} start={state.companionStart} onHuman={onHuman} member={isMember(state)} extraDays={state.companionBonusDays || 0} surveyDone={!!state.surveyDone} onSurvey={onSurvey} />}
         <p className="hquote">The future is not artificial; it's authentically human.</p>
       </article>
     </div>
@@ -2052,6 +2206,23 @@ function SettingsScreen({ state, update, onBack }) {
           ))}
         </div>
 
+        {state.purchase && (
+          <div className="setgroup">
+            <p className="setlabel">Your purchase</p>
+            <div className="setrow"><span>{state.purchase.plan === "monthly" ? "Monthly membership" : "Founding access"}</span><span className="tnum">{state.purchase.plan === "monthly" ? (state.purchase.active ? (state.purchase.cancelAt ? "Ends " + new Date(state.purchase.cancelAt * 1000).toLocaleDateString("en-GB") : "Active") : "Ended") : "Paid"}</span></div>
+            <button className="setbtn" onClick={() => openPortal(state.purchase.session).catch(() => alert("Couldn't open billing just now. Email ops@ishkiy.com and we'll sort it."))}>{state.purchase.plan === "monthly" ? "Manage or cancel membership" : "Receipts and billing"}</button>
+            <p className="tnote">Not worth it? Tell us at ops@ishkiy.com and you'll get your money back.</p>
+          </div>
+        )}
+        {TESTER_MODE && (
+          <div className="setgroup">
+            <p className="setlabel">Testing iSHKiY</p>
+            {!state.surveyDone && <button className="setbtn" onClick={() => update({ phase: "survey" })}>Give feedback, get a free month →</button>}
+            {analyticsReady() && <button className="setbtn" onClick={() => update({ analytics: state.analytics === "yes" ? "no" : "yes" })}>{state.analytics === "yes" ? "Stop measuring how I use the app" : "Let iSHKiY measure how I use the app"}</button>}
+            {analyticsReady() && <p className="tnote">{state.analytics === "yes" ? "On: which screens you visit, how long you stay, where you stop. Never your answers or words." : "Off. Nothing about how you move through the app is sent."}</p>}
+          </div>
+        )}
+
         <div className="setgroup">
           <p className="setlabel">Appearance</p>
           <button className="setbtn" onClick={() => update({ dark: !state.dark })}>{state.dark ? "Switch to light mode" : "Switch to dark mode"}</button>
@@ -2066,6 +2237,80 @@ function SettingsScreen({ state, update, onBack }) {
         </div>
 
         <p className="hquote">Stay yourself. The rest follows.</p>
+      </article>
+    </div>
+  );
+}
+
+/* ---------------- tester survey ----------------
+   Tester version only (TESTER_MODE). Open questions, because "was it good?"
+   gets a polite yes and teaches nothing. The last block asks straight out
+   about paying, since that is the question the next month turns on.
+   Unlike everything else in the app these words DO leave the device — the
+   screen says so — into tester_feedback, readable by the admin alone. */
+const SURVEY = [
+  { id: "first5", req: true, q: "Describe your first five minutes with iSHKiY, in your own words.", hint: "What did you see, what did you do, what did you think it was for?" },
+  { id: "almost_quit", req: true, q: "What, if anything, almost made you stop or close the app?", hint: "Where were you when it happened? \"Nothing\" is a fine answer if it's true." },
+  { id: "keep_one", req: true, q: "If we cut everything except one feature, which should we keep — and why that one?" },
+  { id: "guessed", req: true, q: "Was there a moment you had to guess what to do next?", hint: "What was on the screen? What did you try first?" },
+  { id: "monthly_vs_once", req: true, q: "What would make you pay monthly for iSHKiY rather than once? What would stop you?" },
+  { id: "after_report", req: true, q: "After your first report, would you keep paying? If not, what's missing that would change your mind?" },
+  { id: "anything", req: false, q: "Anything else you'd tell Tarang over a coffee?" },
+];
+const SURVEY_MIN = 12;
+const DRAFT_KEY = "era-survey-draft";
+function Survey({ state, onBack, onRewarded }) {
+  const sb = getSupa();
+  const [a, setA] = useState(() => { try { return JSON.parse(localStorage.getItem(DRAFT_KEY)) || {}; } catch { return {}; } });
+  const [email, setEmail] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [st, setSt] = useState(state.surveyDone ? "done" : "form");
+  useEffect(() => { try { localStorage.setItem(DRAFT_KEY, JSON.stringify(a)); } catch {} }, [a]);
+  const short = SURVEY.filter((x) => x.req && (a[x.id] || "").trim().length < SURVEY_MIN);
+  const payload = () => ({ sid, plan: state.purchase ? state.purchase.plan : state.unlocked ? "code" : "none", answers: Object.fromEntries(SURVEY.map((x) => [x.id, (a[x.id] || "").trim().slice(0, 4000)])), email: email.trim().slice(0, 200) || null, v: "1.20" });
+  const mailBody = () => SURVEY.map((x) => `${x.q}\n${(a[x.id] || "").trim()}\n`).join("\n");
+  const submit = async () => {
+    if (busy || short.length) return;
+    setBusy(true);
+    let ok = false;
+    try { if (sb) { const { error } = await sb.from("tester_feedback").insert(payload()); ok = !error; } } catch {}
+    setBusy(false);
+    if (ok) { track("survey_done"); onRewarded(); try { localStorage.removeItem(DRAFT_KEY); } catch {} setSt("done"); }
+    else setSt("failed");
+  };
+  return (
+    <div className="reportpage tint-sage">
+      <div className="rhead noprint"><button className="ghost inkghost" onClick={onBack}>← Home</button><Wordmark /><span /></div>
+      <article className="report" style={{ maxWidth: 560 }}>
+        <SectionHead kicker="For our testers" title="Tell us what it was really like." line={`Seven questions, about five minutes. The hard, specific answers help most — "the button on the third screen made no sense" beats "it was great". Finish and you get ${SURVEY_BONUS_DAYS} more days with the Companion, free.`} />
+        {st === "done" && (<>
+          <p className="cbridge">Thank you. Every answer gets read, by Tarang, properly. Your extra {SURVEY_BONUS_DAYS} days with the Companion have started.{isMember(state) ? " As a member, we'll credit a free month to your membership by hand — look out for an email." : ""}</p>
+          <button className="btn gold" onClick={onBack}>Back to Home</button>
+        </>)}
+        {st === "failed" && (<>
+          <p className="cbridge">That didn't send — our side, not yours. Your answers are saved on this device. You can try again, or send them by email and we'll add your free month by hand.</p>
+          <div className="consentrow">
+            <button className="rtbtn" onClick={() => setSt("form")}>Try again</button>
+            <a className="rtbtn" href={"mailto:ops@ishkiy.com?subject=" + encodeURIComponent("Tester feedback") + "&body=" + encodeURIComponent(mailBody())}>Send by email</a>
+          </div>
+        </>)}
+        {st === "form" && (<>
+          <p className="tnote">Unlike the rest of the app, these answers are sent to iSHKiY so we can read them. Nothing else from your profile goes with them.</p>
+          {SURVEY.map((x, i) => (
+            <div key={x.id} className="sq">
+              <label className="tlabel" htmlFor={"sq-" + x.id}>{i + 1} of {SURVEY.length}{x.req ? "" : " · optional"}</label>
+              <p className="sqtext">{x.q}</p>
+              <textarea id={"sq-" + x.id} className="tarea" value={a[x.id] || ""} onChange={(e) => setA((p) => ({ ...p, [x.id]: e.target.value }))} placeholder={x.hint || ""} />
+            </div>
+          ))}
+          <div className="sq">
+            <label className="tlabel" htmlFor="sq-email">Optional</label>
+            <p className="sqtext">Your email, if you're happy for Tarang to ask a follow-up question.</p>
+            <input id="sq-email" className="tin" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" />
+          </div>
+          {short.length > 0 && <p className="sqhint">{short.length === 1 ? "One answer" : `${short.length} answers`} still need{short.length === 1 ? "s" : ""} a sentence or so ({short.map((x) => SURVEY.indexOf(x) + 1).join(", ")}).</p>}
+          <button className="btn gold" disabled={busy || short.length > 0} onClick={submit}>{busy ? "Sending…" : "Send and claim my free month"}</button>
+        </>)}
       </article>
     </div>
   );
