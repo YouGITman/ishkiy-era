@@ -182,6 +182,86 @@ export async function decodeBlob(blob) {
   const arr = await blob.arrayBuffer();
   return await new Promise((res, rej) => ac.decodeAudioData(arr, res, rej));
 }
+/* A recording, decoded and evened out, ready to play or mix. */
+export const decodeVoice = async (blob) => levelVoice(await decodeBlob(blob));
+
+/* The microphone for recording a take. The phone's own processing is all
+   switched off. Automatic gain control was the culprit behind takes that
+   start very quiet and swell over the first few seconds: it opens the mic at
+   a cautious level and only turns it up once it has heard you speak. Echo
+   cancellation also puts Android phones into "call" mode, which turns
+   playback down until the mic is let go. Nothing plays while you record, so
+   there's no echo to cancel, and the levelling below does the gain job
+   better, because it can hear the whole take before it decides. */
+export async function openMic() {
+  const md = navigator.mediaDevices;
+  try { return await md.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false, channelCount: 1 } }); }
+  catch (e) { if (e && (e.name === "NotAllowedError" || e.name === "SecurityError")) throw e; return await md.getUserMedia({ audio: true }); }
+}
+
+/* Evens out the level of a recording, gently, across its whole length. It
+   measures how loud the speaking is in each 50 ms, follows that over a few
+   seconds, and raises the quiet stretches (or lowers the loud ones) towards
+   the level of the take as a whole. Then the take is brought up to a steady
+   playing level, with a soft ceiling so nothing clips. It runs on every play,
+   so takes recorded before the mic fix, which start quiet, sound even too.
+   The stored recording is never changed. */
+export function levelVoice(buf) {
+  const sr = buf.sampleRate, n = buf.length, nch = buf.numberOfChannels;
+  const chans = [...Array(nch)].map((_, c) => buf.getChannelData(c));
+  const win = Math.max(1, Math.round(sr * 0.05));
+  const nw = Math.ceil(n / win);
+  if (nw < 4) return buf;
+  const rms = new Float32Array(nw);
+  for (let w = 0; w < nw; w++) {
+    const a = w * win, b = Math.min(n, a + win);
+    let s = 0;
+    for (let c = 0; c < nch; c++) { const d = chans[c]; for (let i = a; i < b; i++) s += d[i] * d[i]; }
+    rms[w] = Math.sqrt(s / ((b - a) * nch));
+  }
+  const sorted = Float32Array.from(rms).sort();
+  const loud = sorted[Math.floor(nw * 0.95)];
+  if (!(loud > 1e-4)) return buf; // silence
+  // speech is anything well above the room's own noise
+  const gate = Math.max(sorted[Math.floor(nw * 0.1)] * 3, loud * 0.1);
+  // a running average of the speaking level, over under a second
+  const sum = new Float64Array(nw + 1), cnt = new Int32Array(nw + 1);
+  for (let w = 0; w < nw; w++) { const sp = rms[w] > gate; sum[w + 1] = sum[w] + (sp ? rms[w] : 0); cnt[w + 1] = cnt[w] + (sp ? 1 : 0); }
+  const R = 8, env = new Float32Array(nw);
+  for (let w = 0; w < nw; w++) { const a = Math.max(0, w - R), b = Math.min(nw, w + R + 1); const k = cnt[b] - cnt[a]; env[w] = k >= 3 ? (sum[b] - sum[a]) / k : NaN; }
+  // long pauses hold the level of the speech either side of them
+  let last = NaN;
+  for (let w = 0; w < nw; w++) { if (isNaN(env[w])) env[w] = last; else last = env[w]; }
+  last = NaN;
+  for (let w = nw - 1; w >= 0; w--) { if (isNaN(env[w])) env[w] = last; else last = env[w]; }
+  if (isNaN(env[0])) return buf;
+  // the take's own typical level is what every stretch is brought towards
+  const speech = [];
+  for (let w = 0; w < nw; w++) if (rms[w] > gate) speech.push(env[w]);
+  speech.sort((a, b) => a - b);
+  const ref = speech[Math.floor(speech.length / 2)];
+  const raw = new Float32Array(nw);
+  for (let w = 0; w < nw; w++) raw[w] = Math.min(6, Math.max(0.5, ref / env[w]));
+  // smooth the gain itself over most of a second, so it never pumps
+  const gs = new Float64Array(nw + 1);
+  for (let w = 0; w < nw; w++) gs[w + 1] = gs[w] + raw[w];
+  const S = 8, gain = new Float32Array(nw);
+  for (let w = 0; w < nw; w++) { const a = Math.max(0, w - S), b = Math.min(nw, w + S + 1); gain[w] = (gs[b] - gs[a]) / (b - a); }
+  // then up to a steady speaking level (about -18 dBFS), never more than 8x
+  const overall = Math.min(8, 0.125 / ref);
+  const knee = 0.8, room = 0.99 - knee;
+  for (let c = 0; c < nch; c++) {
+    const d = chans[c];
+    for (let i = 0; i < n; i++) {
+      const p = i / win - 0.5, w0 = Math.max(0, Math.min(nw - 1, Math.floor(p))), w1 = Math.min(nw - 1, w0 + 1), f = Math.max(0, Math.min(1, p - w0));
+      let x = d[i] * (gain[w0] + (gain[w1] - gain[w0]) * f) * overall;
+      const ax = Math.abs(x);
+      if (ax > knee) x = Math.sign(x) * (knee + room * Math.tanh((ax - knee) / room));
+      d[i] = x;
+    }
+  }
+  return buf;
+}
 
 /* Play the recording over a bed. The bed keeps going for tailMin after the
    voice ends, then fades, so you can fall asleep inside it. */
@@ -190,7 +270,7 @@ export async function playSession({ bedKey = "theta", voiceBlob, volume = 0.8, v
   const bed = startBed(bedKey, { volume });
   let src = null, tailTimer = null, stopped = false;
   if (voiceBlob) {
-    const buf = await decodeBlob(voiceBlob);
+    const buf = await decodeVoice(voiceBlob);
     src = ac.createBufferSource(); src.buffer = buf;
     const vg = ac.createGain(); vg.gain.value = voiceLevel;
     const wet = ac.createConvolver(); wet.buffer = impulse(ac);
@@ -241,8 +321,10 @@ export function speakScript(script, { onLine, onDone, rate = 0.82 } = {}) {
 /* ---------------- listening for the spoken word ----------------
    Only the loudness is measured, on the phone, and nothing is recorded. It's
    how the app knows an affirmation was said out loud rather than thought. */
-export async function listenLevel(onLevel) {
-  const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
+export async function listenLevel(onLevel, { stream: given } = {}) {
+  // given a stream (the recorder's own), it measures that one and leaves it
+  // open; a second mic stream mid-take can make the phone re-tune the first
+  const stream = given || await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
   const ac = getCtx();
   const src = ac.createMediaStreamSource(stream);
   const an = ac.createAnalyser(); an.fftSize = 1024;
@@ -256,14 +338,14 @@ export async function listenLevel(onLevel) {
     raf = requestAnimationFrame(tick);
   };
   tick();
-  return () => { cancelAnimationFrame(raf); try { src.disconnect(); } catch {} stream.getTracks().forEach((t) => t.stop()); };
+  return () => { cancelAnimationFrame(raf); try { src.disconnect(); } catch {} if (!given) stream.getTracks().forEach((t) => t.stop()); };
 }
 
 /* ---------------- the downloadable mix ----------------
    Voice over the bed, rendered to a WAV you can play in any app, all night,
    with the screen off. 24 kHz stereo keeps a ten-minute file near 45 MB. */
 export async function renderMix({ bedKey = "theta", voiceBlob, tailSec = 180, sampleRate = 24000 }) {
-  const voice = voiceBlob ? await decodeBlob(voiceBlob) : null;
+  const voice = voiceBlob ? await decodeVoice(voiceBlob) : null;
   const lead = 6;
   const length = lead + (voice ? voice.duration : 0) + tailSec + 20;
   const OAC = window.OfflineAudioContext || window.webkitOfflineAudioContext;

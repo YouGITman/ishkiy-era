@@ -330,3 +330,52 @@ export function draftVision({ statements = [], scene = {}, eraName }) {
   parts.push(eraName ? `This is ${eraName}, and it's already mine.` : "This is my life now, and it's already mine.");
   return parts.join(" ");
 }
+
+/* Gratitude: a running log of what's already good, reminders that come back
+   round through the day with a different prompt each time, and a short
+   thank-you script the person records in their own voice. */
+export const GRATITUDE_TIMES = [["Morning", "08:00"], ["Midday", "13:00"], ["Evening", "21:00"]];
+export const GRATITUDE_PROMPTS = [
+  "Someone who made today a little easier.",
+  "Something your body did for you today.",
+  "Something you have now that you once wished for.",
+  "A small thing you'd miss if it went.",
+  "Something you got right today.",
+  "A person you're glad is in your life, and why.",
+  "Something about the place you live.",
+  "A moment today you'd happily live again.",
+  "Something the new you did today.",
+  "Something hard that taught you something.",
+];
+export const promptFor = (n) => GRATITUDE_PROMPTS[((n % GRATITUDE_PROMPTS.length) + GRATITUDE_PROMPTS.length) % GRATITUDE_PROMPTS.length];
+export const GRATITUDE_HINT = "Short and slow, in the present tense. Read aloud it takes a minute or two. Pause at every “…” and let each thank-you land before the next.";
+
+/* A thank-you script from the log, newest first, to edit rather than write
+   from nothing. "I'm grateful for my sister" becomes "Thank you for my
+   sister"; "grateful that it rained" becomes "I'm thankful that it rained".
+   Phone keyboards capitalise the first letter, so it's lowered mid-sentence,
+   except for "I" and acronyms. A name at the start gets lowered too; the
+   script is there to edit. */
+const lowerStart = (t) => (/^(I\b|I'|[A-Z]{2})/.test(t) ? t : t[0].toLowerCase() + t.slice(1));
+export function thanksLine(raw) {
+  let t = String(raw || "").trim().replace(/[.!?\s]+$/, "");
+  if (!t) return "";
+  const that = /^(i'?m |i am )?(so |really |very )?(grateful|thankful) that\s+/i;
+  if (that.test(t)) return `I'm thankful that ${t.replace(that, "")}`;
+  // a whole sentence ("I finished the report") reads as "I'm thankful that…"
+  if (/^(I|I've|I'd|We|We've|They|He|She|It)\s/i.test(t) && !/^(i'?m |i am )/i.test(t)) return `I'm thankful that ${lowerStart(t)}`;
+  t = t.replace(/^(i'?m |i am )?(so |really |very )?(grateful|thankful)( for)?\s+/i, "").replace(/^thank you( for)?\s+/i, "").replace(/^thanks( for)?\s+/i, "");
+  return `Thank you for ${lowerStart(t)}`;
+}
+export function draftGratitude(log = [], { eraName } = {}) {
+  const seen = new Set();
+  const lines = [];
+  for (const e of log) { const l = thanksLine(e.text); const k = l.toLowerCase(); if (l && !seen.has(k)) { seen.add(k); lines.push(l); } if (lines.length >= 8) break; }
+  const parts = [];
+  parts.push("Take a breath in … and let it go … Let your shoulders drop … and your jaw soften … There's nothing to do for the next minute … except notice what's already here.");
+  if (lines.length) parts.push(lines.join(" … ") + " …");
+  else parts.push("Thank you for this breath … Thank you for the people who love me … Thank you for this body, which carries me every day …");
+  parts.push("Thank you for the things I can't see yet … the ones already on their way to me … I have enough … I am enough … and there is more good here than I usually stop to notice.");
+  parts.push(`${eraName ? `This is ${eraName} … ` : ""}I'm grateful … and it shows in how I live … Take one more breath … and carry that feeling with you.`);
+  return parts.join("\n\n");
+}

@@ -2,8 +2,8 @@
 // the ERA pattern: everything on the phone, one optional AI proxy.
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { VISION_TIMES, VISION_HINT, draftVision, TOPUPS, PRIMES, topupOf, EXPLAIN, PATH, AREAS, areaOf, ORIGIN_AGES, REWRITES, tenseCheck, SENSES, POWER_QUESTIONS, INPUT_CHOICES, QUOTES, SAFETY, SOS_LINES, MORNING_LINES, EVENING_LINES, buildScript } from "./content.js";
-import { load, save, wipe, putVoice, getVoice, delVoice, dayKey, daysBetween, uid, reminderICS, visionICS, download } from "./store.js";
+import { VISION_TIMES, VISION_HINT, draftVision, GRATITUDE_TIMES, GRATITUDE_PROMPTS, GRATITUDE_HINT, promptFor, draftGratitude, TOPUPS, PRIMES, topupOf, EXPLAIN, PATH, AREAS, areaOf, ORIGIN_AGES, REWRITES, tenseCheck, SENSES, POWER_QUESTIONS, INPUT_CHOICES, QUOTES, SAFETY, SOS_LINES, MORNING_LINES, EVENING_LINES, buildScript } from "./content.js";
+import { load, save, wipe, putVoice, getVoice, delVoice, dayKey, daysBetween, uid, reminderICS, visionICS, gratitudeICS, download } from "./store.js";
 import { BEDS, playSession, speakScript, startBed, stopBed, liveBed, releaseSound, bowl, renderMix, getCtx } from "./audio.js";
 import { Field, Orb, Dissolve, ExplainArt, Spark } from "./visuals.jsx";
 import { useWakeLock, CalmSession, GuideSession, ListenSession, SayAloud, Mirror, Recorder } from "./sessions.jsx";
@@ -35,6 +35,7 @@ function Shell({ children, light, field = !light, className = "" }) {
 function Back({ onClick, label = "Back" }) { return <button className="back" onClick={onClick}>← {label}</button>; }
 function Steps({ n, of }) { return <div className="dots" aria-label={`Step ${n + 1} of ${of}`}>{[...Array(of)].map((_, i) => <span key={i} className={"dot" + (i < n ? " done" : i === n ? " now" : "")} />)}</div>; }
 
+const linked = () => ({ "#vision": "vision", "#gratitude": "gratitude" })[location.hash] || null;
 const quoteFor = (d = new Date()) => QUOTES[(d.getDate() + d.getMonth()) % QUOTES.length];
 const questionFor = (qs, d = new Date()) => { const list = qs && qs.length ? qs : POWER_QUESTIONS.slice(0, 4); return list[(d.getHours() + d.getDate()) % list.length]; };
 
@@ -50,9 +51,9 @@ function App() {
   const day = (st.days || {})[today] || {};
   const setDay = (patch) => update((s) => ({ days: { ...(s.days || {}), [today]: { ...((s.days || {})[today] || {}), ...patch } } }));
   const inEra = !!(st.era && st.era.start);
-  // the vision reminder's link, tapped while the app is already open
+  // a reminder's link (vision or gratitude), tapped while the app is already open
   useEffect(() => {
-    const onHash = () => { if (location.hash === "#vision" && st.started) { history.replaceState(null, "", location.pathname); setArg(null); setView("vision"); window.scrollTo(0, 0); } };
+    const onHash = () => { const v = linked(); if (v && st.started) { history.replaceState(null, "", location.pathname); setArg(null); setView(v); window.scrollTo(0, 0); } };
     window.addEventListener("hashchange", onHash);
     return () => window.removeEventListener("hashchange", onHash);
   }, [st.started]);
@@ -60,8 +61,9 @@ function App() {
 
   if (view === "enter") return <Enter first={!st.started} onEnter={() => {
     if (!st.started) { update({ started: today }); go("welcome"); return; }
-    // the daily vision reminder links to /#vision
-    if (location.hash === "#vision") { history.replaceState(null, "", location.pathname); go("vision"); return; }
+    // the daily reminders link to /#vision and /#gratitude
+    const v = linked();
+    if (v) { history.replaceState(null, "", location.pathname); go(v); return; }
     home();
   }} />;
   if (view === "welcome") return <Welcome onGo={() => go("explain")} />;
@@ -79,6 +81,7 @@ function App() {
   if (view === "topup") return <TopUp st={st} id={arg} onDone={(r) => { setDay({ topups: [...(day.topups || []), arg], spoken: (day.spoken || 0) + ((r && r.spoken) || 0) }); go("topups"); }} onExit={() => go("topups")} />;
   if (view === "transition") return <Transition st={st} update={update} onExit={() => go("topups")} onDone={(id, r) => { setDay({ topups: [...(day.topups || []), id], spoken: (day.spoken || 0) + ((r && r.spoken) || 0) }); go("topups"); }} />;
   if (view === "vision") return <Vision st={st} day={day} setDay={setDay} update={update} onBack={() => go(arg || (inEra ? "today" : "path"))} />;
+  if (view === "gratitude") return <Gratitude st={st} day={day} update={update} onBack={() => go(arg || (inEra ? "today" : "path"))} />;
   if (view === "caught") return <Caught st={st} day={day} setDay={setDay} onDone={() => go("today")} />;
   if (view === "weekly") return <Weekly st={st} update={update} week={arg} onDone={() => go("today")} />;
   if (view === "review") return <Review st={st} update={update} go={go} />;
@@ -185,7 +188,7 @@ function PathView({ st, go }) {
             );
           })}
         </ol>
-        <div className="linkrow"><button className="ghost light" onClick={() => go("vision", "path")}>Vision</button><button className="ghost light" onClick={() => go("sound")}>Sound room</button><button className="ghost light" onClick={() => go("you")}>Settings</button><button className="ghost light" onClick={() => go("sos", "path")}>SOS</button></div>
+        <div className="linkrow"><button className="ghost light" onClick={() => go("vision", "path")}>Vision</button><button className="ghost light" onClick={() => go("gratitude", "path")}>Gratitude</button><button className="ghost light" onClick={() => go("sound")}>Sound room</button><button className="ghost light" onClick={() => go("you")}>Settings</button><button className="ghost light" onClick={() => go("sos", "path")}>SOS</button></div>
       </div>
     </Shell>
   );
@@ -554,6 +557,7 @@ function Today({ st, day, go }) {
         {due && <Card kicker={`Week ${due}`} title="Your weekly check-in" line="Five minutes. Where did the old you pull back, and what did the new you do?" cta="Check in" onClick={() => go("weekly", due)} accent />}
         <Card kicker="On waking" title={day.morning ? "Morning done" : "Morning practice"} line={day.morning ? (day.spoken ? `Said out loud ${day.spoken} ${day.spoken === 1 ? "time" : "times"}. Every one is a vote for the new you.` : "Done. Tomorrow, say your lines out loud too. Spoken lands deeper than thought.") : "Listen once, say your lines out loud, look yourself in the eye."} cta={day.morning ? "Again" : "Start"} done={day.morning} onClick={() => go("morning")} soft={hour >= 12 && !day.morning} />
         <VisionCard st={st} day={day} go={go} />
+        <GratitudeCard st={st} day={day} go={go} />
         <div className="daycard">
           <p className="kicker">Through the day</p>
           <p className="pq">{questionFor(ns.questions)}</p>
@@ -757,6 +761,182 @@ function Vision({ st, day, setDay, update, onBack }) {
           <button className="btn ink2" onClick={ics}>{added ? "Added. Open the file to save it" : "Add a daily reminder to my calendar"}</button>
           <p className="tnote light">The calendar reminds you every day at {time}, and the link in it opens your vision. Nothing is sent anywhere.</p>
         </div>
+      </div>
+    </Shell>
+  );
+}
+
+/* ---------------- gratitude ----------------
+   A running log of what's already good, a line at a time. Reminders come
+   back round through the day: Today's card turns gold at each chosen time
+   until a thank-you has been added after it, and the calendar file rotates
+   through ten prompts so the reminder never says the same thing two days
+   running. Older thank-yous circle back on screen, and the log becomes a
+   short script the person records in their own voice. */
+const DAY_MS = 86400000;
+const shortDate = (k) => new Date(k + "T12:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+const dayNumber = (d = new Date()) => Math.floor((d.getTime() - d.getTimezoneOffset() * 60000) / DAY_MS);
+/* The latest reminder time that has passed today and hasn't been answered. */
+function thanksDue(g, day) {
+  const now = nowHM();
+  const passed = (g.times || []).filter((t) => t <= now).sort();
+  const latest = passed[passed.length - 1];
+  return latest && !(day.thanks || []).some((h) => h >= latest) ? latest : null;
+}
+/* Thank-yous from earlier days, to come back round. */
+const olderThanks = (g) => (g.log || []).filter((e) => e.at < dayKey());
+function useCircling(n, every = 6500) {
+  const [i, setI] = useState(() => (n ? Math.floor(Math.random() * n) : 0));
+  useEffect(() => { if (n < 2) return; const t = setInterval(() => setI((v) => (v + 1) % n), every); return () => clearInterval(t); }, [n, every]);
+  return [n ? i % n : 0, () => setI((v) => (v + 1) % Math.max(1, n))];
+}
+function GratitudeCard({ st, day, go }) {
+  const g = st.gratitude || {};
+  const older = olderThanks(g);
+  const [i] = useCircling(older.length);
+  const due = thanksDue(g, day);
+  const count = (day.thanks || []).length;
+  const back = older[i];
+  return <Card kicker={back ? `Gratitude · from ${shortDate(back.at)}` : "Gratitude"} title={due ? "Time for a thank-you" : count ? `${count} thank-you${count === 1 ? "" : "s"} today` : "What's already good"}
+    line={back ? back.text : promptFor(dayNumber())} cta={count ? "Add another" : "Add one"} done={count > 0 && !due} accent={!!due} onClick={() => go("gratitude", "today")} />;
+}
+function Gratitude({ st, day, update, onBack }) {
+  const g = st.gratitude || {};
+  const log = g.log || [];
+  const times = g.times || [];
+  const today = dayKey();
+  const [stage, setStage] = useState("view"); // view | script | record
+  const [t, setT] = useState("");
+  const [pi, setPi] = useState(() => dayNumber() + (day.thanks || []).length);
+  const [script, setScript] = useState(g.script || "");
+  const [blob, setBlob] = useState(null);
+  const [playing, setPlaying] = useState(false);
+  const [custom, setCustom] = useState("");
+  const [added, setAdded] = useState(false);
+  const [all, setAll] = useState(false);
+  const handle = useRef(null);
+  const older = olderThanks(g);
+  const [ci, nextBack] = useCircling(older.length, 7000);
+  useEffect(() => { getVoice("gratitude").then((b) => setBlob(b || null)); return () => { handle.current && handle.current.stop(); stopBed(1.5); }; }, []);
+  const setG = (patch) => update((s) => ({ gratitude: { ...(s.gratitude || {}), ...(typeof patch === "function" ? patch(s.gratitude || {}) : patch) } }));
+  const stale = g.audio && g.script && g.audio.text !== g.script;
+  const due = thanksDue(g, day);
+  const todays = log.filter((e) => e.at === today);
+
+  const add = () => {
+    const text = t.trim(); if (!text) return;
+    const hm = nowHM();
+    update((s) => {
+      const sg = s.gratitude || {}, sd = (s.days || {})[today] || {};
+      return { gratitude: { ...sg, log: [{ id: uid(), at: today, hm, text }, ...(sg.log || [])] }, days: { ...(s.days || {}), [today]: { ...sd, thanks: [...(sd.thanks || []), hm] } } };
+    });
+    setT(""); setPi((v) => v + 1); setAdded(false); bowl(392, 0.07);
+  };
+  const remove = (id) => setG((sg) => ({ log: (sg.log || []).filter((e) => e.id !== id) }));
+  const play = async () => {
+    if (playing) { handle.current && handle.current.stop(); handle.current = null; setPlaying(false); return; }
+    getCtx(); setPlaying(true);
+    update((s) => ({ days: { ...(s.days || {}), [today]: { ...((s.days || {})[today] || {}), thanksHeard: true } } }));
+    if (blob) handle.current = await playSession({ bedKey: "alpha", voiceBlob: blob, volume: 0.5, tailMin: 0.25, onEnd: () => setPlaying(false) });
+    else {
+      startBed("alpha", { volume: 0.4 });
+      const sp = speakScript(g.script, { onDone: () => { stopBed(4); setPlaying(false); } });
+      handle.current = { stop: () => { sp.stop(); stopBed(1.5); } };
+    }
+  };
+  const toggleTime = (tm) => { setAdded(false); setG((sg) => { const cur = sg.times || []; return { times: cur.includes(tm) ? cur.filter((x) => x !== tm) : [...cur, tm].sort() }; }); };
+  const addCustom = () => { if (!custom || times.includes(custom)) return; toggleTime(custom); setCustom(""); };
+  const ics = () => { download(new Blob([gratitudeICS({ times, prompts: GRATITUDE_PROMPTS, url: location.origin + "/#gratitude" })], { type: "text/calendar" }), "ishkiy-gratitude-reminders.ics"); setAdded(true); };
+  const openScript = () => { setScript(g.script || draftGratitude(log, st.newSelf || {})); setStage("script"); };
+
+  if (stage === "record") return (
+    <Shell className="practice">
+      <div className="toprow"><Back onClick={() => setStage("view")} label="Gratitude" /></div>
+      <div className="flow">
+        <p className="kicker">{blob ? "Re-record your thank-yous" : "Record your thank-yous"}</p>
+        <h1 className="display sm">Say each one like you're telling the person it's for.</h1>
+        <Recorder script={g.script} existing={blob} what="thank-you recording" bed="alpha" onDiscard={() => setStage("view")}
+          intro="Somewhere quiet, phone a hand's width away. Read it slowly and warmly, and pause at every “…” so each one lands. A minute or two is plenty."
+          onSaved={async (b) => { await putVoice(b, "gratitude"); setBlob(b); setG({ audio: { at: dayKey(), mime: b.type, text: g.script } }); bowl(261.6, 0.1); setStage("view"); }} />
+      </div>
+    </Shell>
+  );
+  if (stage === "script") return (
+    <Shell>
+      <div className="toprow"><Back onClick={() => setStage("view")} label="Gratitude" /></div>
+      <div className="flow">
+        <p className="kicker">Your thank-you script</p>
+        <h1 className="display sm">What you'll hear in your own voice.</h1>
+        <p className="lede dim">{GRATITUDE_HINT}</p>
+        <textarea className="tarea script" value={script} onChange={(e) => setScript(e.target.value)} aria-label="Your thank-you script" />
+        {log.length > 0 && <button className="ghost light" onClick={() => setScript(draftGratitude(log, st.newSelf || {}))}>Start again from my latest thank-yous</button>}
+        {g.audio && script.trim() !== g.script && <p className="tnote light">Your recording still says the old words. You can re-record once you've saved.</p>}
+        <button className="btn gold" disabled={!script.trim()} onClick={() => { setG({ script: script.trim(), scriptAt: dayKey() }); setStage("view"); }}>Save my script</button>
+      </div>
+    </Shell>
+  );
+  const before = log.filter((e) => e.at !== today), shown = all ? before : before.slice(0, 12);
+  return (
+    <Shell>
+      <div className="toprow"><Back onClick={onBack} /></div>
+      <div className="flow">
+        <p className="kicker">Gratitude{todays.length ? ` · ${todays.length} today` : ""}</p>
+        <h1 className="display sm">What's already good.</h1>
+        <p className="lede dim">A line at a time, whatever's true today. Small counts, and so does ordinary. The new you notices what's already here.</p>
+        <p className="pq">{promptFor(pi)}</p>
+        <div className="askrow"><textarea className="tarea" rows="2" value={t} onChange={(e) => setT(e.target.value)} placeholder="I'm grateful for…" aria-label="Something you're grateful for" /><button className="btn gold" onClick={add} disabled={!t.trim()}>Add</button></div>
+        <button className="ghost light" onClick={() => setPi((v) => v + 1)}>A different prompt</button>
+        {due && !todays.some((e) => e.hm >= due) && <p className="hint">It's past {due}. One thank-you answers this reminder.</p>}
+        {todays.length > 0 && <div className="evlist">
+          {todays.map((e) => <div key={e.id} className="ev"><span className="evdate">{e.hm || "Today"}</span><span className="evtext">{e.text}</span><button className="evx" onClick={() => remove(e.id)} aria-label={`Remove: ${e.text}`}>×</button></div>)}
+        </div>}
+
+        <div className="panel">
+          <p className="kicker">Coming back round</p>
+          {older.length ? <>
+            <p className="circleback" key={older[ci].id}>{older[ci].text}</p>
+            <p className="tnote light">From {shortDate(older[ci].at)}. Your earlier thank-yous come back round here, one at a time, so they keep landing.</p>
+            {older.length > 1 && <button className="ghost light" onClick={nextBack}>Another one</button>}
+          </> : <p className="lede dim">Your earlier thank-yous come back round here, one at a time, from tomorrow on. Read on a bad day, they're proof the good is real.</p>}
+        </div>
+
+        <div className="panel">
+          <p className="kicker">Your thank-you recording{day.thanksHeard ? " · heard today" : ""}</p>
+          {g.script ? <>
+            <p className="lede dim">{g.script.length > 160 ? g.script.slice(0, 157).trim() + "…" : g.script}</p>
+            <button className="btn gold" onClick={play}>{playing ? "Stop" : blob ? "Play my thank-yous" : "Play it (phone's voice)"}</button>
+            {!blob && <p className="tnote light">Your own voice lands deeper than the phone's. Record it when you're ready.</p>}
+            {stale && <p className="tnote light">You've changed the words since you recorded it. Re-record to match.</p>}
+            <div className="row wrap">
+              <button className="btn ink2 small" onClick={() => setStage("record")}>{blob ? "Re-record" : "Record it in my voice"}</button>
+              <button className="btn ink2 small" onClick={openScript}>Edit the script</button>
+            </div>
+          </> : <>
+            <p className="lede dim">Turn your thank-yous into a short script and record it in your own voice. A minute or two to play whenever the day feels thin.</p>
+            <button className="btn ink2" onClick={openScript}>{log.length ? "Write my script from my thank-yous" : "Write my script"}</button>
+          </>}
+        </div>
+
+        <div className="panel">
+          <p className="kicker">Reminders that come back round</p>
+          <p className="lede dim">Pick your times. At each one, Today's screen turns gold until you've added a thank-you. The calendar reminders rotate through {GRATITUDE_PROMPTS.length} prompts, so each one asks you something different.</p>
+          <div className="chips">
+            {GRATITUDE_TIMES.map(([label, tm]) => <button key={tm} className={"chip" + (times.includes(tm) ? " on" : "")} aria-pressed={times.includes(tm)} onClick={() => toggleTime(tm)}>{label} · {tm}</button>)}
+            {times.filter((tm) => !GRATITUDE_TIMES.some(([, x]) => x === tm)).map((tm) => <button key={tm} className="chip on" aria-pressed="true" onClick={() => toggleTime(tm)} aria-label={`Remove ${tm}`}>{tm} ×</button>)}
+          </div>
+          <label className="q" htmlFor="thanks-time">Add your own time</label>
+          <div className="askrow"><input id="thanks-time" type="time" className="tin" value={custom} onChange={(e) => setCustom(e.target.value)} /><button className="btn ink2" onClick={addCustom} disabled={!custom || times.includes(custom)}>Add</button></div>
+          <button className="btn ink2" disabled={!times.length} onClick={ics}>{added ? "Added. Open the file to save it" : "Add the reminders to my calendar"}</button>
+          <p className="tnote light">{times.length ? `Every day at ${times.join(", ")}, with no end date. The link in each one opens this page. Nothing is sent anywhere.` : "Pick at least one time first."}</p>
+        </div>
+
+        {shown.length > 0 && <>
+          <p className="kicker" style={{ marginTop: 26 }}>Before today</p>
+          <div className="evlist">
+            {shown.map((e) => <div key={e.id} className="ev"><span className="evdate">{shortDate(e.at)}</span><span className="evtext">{e.text}</span></div>)}
+          </div>
+          {!all && before.length > shown.length && <button className="ghost light" onClick={() => setAll(true)}>Show all {before.length}</button>}
+        </>}
       </div>
     </Shell>
   );
@@ -999,6 +1179,7 @@ function Review({ st, update, go }) {
   const spoken = inEra.reduce((a, k) => a + (days[k].spoken || 0), 0);
   const topups = inEra.reduce((a, k) => a + ((days[k].topups || []).length), 0);
   const visions = inEra.filter((k) => days[k].vision).length;
+  const thanks = ((st.gratitude || {}).log || []).filter((e) => e.at >= st.era.start).length;
   const feels = inEra.sort().map((k) => days[k].feel);
   const weekly = (st.weekly || []).filter((w) => w.era === st.era.n);
   const again = () => { update({ era: { start: dayKey(), n: st.era.n + 1 } }); go("today"); };
@@ -1017,6 +1198,7 @@ function Review({ st, update, go }) {
         </div>
         {feels.filter((v) => v != null).length > 1 && <><p className="tnote light">How much you felt like the new you, night by night</p><Spark values={feels} /></>}
         {visions > 0 && <p className="lede dim">You heard your vision on {visions} {visions === 1 ? "day" : "days"}.</p>}
+        {thanks > 0 && <p className="lede dim">You wrote down {thanks} thing{thanks === 1 ? "" : "s"} you're grateful for.</p>}
         {topups > 0 && <p className="lede dim">And {topups} daytime top-up{topups === 1 ? "" : "s"}, on top of the mornings and nights.</p>}
         {weekly.length > 0 && <p className="lede dim">Week one you put yourself at {weekly[0].self} out of 10. {weekly.length > 1 ? `Now: ${weekly[weekly.length - 1].self}.` : ""}</p>}
         <p className="lede">Maltz called 21 days the minimum. The picture is still setting. Most people run a second era with the same lines to lock it in, or rewrite the lines that have already come true.</p>
@@ -1111,6 +1293,7 @@ function You({ st, update, go, back }) {
           {st.script && <button className="btn ink2 small" onClick={() => go("script")}>Script and recording</button>}
           {st.voice && <button className="btn ink2 small" onClick={() => go("script", "rerecord")}>Re-record</button>}
           <button className="btn ink2 small" onClick={() => go("vision", "you")}>My vision</button>
+          <button className="btn ink2 small" onClick={() => go("gratitude", "you")}>Gratitude</button>
           <button className="btn ink2 small" onClick={() => go("calm")}>Calm body, calm mind</button>
         </div>
         <div className="panel">

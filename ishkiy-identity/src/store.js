@@ -4,7 +4,7 @@
 const KEY = "ishkiy-identity-v1";
 export const load = () => { try { return JSON.parse(localStorage.getItem(KEY)) || {}; } catch { return {}; } };
 export const save = (s) => { try { localStorage.setItem(KEY, JSON.stringify(s)); } catch {} };
-export const wipe = async () => { try { localStorage.removeItem(KEY); } catch {} await delVoice(); await delVoice("vision"); };
+export const wipe = async () => { try { localStorage.removeItem(KEY); } catch {} await delVoice(); await delVoice("vision"); await delVoice("gratitude"); };
 
 const DB = "ishkiy-identity", STORE = "voice";
 const open = () => new Promise((res, rej) => {
@@ -22,8 +22,9 @@ const tx = async (mode, fn) => {
     t.onerror = () => rej(t.error);
   });
 };
-/* Two recordings, each a single take that a re-record overwrites (no history):
-   "induction", the daily recording, and "vision", the vision statement. */
+/* Three recordings, each a single take that a re-record overwrites (no
+   history): "induction", the daily recording, "vision", the vision statement,
+   and "gratitude", the thank-you script. */
 export const putVoice = (blob, key = "induction") => tx("readwrite", (s) => s.put(blob, key));
 export const getVoice = async (key = "induction") => { try { return await tx("readonly", (s) => s.get(key)); } catch { return null; } };
 export const delVoice = async (key = "induction") => { try { await tx("readwrite", (s) => s.delete(key)); } catch {} };
@@ -80,6 +81,38 @@ export function visionICS({ time = "07:30", url }) {
     "END:VEVENT",
     "END:VCALENDAR",
   ].join("\r\n");
+}
+
+/* Gratitude reminders that circle round. Each daily time gets its own run
+   of prompts: one calendar event per prompt, repeating every N days and
+   starting a day apart, so each day's reminder asks something different and
+   the whole cycle comes back round with no end date. The times are offset
+   from each other, so morning and evening never ask the same thing. */
+export function gratitudeICS({ times = [], prompts = [], url }) {
+  const P = prompts.length;
+  const stamp = new Date().toISOString().replace(/[-:]/g, "").slice(0, 15) + "Z";
+  const events = [];
+  times.forEach((time, j) => {
+    for (let k = 0; k < P; k++) {
+      const d = new Date(); d.setDate(d.getDate() + k);
+      const day = dayKey(d).replace(/-/g, "");
+      const prompt = prompts[(k + j * 3) % P].replace(/([,;\\])/g, "\\$1"); // calendar text escapes commas
+      events.push([
+        "BEGIN:VEVENT",
+        `UID:thanks-${time.replace(":", "")}-${k}-${dayKey().replace(/-/g, "")}@identity.ishkiy.com`,
+        `DTSTAMP:${stamp}`,
+        `DTSTART:${day}T${time.replace(":", "")}00`,
+        "DURATION:PT5M",
+        `RRULE:FREQ=DAILY;INTERVAL=${P}`,
+        `SUMMARY:iSHKiY · Thank you: ${prompt}`,
+        `DESCRIPTION:${prompt} Open iSHKiY Identity and write it down. ${url || ""}`,
+        ...(url ? [`URL:${url}`] : []),
+        "BEGIN:VALARM", "ACTION:DISPLAY", `DESCRIPTION:${prompt}`, "TRIGGER:PT0M", "END:VALARM",
+        "END:VEVENT",
+      ].join("\r\n"));
+    }
+  });
+  return ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//iSHKiY//Identity//EN", "CALSCALE:GREGORIAN", ...events, "END:VCALENDAR"].join("\r\n");
 }
 
 export const download = (blob, name) => {

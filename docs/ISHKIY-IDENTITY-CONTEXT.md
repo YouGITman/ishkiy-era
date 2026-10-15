@@ -55,7 +55,7 @@ All the app's words live in **`src/content.js`**. Edit voice there, not in compo
 | Build | `npm run build` bundles to `site/dist/app.js` and **copies only the real files** into `site/` (`index.html`, `manifest.json`, `sw.js`, icons, `audio/`). **Netlify publishes `site/`, never the project folder** |
 | Hosting | Netlify, project **`stately-pika-8b9efc`** (not renamed yet). Branch to deploy: **`claude/upbeat-knuth-s0xvxv`**. Base directory: **`ishkiy-identity`**. Build command and publish directory are left blank; `netlify.toml` supplies them |
 | AI | `netlify/functions/claude.js`, a copy of ERA's proxy at `/api/claude`. Needs `ANTHROPIC_API_KEY` in Netlify. Used for exactly two things (section 6) |
-| Offline | `sw.js` caches the shell and every audio clip. **Bump the `CACHE` name (now `identity-v6`) whenever audio or app files change**, or installed phones keep the old ones |
+| Offline | `sw.js` caches the shell and every audio clip. **Bump the `CACHE` name (now `identity-v7`) whenever audio or app files change**, or installed phones keep the old ones |
 | Package type | `"type": "module"`. The ElevenLabs build plugin dynamically imports `src/content.js` |
 
 ### Traps (each one has already cost time)
@@ -92,7 +92,8 @@ All the app's words live in **`src/content.js`**. Edit voice there, not in compo
 - **Through the day**: a power question that rotates by the hour; **I caught the old voice** (pick the old line, say the new one to swap it); **Log evidence** (a list of votes for the new self); **Top-up sessions** (below).
 - **Night**: a check-in (0 to 10 "how much did I feel like the new me", what went in today: clean, mixed or noise, one vote), a three-and-a-half-minute spoken calm, then the recording, which **starts automatically** (eyes still shut). The screen dims after 20 seconds and the bed plays on for ten minutes after the words end.
 - **Vision**: a short present-tense statement kept as text and as a single recording (IndexedDB key `"vision"`), with a daily calendar reminder at a time the person picks and a link to `/#vision`. A Today card turns gold once that time has passed and it hasn't been played. See `docs/HANDOFF.md`, 4 October.
-- **Re-record** (daily recording and vision): listen to the new take and the current one, then commit (overwrite, no history) or discard (old one kept). Nothing is written until commit.
+- **Gratitude**: a log of thank-yous with a rotating prompt; reminder times that turn the Today card gold until answered, and a calendar file whose reminders rotate through ten prompts and repeat with no end date; earlier thank-yous circling back on screen; and a thank-you script drafted from the log, recorded in their own voice (IndexedDB key `"gratitude"`), played over the alpha bed. Link `/#gratitude`. See `docs/HANDOFF.md`, 15 October.
+- **Re-record** (daily recording, vision and gratitude): listen to the new take and the current one, then commit (overwrite, no history) or discard (old one kept). Nothing is written until commit.
 - **Daytime top-ups (optional)**: six spoken sessions of one to two minutes: *Two-minute reset*, *Before it matters*, *After the noise*, *Power questions*, *Two minutes of thank you*, *Your lines, out loud* (the voice hands over to the mic for the person's own lines, then carries on). The list highlights the one that fits the hour.
 - **The transition timer (task switching)**: reached from the top of the top-ups list. Pick *Prime for creativity* (eyes shut, alpha bed) or *Prime for focus* (eyes open, square breathing, no-beat bed), take a one-, two- or three-minute break, then the primer starts on its own through `GuideSession`'s `autoStart`. The countdown runs from an end time, so a throttled page still lands on time. The last choice is remembered in `transition`. The primers are entries in `TOPUPS` marked `prime: true` (exported as `PRIMES`), so they also play directly from the list and log to `days[...].topups`.
 - **Weekly check-in** (days 7, 14, 21): self-image 0 to 10, where the old self pulled back ("the rubber band"), what the new self did, the line they need next week, and a short reflection.
@@ -139,6 +140,7 @@ Rules for any new AI feature: use the `VOICE` prompt, send only the words needed
 - **Beds** (`BEDS`): *Theta* (6 Hz), *Alpha* (10 Hz), *Deep sleep* (2.5 Hz) binaural beats, and *No beat*. Each is a stereo pair of tones (binaural beats need headphones) over brown-noise "rain", a warm pad that breathes on slow LFOs, and a distant singing bowl every 40 to 70 seconds. The same graph runs live and inside an `OfflineAudioContext`, so the downloadable mix sounds identical to the live one.
 - **Bowls and chimes** (`strike`, `bowl`) are inharmonic partials; `releaseSound` is a rising breath over a low bowl.
 - `playSession` plays the person's recording over a bed with a short generated reverb and a configurable tail. `renderMix` bakes it into a 24 kHz WAV (a five-minute recording plus a three-minute tail is about 45 MB).
+- **Recording and levelling**: `openMic` opens the mic for a take with echo cancellation, noise suppression and auto gain all off (auto gain caused takes that start quiet and swell). `levelVoice` evens out a take's level on every play and in the mix, without changing the stored file. See `docs/HANDOFF.md`, 15 October.
 - `listenLevel` reads mic loudness only. `speakScript` is the phone's own voice, used as the fallback.
 
 ### Recorded guides (`audio/calm/`, `audio/topup/`: 17 + 52 clips, about 3 MB)
@@ -178,9 +180,10 @@ Changing a voice means: edit `CALM_SCRIPT` / `TOPUPS` in `content.js`, run `node
 | `reminders` | `{ morning, evening, midday? }` |
 | `transition` | `{ prime, mins }`: the last primer and break length chosen |
 | `vision` | `{ text, at, time, audio: { at, mime, text } }`; the audio itself is in IndexedDB under `"vision"`. Plays log `days[date].vision` |
+| `gratitude` | `{ log: [{ id, at, hm, text }], times: ['HH:MM'], script, scriptAt, audio: { at, mime, text } }`; the audio itself is in IndexedDB under `"gratitude"`. Each thank-you adds its time to `days[date].thanks`; a play sets `days[date].thanksHeard` |
 | `calmCount` | How many calm sessions completed |
 
-**IndexedDB** `ishkiy-identity` / store `voice`: key `induction` (the daily recording) and key `vision` (the vision), each one Blob, overwritten on commit.
+**IndexedDB** `ishkiy-identity` / store `voice`: key `induction` (the daily recording), key `vision` (the vision) and key `gratitude` (the thank-you script), each one Blob, overwritten on commit.
 
 Dates are local `YYYY-MM-DD` (`dayKey`), so "today" is the person's today. `eraDay(st)` is `daysBetween(start, today) + 1`.
 

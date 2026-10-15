@@ -183,6 +183,7 @@
   .recbar{position:sticky; top:8px; z-index:2; display:flex; align-items:center; gap:14px; padding:10px 12px 10px 16px; border-radius:999px; background:rgba(22,40,77,.94); border:1.5px solid rgba(212,165,71,.4)}
   .recbar .count{flex:1} .recbar .btn{margin:0; padding:10px 20px}
   .recdot{width:12px; height:12px; border-radius:50%; background:#E0655A; transition:transform .08s}
+  .recdot.wait{background:var(--gold)}
   .prompter{margin-top:18px; font-family:Lora,serif; font-size:19px; line-height:1.75; color:var(--bone70)}
   .prompter.live{color:var(--bone); font-size:21px}
   .prompter p{margin:0 0 20px}
@@ -243,6 +244,10 @@
   /* evidence, weekly, review */
   .evlist{display:flex; flex-direction:column; gap:8px; margin-top:18px}
   .ev{display:flex; gap:14px; padding:13px 15px; border-radius:12px; background:rgba(245,241,232,.04); font-size:15.5px; line-height:1.5}
+  .ev .evtext{flex:1}
+  .evx{flex:none; width:32px; height:32px; margin:-5px -6px -5px 0; border-radius:50%; font-size:20px; line-height:1; color:var(--bone50)}
+  .evx:hover,.evx:focus-visible{color:var(--bone); background:var(--bone10)}
+  .circleback{font-family:Lora,serif; font-weight:600; font-size:20px; line-height:1.45; margin:2px 0 4px; min-height:2.9em; animation:rise .7s ease}
   .evdate{flex:0 0 52px; font-size:12px; font-weight:600; color:var(--gold); padding-top:3px}
   .spark{width:100%; max-width:320px; height:auto; color:var(--bone); margin:6px 0 2px}
   .reflection{max-width:460px; text-align:left; margin-top:18px}
@@ -274,7 +279,7 @@
   @media (min-width:640px){ .display{font-size:40px} .display.sm{font-size:32px} }
   @media (max-width:360px){ .display{font-size:29px} .display.sm{font-size:25px} .stats{grid-template-columns:1fr 1fr} }
   @media (prefers-reduced-motion: reduce){
-    .shell,.glimmer,.flow,.gline,.sayline,.idline{animation:none}
+    .shell,.glimmer,.flow,.gline,.sayline,.idline,.circleback{animation:none}
     .orb .orb-core,.orb .orb-halo,.orb .orb-ring,.eart .fly,.eart .band{animation:none}
     .btn{transition:none}
   }

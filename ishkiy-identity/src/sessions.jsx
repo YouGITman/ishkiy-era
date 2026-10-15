@@ -2,7 +2,7 @@
 // loud, the mirror, and recording your own voice.
 import React, { useEffect, useRef, useState } from "react";
 import { CALM_SCRIPT } from "./content.js";
-import { startBed, stopBed, playSession, speakScript, listenLevel, bowl, getCtx, loadClip, scheduleGuide, audioNow } from "./audio.js";
+import { startBed, stopBed, playSession, speakScript, listenLevel, openMic, bowl, getCtx, loadClip, scheduleGuide, audioNow } from "./audio.js";
 import { Orb } from "./visuals.jsx";
 import { getVoice } from "./store.js";
 
@@ -268,31 +268,41 @@ const pickMime = () => {
    to commit it; discarding leaves the old one exactly as it was. There is
    only ever one recording per kind, so committing has no undo, and says so. */
 export function Recorder({ script, onSaved, onSkip, existing = null, onDiscard, bed = "theta", what = "recording", intro }) {
-  const [state, setState] = useState("idle"); // idle | rec | review | denied
+  const [state, setState] = useState("idle"); // idle | ready | rec | review | denied
   const [level, setLevel] = useState(0);
   const [blob, setBlob] = useState(null);
   const [previewing, setPreviewing] = useState(null); // null | "new" | "old"
-  const rec = useRef(null), stopLevel = useRef(null), chunks = useRef([]), prev = useRef(null);
+  const rec = useRef(null), stopLevel = useRef(null), chunks = useRef([]), prev = useRef(null), mic = useRef(null), dead = useRef(false);
   const elapsed = useElapsed(state === "rec");
-  useWakeLock(state === "rec");
-  useEffect(() => () => { stopLevel.current && stopLevel.current(); prev.current && prev.current.stop(); try { rec.current && rec.current.state !== "inactive" && rec.current.stop(); } catch {} }, []);
+  useWakeLock(state === "rec" || state === "ready");
+  const release = () => { stopLevel.current && stopLevel.current(); stopLevel.current = null; mic.current && mic.current.getTracks().forEach((t) => t.stop()); mic.current = null; };
+  useEffect(() => () => { dead.current = true; prev.current && prev.current.stop(); try { rec.current && rec.current.state !== "inactive" && rec.current.stop(); } catch {} release(); }, []);
 
+  /* One mic stream, used for both the take and the level dot, with the
+     phone's processing off (see openMic). The mic is opened, then given a
+     moment to settle before the take begins, so the first words land at the
+     same level as the rest. */
   const start = async () => {
     try {
-      getCtx();
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
+      getCtx(); stopPreview();
+      setState("ready");
+      const stream = await openMic();
+      if (dead.current) { stream.getTracks().forEach((t) => t.stop()); return; }
+      mic.current = stream;
+      stopLevel.current = await listenLevel(setLevel, { stream });
+      await new Promise((r) => setTimeout(r, 900));
+      if (dead.current) return;
       const mime = pickMime();
       const r = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
       chunks.current = [];
       r.ondataavailable = (e) => e.data && e.data.size && chunks.current.push(e.data);
-      r.onstop = () => { stream.getTracks().forEach((t) => t.stop()); setBlob(new Blob(chunks.current, { type: r.mimeType || mime || "audio/webm" })); setState("review"); };
+      r.onstop = () => { release(); if (dead.current) return; setBlob(new Blob(chunks.current, { type: r.mimeType || mime || "audio/webm" })); setState("review"); };
       r.start(1000);
       rec.current = r;
-      stopLevel.current = await listenLevel(setLevel);
       setState("rec");
-    } catch { setState("denied"); }
+    } catch { release(); setState("denied"); }
   };
-  const stop = () => { stopLevel.current && stopLevel.current(); stopLevel.current = null; rec.current && rec.current.stop(); };
+  const stop = () => { rec.current && rec.current.state !== "inactive" ? rec.current.stop() : release(); };
   const stopPreview = () => { prev.current && prev.current.stop(); prev.current = null; setPreviewing(null); };
   const preview = async (which) => {
     const was = previewing; stopPreview();
@@ -318,8 +328,9 @@ export function Recorder({ script, onSaved, onSkip, existing = null, onDiscard, 
         {onSkip && !existing && <button className="ghost light" onClick={onSkip}>Use the phone's voice for now</button>}
         {existing && onDiscard && <button className="ghost light" onClick={onDiscard}>Keep my current {what}</button>}
       </>}
+      {state === "ready" && <div className="recbar"><span className="recdot wait" style={{ transform: `scale(${1 + Math.min(1.5, level * 14)})` }} /><span className="count light">Getting the mic ready…</span></div>}
       {state === "rec" && <div className="recbar"><span className="recdot" style={{ transform: `scale(${1 + Math.min(1.5, level * 14)})` }} /><span className="count light">Recording · {mmss(elapsed)}</span><button className="btn gold" onClick={stop}>Stop</button></div>}
-      {(state === "idle" || state === "rec") && <div className={"prompter" + (state === "rec" ? " live" : "")}>{script.split("\n\n").map((p, i) => <p key={i}>{p}</p>)}</div>}
+      {(state === "idle" || state === "ready" || state === "rec") && <div className={"prompter" + (state === "rec" ? " live" : "")}>{script.split("\n\n").map((p, i) => <p key={i}>{p}</p>)}</div>}
       {state === "review" && !existing && <>
         <p className="lede dim">Listen back. If it sounds rushed, do it again. Slow is the whole trick.</p>
         <div className="row"><button className="btn ink2" onClick={() => preview("new")}>{previewing === "new" ? "Stop" : "Listen back"}</button><button className="btn gold" onClick={keep}>Keep this one</button></div>
