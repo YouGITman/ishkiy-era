@@ -163,7 +163,7 @@ export function ListenSession({ script, night = false, bedKey = "theta", autoSta
     <div className="session center">
       <Orb size={170} still />
       <p className="kicker">{night ? "Before sleep" : "On waking"}</p>
-      <h1 className="display sm">{night ? "Fall asleep as the new you." : "Before the phone. You first."}</h1>
+      <h1 className="display sm">{night ? "Fall asleep as who you are." : "Before the phone. You first."}</h1>
       <p className="lede dim">{hasVoice === false ? "You haven't recorded yet, so the phone will read your words for now. Your own voice lands deeper. Record it when you can." : "Your voice, over the theta bed. Don't try to follow it. Let it wash over you."} {night ? "The bed keeps playing softly for ten minutes after the words stop." : ""}</p>
       <p className="tnote light">Headphones for the beat. Never while driving.</p>
       <button className="btn gold" onClick={start}>Play</button>

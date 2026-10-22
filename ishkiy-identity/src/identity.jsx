@@ -30,6 +30,16 @@ const mins = (hm) => { const [h, m] = (hm || "0:0").split(":").map(Number); retu
 const anchorsOf = (idn) => ({ ...ID_TIMES, ...(idn.anchors || {}) });
 /* Morning until halfway between the two anchors, evening after. */
 export const practiceMode = (idn) => { const a = anchorsOf(idn); const now = mins(nowHM()); return now < (mins(a.morning) + mins(a.evening)) / 2 ? "morning" : "evening"; };
+/* One morning. Once Identity is set up, its morning is the morning: it
+   counts for the era, and the identity anchor and the era's wake-up reminder
+   are one time, written together so a phone never rings twice. */
+export const integrated = (st) => !!(st.identity && st.identity.integrated);
+export const morningDone = (x = {}) => !!(x.morning || (x.identity || {}).morning);
+export const morningTime = (st) => (integrated(st) ? anchorsOf(st.identity).morning : (st.reminders || {}).morning || "06:45");
+export const withMorning = (s, t) => ({
+  reminders: { morning: "06:45", evening: "22:00", ...(s.reminders || {}), morning: t },
+  ...(s.identity ? { identity: { ...s.identity, anchors: { ...anchorsOf(s.identity), morning: t } } } : {}),
+});
 export const weeklyDueId = (idn) => !!idn.created && daysBetween(idn.reviewed || idn.created, dayKey()) >= 7;
 /* Where to pick Create back up: the first step without its piece. */
 const createFrom = (idn) => (!idn.statement ? 0 : (idn.traits || []).length < MIN_TRAITS ? 1 : !(idn.life || {}).text ? 2 : !idn.script ? 3 : 4);
@@ -151,7 +161,7 @@ export function IdentityHub({ st, update, go, back }) {
   const stale = idn.audio && idn.script && idn.audio.text !== idn.script;
   const keys = lastDays(7);
   const ics = () => { download(new Blob([identityICS({ ...a, url: location.origin + "/#practice" })], { type: "text/calendar" }), "ishkiy-identity-anchors.ics"); setAdded(true); };
-  const setAnchor = (k, t) => { setAdded(false); setId((s) => ({ anchors: { ...anchorsOf(s), [k]: t || ID_TIMES[k] } })); };
+  const setAnchor = (k, t) => { setAdded(false); k === "morning" ? update((s) => withMorning(s, t || ID_TIMES.morning)) : setId((s) => ({ anchors: { ...anchorsOf(s), [k]: t || ID_TIMES[k] } })); };
   return (
     <Shell>
       <div className="toprow"><Back onClick={back} /></div>
@@ -458,7 +468,7 @@ export function IdIntegrate({ st, update, go, arg = {} }) {
     go("idintegrate", { step: step + 1 });
   };
   const back = () => (edit || !step ? hub() : go("idintegrate", { step: step - 1 }));
-  const p = { idn, setId, next, back, edit, n: step, of: edit ? 0 : INTEGRATE.length };
+  const p = { st, update, idn, setId, next, back, edit, n: step, of: edit ? 0 : INTEGRATE.length };
   const S = { actions: StepActions, cues: StepCues, anchors: StepAnchors }[INTEGRATE[step]];
   return <S key={step} {...p} />;
 }
@@ -507,8 +517,8 @@ function StepCues({ idn, setId, next, back, edit, n, of }) {
     </Shell>);
 }
 
-function StepAnchors({ idn, setId, next, back, edit, n, of }) {
-  const [a, setA] = useState(anchorsOf(idn));
+function StepAnchors({ st, update, idn, setId, next, back, edit, n, of }) {
+  const [a, setA] = useState(() => ({ ...anchorsOf(idn), ...(!(idn.anchors || {}).morning && (st.reminders || {}).morning ? { morning: st.reminders.morning } : {}) }));
   const [added, setAdded] = useState(false);
   const ics = () => { download(new Blob([identityICS({ ...a, url: location.origin + "/#practice" })], { type: "text/calendar" }), "ishkiy-identity-anchors.ics"); setAdded(true); };
   return (
@@ -524,7 +534,8 @@ function StepAnchors({ idn, setId, next, back, edit, n, of }) {
         </div>
         <button className="btn ink2" onClick={ics}>{added ? "Added. Open the file to save it" : "Add both to my calendar"}</button>
         <p className="tnote light">Two daily reminders with no end date. The link in each opens the practice. Nothing is sent anywhere.</p>
-        <button className="btn gold" onClick={() => { setId({ anchors: a }); next(); }}>{edit ? "Save" : "Done"}</button>
+        <p className="tnote light">The morning time is your wake-up reminder for the 21 days too. There's one morning, not two.</p>
+        <button className="btn gold" onClick={() => { setId({ anchors: a }); update((s) => withMorning(s, a.morning)); next(); }}>{edit ? "Save" : "Done"}</button>
       </div>
     </Shell>);
 }
@@ -545,11 +556,11 @@ export function Practice({ st, update, go, home, arg }) {
       <div className="toprow"><Back onClick={home} label="Home" />
         <div className="modes" role="tablist">{[["morning", "Morning"], ["evening", "Evening"]].map(([k, l]) => <button key={k} role="tab" aria-selected={mode === k} className={"mode" + (mode === k ? " on" : "")} onClick={() => setMode(k)}>{l}{(k === "morning" ? d.morning : d.evening) ? " ✓" : ""}</button>)}</div>
       </div>
-      {mode === "morning" ? <MorningId key="m" st={st} idn={idn} d={d} set={set} onDone={home} /> : <EveningId key="e" st={st} idn={idn} d={d} set={set} setId={setId} onDone={home} go={go} />}
+      {mode === "morning" ? <MorningId key="m" st={st} idn={idn} d={d} set={set} onDone={home} go={go} /> : <EveningId key="e" st={st} idn={idn} d={d} set={set} setId={setId} onDone={home} go={go} />}
     </Shell>);
 }
 
-function MorningId({ st, idn, d, set, onDone }) {
+function MorningId({ st, idn, d, set, onDone, go: goTo }) {
   const [stage, setStage] = useState("hear"); // hear | affirm | confirm | done
   const v = useIdentityVoice();
   const traits = (idn.traits || []).filter((t) => t.action);
@@ -589,6 +600,7 @@ function MorningId({ st, idn, d, set, onDone }) {
       <p className="gline">Go and be it.</p>
       <p className="gsub">{chosen.length ? `${chosen.length} proof ${chosen.length === 1 ? "action" : "actions"} today. Tick them tonight.` : "Tonight, tick whatever you did."}</p>
       <button className="btn gold" onClick={onDone}>Into the day</button>
+      {st.script && <button className="ghost light" onClick={() => goTo("morning")}>Go deeper: my full recording, my lines out loud, the mirror. About ten minutes</button>}
     </div>);
 }
 
@@ -701,7 +713,7 @@ export function IdWeek({ st, update, go }) {
           </div>))}
 
         <p className="q">Day by day</p>
-        <p className="lede dim">Missed a tick, or want to change a line? Every day here is still yours to edit.</p>
+        <p className="lede dim">Missed a tick, or a line to change? Every day here is still yours to edit.</p>
         {days.map(({ k, d }) => (
           <div key={k} className="wday">
             <button className="wdayhead" aria-expanded={openDay === k} onClick={() => setOpenDay(openDay === k ? null : k)}>

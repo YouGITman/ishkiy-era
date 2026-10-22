@@ -1,14 +1,14 @@
-// iSHKiY Identity. Let the old you go; become the new one. Single-page React,
+// iSHKiY Identity. Put down what isn't you; live as who you are. Single-page React,
 // the ERA pattern: everything on the phone, one optional AI proxy.
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { GRATITUDE_TIMES, GRATITUDE_PROMPTS, GRATITUDE_HINT, promptFor, draftGratitude, TOPUPS, PRIMES, topupOf, EXPLAIN, PATH, AREAS, areaOf, ORIGIN_AGES, REWRITES, tenseCheck, SENSES, POWER_QUESTIONS, INPUT_CHOICES, QUOTES, SAFETY, SOS_LINES, MORNING_LINES, EVENING_LINES, buildScript } from "./content.js";
+import { GRATITUDE_TIMES, GRATITUDE_PROMPTS, GRATITUDE_HINT, promptFor, draftGratitude, TOPUPS, PRIMES, topupOf, EXPLAIN, PATH, AREAS, areaOf, REWRITES, tenseCheck, SENSES, POWER_QUESTIONS, INPUT_CHOICES, QUOTES, SAFETY, SOS_LINES, MORNING_LINES, EVENING_LINES, buildScript } from "./content.js";
 import { load, save, wipe, putVoice, getVoice, delVoice, dayKey, daysBetween, uid, reminderICS, gratitudeICS, download } from "./store.js";
 import { BEDS, playSession, speakScript, startBed, stopBed, liveBed, releaseSound, bowl, renderMix, getCtx } from "./audio.js";
 import { Orb, Dissolve, ExplainArt, Spark } from "./visuals.jsx";
 import { useWakeLock, CalmSession, GuideSession, ListenSession, SayAloud, Mirror, Recorder } from "./sessions.jsx";
 import { Wordmark, Shell, Back, Steps, Card, nowHM } from "./ui.jsx";
-import { PracticeButton, IdentityHub, IdCreate, IdIntegrate, Practice, IdWeek, migrateVision } from "./identity.jsx";
+import { PracticeButton, IdentityHub, IdCreate, IdIntegrate, Practice, IdWeek, migrateVision, integrated, morningDone, morningTime, withMorning } from "./identity.jsx";
 
 const ERA_DAYS = 21;
 
@@ -68,7 +68,7 @@ function App() {
   if (view === "become") return <Become st={st} update={update} onDone={() => { markDone("become"); go("script"); }} onBack={() => go(inEra ? "you" : "path")} />;
   if (view === "script") return <ScriptView st={st} update={update} rerecord={arg === "rerecord"} onDone={() => { markDone("script"); go(inEra ? "you" : "begin"); }} onBack={() => go(inEra ? "you" : "path")} />;
   if (view === "begin") return <Begin st={st} update={update} onBegin={() => { update({ era: { start: today, n: ((st.era && st.era.n) || 0) + 1 } }); markDone("begin"); go("today"); }} onBack={() => go("path")} />;
-  if (view === "morning") return <Morning st={st} day={day} setDay={setDay} onDone={() => go("today")} />;
+  if (view === "morning") return <Morning st={st} day={day} setDay={setDay} onDone={home} />;
   if (view === "evening") return <Evening st={st} day={day} setDay={setDay} update={update} go={go} onDone={() => go("today")} />;
   if (view === "topups") return <TopUps st={st} day={day} go={go} back={() => go(arg || (inEra ? "today" : "path"))} />;
   if (view === "topup") return <TopUp st={st} id={arg} onDone={(r) => { setDay({ topups: [...(day.topups || []), arg], spoken: (day.spoken || 0) + ((r && r.spoken) || 0) }); go("topups"); }} onExit={() => go("topups")} />;
@@ -114,7 +114,7 @@ function Enter({ first, onEnter }) {
     <Shell>
       <div className="center grow">
         <Orb size={150} />
-        <p className="gline bquote">{first ? "Who were you before the world told you who to be?" : q}</p>
+        <p className="gline bquote">{first ? "Who are you, underneath what the world told you to be?" : q}</p>
         <button className="btn gold" onClick={() => { getCtx(); bowl(261.6, 0.08); onEnter(); }}>Enter</button>
         <div className="bfoot"><Wordmark sub="Identity" /></div>
       </div>
@@ -127,12 +127,12 @@ function Welcome({ onGo }) {
     <Shell>
       <div className="welcome">
         <Wordmark sub="Identity" />
-        <p className="kicker">Let the old you go</p>
+        <p className="kicker">Who you are</p>
         <h1 className="display">You aren't stuck. You're consistent.</h1>
-        <p className="lede">You've been faithfully living out a picture of yourself someone else drew, mostly before you could read. This app helps you put that picture down and live from a new one.</p>
+        <p className="lede">You live out a picture of yourself, faithfully, and much of it someone else drew. This app helps you put down what isn't you and live from the picture that is.</p>
         <div className="steps">
-          <div className="step"><span className="stepn">1</span><span>See why nothing has stuck so far, and feel safe enough to change. About fifteen minutes.</span></div>
-          <div className="step"><span className="stepn">2</span><span>Name the old lines you've lived by, thank them, and let them go. Then write who you are now.</span></div>
+          <div className="step"><span className="stepn">1</span><span>See why the picture you hold matters, and feel safe. About fifteen minutes.</span></div>
+          <div className="step"><span className="stepn">2</span><span>Name the lines that aren't you, thank them, and let them go. Then write who you are.</span></div>
           <div className="step"><span className="stepn">3</span><span>Record it in your own voice over a theta sound bed. Listen morning and night, say it out loud, and check in for 21 days.</span></div>
         </div>
         <p className="lede dim">Everything you write stays on this phone. {SAFETY}</p>
@@ -192,7 +192,7 @@ function PathView({ st, go }) {
   );
 }
 
-/* ---------------- name the old you ---------------- */
+/* ---------------- name what isn't you ---------------- */
 function Audit({ st, update, onDone, onBack }) {
   const old = st.old || [];
   const [stage, setStage] = useState(old.length ? "list" : "areas"); // areas | pick | dig | list
@@ -206,8 +206,8 @@ function Audit({ st, update, onDone, onBack }) {
     <Shell>
       <div className="toprow"><Back onClick={onBack} /></div>
       <div className="flow">
-        <p className="kicker">Name the old you · 1 of 3</p>
-        <h1 className="display sm">Where does the old story run loudest?</h1>
+        <p className="kicker">Name what isn't you · 1 of 3</p>
+        <h1 className="display sm">Where does the story that isn't you run loudest?</h1>
         <p className="lede dim">Pick one to three. You can come back for the rest in another era.</p>
         <div className="chips">
           {AREAS.map((a) => { const on = areas.includes(a.id); return <button key={a.id} className={"chip" + (on ? " on" : "")} style={{ "--acc": a.colour }} aria-pressed={on} onClick={() => setAreas(on ? areas.filter((x) => x !== a.id) : areas.length < 3 ? [...areas, a.id] : areas)}>{a.name}</button>; })}
@@ -229,7 +229,7 @@ function Audit({ st, update, onDone, onBack }) {
         <div className="toprow"><Back onClick={() => (ai ? setAi(ai - 1) : setStage("areas"))} /><Steps n={ai} of={areas.length} /></div>
         <div className="flow">
           <p className="kicker" style={{ color: a.colour }}>{a.name} · 2 of 3</p>
-          <h1 className="display sm">Which of these have you said about yourself?</h1>
+          <h1 className="display sm">Which of these do you say about yourself?</h1>
           <p className="lede dim">Out loud or in your head. Tap any that land, and write your own. The ones that sting are usually the ones.</p>
           <div className="optlist">
             {a.lines.map((t) => <button key={t} className={"opt" + (has(t) ? " sel" : "")} aria-pressed={has(t)} onClick={() => toggle(t)}><span className="odot" />"{t}"</button>)}
@@ -249,15 +249,13 @@ function Audit({ st, update, onDone, onBack }) {
       <Shell>
         <div className="toprow"><Back onClick={() => setStage("list")} /></div>
         <div className="flow">
-          <p className="kicker">Where it came from</p>
+          <p className="kicker">Where it lives</p>
           <h1 className="display sm quote">"{o.text}"</h1>
-          <label className="q">When did you first start believing this?</label>
-          <div className="chips">{ORIGIN_AGES.map((g) => <button key={g} className={"chip" + (o.age === g ? " on" : "")} onClick={() => set("age", g)}>{g}</button>)}</div>
-          <label className="q" htmlFor="who">Whose voice is it? Who said it, or showed it to you?</label>
+          <label className="q" htmlFor="who">Whose voice is it?</label>
           <input id="who" className="tin" value={o.who || ""} onChange={(e) => set("who", e.target.value)} placeholder="A parent, a teacher, a moment…" />
-          <label className="q" htmlFor="kept">What was it protecting you from?</label>
-          <textarea id="kept" className="tarea" rows="2" value={o.kept || ""} onChange={(e) => set("kept", e.target.value)} placeholder="Every old belief was trying to keep you safe from something." />
-          <label className="q" htmlFor="cost">What has it cost you?</label>
+          <label className="q" htmlFor="kept">What does it protect you from?</label>
+          <textarea id="kept" className="tarea" rows="2" value={o.kept || ""} onChange={(e) => set("kept", e.target.value)} placeholder="Every belief like this is trying to keep you safe from something." />
+          <label className="q" htmlFor="cost">What does it cost you?</label>
           <textarea id="cost" className="tarea" rows="2" value={o.cost || ""} onChange={(e) => set("cost", e.target.value)} placeholder="Chances, people, years, peace…" />
           <p className="tnote light">None of this is required. If it brings up something heavy, stop here. That's wisdom, not weakness.</p>
           <button className="btn gold" onClick={() => setStage("list")}>Done</button>
@@ -270,9 +268,9 @@ function Audit({ st, update, onDone, onBack }) {
     <Shell>
       <div className="toprow"><Back onClick={() => setStage("areas")} label="Areas" /></div>
       <div className="flow">
-        <p className="kicker">Name the old you · 3 of 3</p>
-        <h1 className="display sm">These are the lines you've been living by.</h1>
-        <p className="lede dim">Tap one to trace where it came from. You don't have to do them all. Seeing where a belief started is often enough to loosen it.</p>
+        <p className="kicker">Name what isn't you · 3 of 3</p>
+        <h1 className="display sm">These are the lines that aren't you.</h1>
+        <p className="lede dim">Tap one to look at it more closely. You don't have to do them all. Seeing whose voice a belief is in is often enough to loosen it.</p>
         <div className="oldlist">
           {old.map((o) => (
             <button key={o.id} className="oldcard" style={{ "--acc": areaOf(o.area).colour }} onClick={() => { setDigId(o.id); setStage("dig"); }}>
@@ -322,8 +320,8 @@ function Release({ st, update, onDone, onBack }) {
         <Orb size={170} />
         <p className="kicker">Let it go</p>
         <p className="gline">Lighter.</p>
-        <p className="gsub">{old.length} old {old.length === 1 ? "line" : "lines"} thanked and put down. The space they took up is yours now. Let's fill it on purpose.</p>
-        <button className="btn gold" onClick={onDone}>Write the new me</button>
+        <p className="gsub">{old.length} {old.length === 1 ? "line" : "lines"} thanked and put down. The space they took up is yours now. Let's fill it on purpose.</p>
+        <button className="btn gold" onClick={onDone}>Write who I am</button>
       </div>
     </Shell>
   );
@@ -334,7 +332,7 @@ function Release({ st, update, onDone, onBack }) {
         <p className="kicker">Let it go</p>
         <Dissolve text={`"${cur.text}"`} go={going} onDone={gone} />
         {!going && <>
-          <p className="gsub">{cur.kept ? `You kept me safe from ${cur.kept.replace(/^from\s+/i, "").replace(/[.]$/, "")}. ` : "You were trying to keep me safe. "}Thank you. I don't need you now.</p>
+          <p className="gsub">{cur.kept ? `You try to keep me safe from ${cur.kept.replace(/^from\s+/i, "").replace(/[.]$/, "")}. ` : "You're trying to keep me safe. "}Thank you. I don't need you now.</p>
           {!said ? <button className="btn ink2" onClick={() => setSaid(true)}>I've said it, out loud or inside</button> : <HoldButton onHeld={let_go} />}
         </>}
       </div>
@@ -342,7 +340,7 @@ function Release({ st, update, onDone, onBack }) {
   );
 }
 
-/* ---------------- write the new you ---------------- */
+/* ---------------- write who you are ---------------- */
 const suggestEra = (areas) => {
   const m = { worth: "The Worthy Era", body: "The Strong Era", money: "The Abundant Era", love: "The Open-Hearted Era", work: "The Builder Era", habit: "The Clean Era" };
   return [...new Set(areas.map((a) => m[a]).filter(Boolean)), "The Quiet Power Era", "The First Chapter"].slice(0, 4);
@@ -372,15 +370,15 @@ function Become({ st, update, onDone, onBack }) {
     <Shell>
       <div className="toprow"><Back onClick={onBack} /><Steps n={0} of={4} /></div>
       <div className="flow">
-        <p className="kicker">Write the new you · who</p>
-        <h1 className="display sm">Who are you now?</h1>
-        <p className="lede dim">Present tense. "I am", not "I will be". Say what you are rather than what you're not, with one exception: "I'm not a smoker" beats "I'm trying to quit" every time. I've drafted a line for each old one. Make each one yours.</p>
+        <p className="kicker">Write who you are · who</p>
+        <h1 className="display sm">Who are you?</h1>
+        <p className="lede dim">Present tense: "I am", "I do". Say what you are rather than what you're not, with one exception: "I'm not a smoker" beats "I'm trying to quit" every time. I've drafted a true line for each one you let go. Make each one yours.</p>
         {statements.map((s) => {
           const hint = tenseCheck(s.text);
           return (
             <div key={s.id} className="newline" style={{ "--acc": areaOf(s.area).colour }}>
               {fromText(s.from) && <p className="was">was: "{fromText(s.from)}"</p>}
-              <textarea className="tarea big" rows="2" value={s.text} onChange={(e) => setLine(s.id, e.target.value)} placeholder="I am…" aria-label="New line" />
+              <textarea className="tarea big" rows="2" value={s.text} onChange={(e) => setLine(s.id, e.target.value)} placeholder="I am…" aria-label="Your line" />
               {hint && <p className="hint">{hint}</p>}
               {statements.length > 1 && <button className="mini" onClick={() => setNS({ statements: statements.filter((x) => x.id !== s.id) })}>Remove</button>}
             </div>
@@ -399,9 +397,9 @@ function Become({ st, update, onDone, onBack }) {
       <Shell>
         <div className="toprow"><Back onClick={() => (si ? setSi(si - 1) : setStage("lines"))} /><Steps n={1} of={4} /></div>
         <div className="flow">
-          <p className="kicker">Write the new you · the moment it's done · {si + 1} of {SENSES.length}</p>
+          <p className="kicker">Write who you are · the moment · {si + 1} of {SENSES.length}</p>
           <h1 className="display sm">{q.q}</h1>
-          <p className="lede dim">{q.hint} Write it as if it's happening now. Feel it as you write it, not as a wish but as a memory of something that's already true.</p>
+          <p className="lede dim">{q.hint} Write it as if it's happening now. Feel it as you write it. Not a wish: something true, right now.</p>
           <textarea key={q.id} className="tarea big" rows="4" value={scene[q.id] || ""} onChange={(e) => setNS({ scene: { ...scene, [q.id]: e.target.value } })} placeholder="I'm…" autoFocus />
           <button className="btn gold" onClick={() => (si + 1 < SENSES.length ? setSi(si + 1) : setStage("name"))}>{scene[q.id] ? "Next" : "Skip"}</button>
         </div>
@@ -413,7 +411,7 @@ function Become({ st, update, onDone, onBack }) {
     <Shell>
       <div className="toprow"><Back onClick={() => { setSi(SENSES.length - 1); setStage("scene"); }} /><Steps n={2} of={4} /></div>
       <div className="flow">
-        <p className="kicker">Write the new you · name it</p>
+        <p className="kicker">Write who you are · name it</p>
         <h1 className="display sm">Give this era a name.</h1>
         <p className="lede dim">Something you'd be proud to say. It goes on your identity card and at the end of your recording. Optional.</p>
         <input className="tin big" value={ns.eraName || ""} onChange={(e) => setNS({ eraName: e.target.value })} placeholder="The … Era" />
@@ -428,7 +426,7 @@ function Become({ st, update, onDone, onBack }) {
     <Shell>
       <div className="toprow"><Back onClick={() => setStage("name")} /><Steps n={3} of={4} /></div>
       <div className="flow">
-        <p className="kicker">Write the new you · your questions</p>
+        <p className="kicker">Write who you are · your questions</p>
         <h1 className="display sm">Pick the questions you'll carry.</h1>
         <p className="lede dim">Your brain can't leave a question alone. Ask "why am I such an idiot?" and it will find you evidence. Ask better ones. Choose up to four; they'll turn up through your day.</p>
         <div className="optlist">
@@ -495,24 +493,24 @@ function ScriptView({ st, update, rerecord = false, onDone, onBack }) {
 /* ---------------- begin the era ---------------- */
 function Begin({ st, update, onBegin, onBack }) {
   const r = st.reminders || { morning: "06:45", evening: "22:00" };
-  const setR = (k, v) => update({ reminders: { ...r, [k]: v } });
+  const setR = (k, v) => update((s) => (k === "morning" ? withMorning(s, v) : { reminders: { ...(s.reminders || r), [k]: v } }));
   const [added, setAdded] = useState(false);
-  const ics = () => { download(new Blob([reminderICS({ start: dayKey(), days: ERA_DAYS, morning: r.morning, evening: r.evening, midday: r.midday, eraName: st.newSelf && st.newSelf.eraName })], { type: "text/calendar" }), "ishkiy-identity-reminders.ics"); setAdded(true); };
+  const ics = () => { download(new Blob([reminderICS({ start: dayKey(), days: ERA_DAYS, morning: integrated(st) ? null : r.morning, evening: r.evening, midday: r.midday, eraName: st.newSelf && st.newSelf.eraName })], { type: "text/calendar" }), "ishkiy-identity-reminders.ics"); setAdded(true); };
   return (
     <Shell>
       <div className="toprow"><Back onClick={onBack} /></div>
       <div className="flow">
         <p className="kicker">Begin your era</p>
         <h1 className="display sm">21 days. Morning and night.</h1>
-        <p className="lede dim">Twenty-one days is how long Maxwell Maltz found people needed before a new self-image started to settle. Treat it as a floor, not a finish line.</p>
+        <p className="lede dim">Twenty-one days is how long Maxwell Maltz found it takes for a self-image to settle. Treat it as a floor, not a finish line.</p>
         <div className="plan">
-          <div className="planrow"><span className="planwhen">On waking</span><span>Listen once. Say your lines out loud. Mirror, if you like. Ten minutes, before the phone.</span></div>
-          <div className="planrow"><span className="planwhen">Through the day</span><span>Guard what goes in. Ask your questions. Catch the old voice and swap the line. Log the evidence. Optional two-minute top-ups whenever you need one.</span></div>
+          <div className="planrow"><span className="planwhen">On waking</span><span>{integrated(st) ? "Who I am: hear it, read your affirmations, choose today's proof. Under two minutes. Your full recording, your lines out loud and the mirror are there whenever you want longer." : "Listen once. Say your lines out loud. Mirror, if you like. Ten minutes, before the phone."}</span></div>
+          <div className="planrow"><span className="planwhen">Through the day</span><span>Guard what goes in. Ask your questions. Catch the voice that isn't you and swap the line. Log the evidence. Optional two-minute top-ups whenever you need one.</span></div>
           <div className="planrow"><span className="planwhen">Before sleep</span><span>Check in. Calm body, calm mind. Fall asleep to your recording.</span></div>
-          <div className="planrow"><span className="planwhen">Every 7 days</span><span>A longer check-in: where did the old you pull back, and what did the new you do?</span></div>
+          <div className="planrow"><span className="planwhen">Every 7 days</span><span>A longer check-in: where the rubber band pulled, and what you did that's completely you.</span></div>
         </div>
         <div className="times">
-          <label>Wake-up reminder<input type="time" className="tin" value={r.morning} onChange={(e) => setR("morning", e.target.value)} /></label>
+          <label>Wake-up reminder<input type="time" className="tin" value={morningTime(st)} onChange={(e) => setR("morning", e.target.value)} /></label>
           <label>Bedtime reminder<input type="time" className="tin" value={r.evening} onChange={(e) => setR("evening", e.target.value)} /></label>
           <label className="span2">Midday top-up (optional)<input type="time" className="tin" value={r.midday || ""} onChange={(e) => setR("midday", e.target.value)} /></label>
         </div>
@@ -538,7 +536,7 @@ function Today({ st, day, go }) {
   const [lineI, setLineI] = useState(0);
   useEffect(() => { if (lines.length < 2) return; const t = setInterval(() => setLineI((i) => (i + 1) % lines.length), 6000); return () => clearInterval(t); }, [lines.length]);
   const days = st.days || {};
-  const dots = [...Array(ERA_DAYS)].map((_, i) => { const d = new Date(st.era.start + "T12:00:00"); d.setDate(d.getDate() + i); const k = dayKey(d); const x = days[k] || {}; return { k, v: (x.morning ? 1 : 0) + (x.evening ? 1 : 0), today: i === n - 1, future: i >= n }; });
+  const dots = [...Array(ERA_DAYS)].map((_, i) => { const d = new Date(st.era.start + "T12:00:00"); d.setDate(d.getDate() + i); const k = dayKey(d); const x = days[k] || {}; return { k, v: (morningDone(x) ? 1 : 0) + (x.evening ? 1 : 0), today: i === n - 1, future: i >= n }; });
   const practised = dots.filter((d) => d.v > 0).length;
   const missedYesterday = n > 1 && !(dots[n - 2] && dots[n - 2].v);
   return (
@@ -546,27 +544,27 @@ function Today({ st, day, go }) {
       <div className="today">
         <div className="todayhead"><Wordmark sub="Identity" /><span className="count light">{n <= ERA_DAYS ? `Day ${n} of ${ERA_DAYS}` : `${ERA_DAYS} days done`}</span></div>
         <div className="idcard">
-          <p className="kicker">{ns.eraName || "The new you"}</p>
+          <p className="kicker">{ns.eraName || "Who I am"}</p>
           <p className="idline" key={lineI}>{lines[lineI % Math.max(1, lines.length)] || "I am…"}</p>
           <div className="eradots" aria-label={`${practised} of ${Math.min(n, ERA_DAYS)} days practised`}>{dots.map((d) => <span key={d.k} className={"ed" + (d.v === 2 ? " full" : d.v === 1 ? " half" : "") + (d.today ? " now" : "") + (d.future ? " future" : "")} />)}</div>
         </div>
         <PracticeButton st={st} go={go} />
-        {missedYesterday && !day.morning && <p className="gentle">You missed yesterday. Nothing resets. The era carries on from right here.</p>}
-        {reviewReady && <Card kicker="Day 21" title="Your era review" line="Look at who you were and who you've become. Then choose what's next." cta="Open it" onClick={() => go("review")} accent />}
-        {due && <Card kicker={`Week ${due}`} title="Your weekly check-in" line="Five minutes. Where did the old you pull back, and what did the new you do?" cta="Check in" onClick={() => go("weekly", due)} accent />}
-        <Card kicker="On waking" title={day.morning ? "Morning done" : "Morning practice"} line={day.morning ? (day.spoken ? `Said out loud ${day.spoken} ${day.spoken === 1 ? "time" : "times"}. Every one is a vote for the new you.` : "Done. Tomorrow, say your lines out loud too. Spoken lands deeper than thought.") : "Listen once, say your lines out loud, look yourself in the eye."} cta={day.morning ? "Again" : "Start"} done={day.morning} onClick={() => go("morning")} soft={hour >= 12 && !day.morning} />
+        {missedYesterday && !morningDone(day) && <p className="gentle">You missed yesterday. Nothing resets. The era carries on from right here.</p>}
+        {reviewReady && <Card kicker="Day 21" title="Your era review" line="See the lines you put down beside who you are. Then choose what's next." cta="Open it" onClick={() => go("review")} accent />}
+        {due && <Card kicker={`Week ${due}`} title="Your weekly check-in" line="Five minutes. Where the rubber band pulled, and what you did that's completely you." cta="Check in" onClick={() => go("weekly", due)} accent />}
+        {!integrated(st) && <Card kicker="On waking" title={day.morning ? "Morning done" : "Morning practice"} line={day.morning ? (day.spoken ? `Said out loud ${day.spoken} ${day.spoken === 1 ? "time" : "times"}. Every one is a vote for who you are.` : "Done. Tomorrow, say your lines out loud too. Spoken lands deeper than thought.") : "Listen once, say your lines out loud, look yourself in the eye."} cta={day.morning ? "Again" : "Start"} done={day.morning} onClick={() => go("morning")} soft={hour >= 12 && !day.morning} />}
         <GratitudeCard st={st} day={day} go={go} />
         <div className="daycard">
           <p className="kicker">Through the day</p>
           <p className="pq">{questionFor(ns.questions)}</p>
           <div className="row wrap">
-            <button className="btn ink2 small" onClick={() => go("caught")}>I caught the old voice</button>
+            <button className="btn ink2 small" onClick={() => go("caught")}>I caught the voice that isn't me</button>
             <button className="btn ink2 small" onClick={() => go("evidence")}>Log evidence</button>
             <button className="btn gold small" onClick={() => go("topups", "today")}>Top-up sessions</button>
           </div>
           {(day.topups || []).length > 0 && <p className="tnote light">{day.topups.length} top-up{day.topups.length === 1 ? "" : "s"} today. Each one is a vote.</p>}
           {(day.caught || 0) > 0 && <p className="tnote light">Caught and swapped {day.caught} {day.caught === 1 ? "time" : "times"} today.</p>}
-          <p className="tnote light">Guard your input. Every podcast, feed and conversation either feeds the old you or the new one.</p>
+          <p className="tnote light">Guard your input. Every podcast, feed and conversation either fits who you are or it doesn't.</p>
         </div>
         <Card kicker="Before sleep" title={day.evening ? "Night done" : "Tonight"} line={day.evening ? "Checked in and listened. Sleep well." : "Check in, calm body calm mind, then your recording."} cta={day.evening ? "Listen again" : "Start"} done={day.evening} onClick={() => go("evening")} />
         <p className="hquote">{quoteFor()}</p>
@@ -629,11 +627,11 @@ function Evening({ st, day, setDay, update, go, onDone }) {
       <div className="toprow"><Back onClick={onDone} label="Today" /></div>
       {stage === "check" && <div className="flow">
         <p className="kicker">Before sleep · check in</p>
-        <h1 className="display sm">How much did you feel like the new you today?</h1>
-        <div className="slider"><input type="range" min="0" max="10" value={feel} onChange={(e) => setFeel(+e.target.value)} aria-label="How much you felt like the new you, 0 to 10" /><div className="sliderlabels"><span>The old me</span><b>{feel}</b><span>Fully the new me</span></div></div>
+        <h1 className="display sm">How much did you feel like yourself today?</h1>
+        <div className="slider"><input type="range" min="0" max="10" value={feel} onChange={(e) => setFeel(+e.target.value)} aria-label="How much you felt like yourself, 0 to 10" /><div className="sliderlabels"><span>Not myself</span><b>{feel}</b><span>Fully myself</span></div></div>
         <label className="q">What went in today?</label>
         <div className="chips">{INPUT_CHOICES.map((c) => <button key={c.id} className={"chip" + (input === c.id ? " on" : "")} onClick={() => setInput(c.id)} title={c.sub}>{c.label}</button>)}</div>
-        <label className="q" htmlFor="vote">One vote for the new you. Today I acted as the new me when…</label>
+        <label className="q" htmlFor="vote">One vote for who you are. Today I was completely me when…</label>
         <textarea id="vote" className="tarea" rows="2" value={vote} onChange={(e) => setVote(e.target.value)} placeholder="Even something small counts." />
         <button className="btn gold" onClick={saveCheck}>Next</button>
       </div>}
@@ -648,7 +646,7 @@ function Evening({ st, day, setDay, update, go, onDone }) {
       {stage === "listen" && <ListenSession night autoStart={fromCalm} script={st.script || ""} onDone={done} onExit={done} />}
       {stage === "done" && <div className="glimmer">
         <Orb size={120} />
-        <p className="gline">Sleep as the new you.</p>
+        <p className="gline">Sleep as who you are.</p>
         <p className="gsub">Assume the feeling of it done, and rest there.</p>
         <button className="btn gold" onClick={onDone}>Goodnight</button>
       </div>}
@@ -772,7 +770,7 @@ function Gratitude({ st, day, update, onBack }) {
       <div className="flow">
         <p className="kicker">Gratitude{todays.length ? ` · ${todays.length} today` : ""}</p>
         <h1 className="display sm">What's already good.</h1>
-        <p className="lede dim">A line at a time, whatever's true today. Small counts, and so does ordinary. The new you notices what's already here.</p>
+        <p className="lede dim">A line at a time, whatever's true today. Small counts, and so does ordinary. Noticing what's already here is part of who you are.</p>
         <p className="pq">{promptFor(pi)}</p>
         <div className="askrow"><textarea className="tarea" rows="2" value={t} onChange={(e) => setT(e.target.value)} placeholder="I'm grateful for…" aria-label="Something you're grateful for" /><button className="btn gold" onClick={add} disabled={!t.trim()}>Add</button></div>
         <button className="ghost light" onClick={() => setPi((v) => v + 1)}>A different prompt</button>
@@ -958,7 +956,7 @@ function TopUp({ st, id, onDone, onExit }) {
   );
 }
 
-/* ---------------- caught the old voice ---------------- */
+/* ---------------- caught the voice that isn't you ---------------- */
 function Caught({ st, day, setDay, onDone }) {
   const old = st.old || [];
   const statements = (st.newSelf || {}).statements || [];
@@ -968,18 +966,18 @@ function Caught({ st, day, setDay, onDone }) {
     <Shell className="practice">
       <div className="toprow"><Back onClick={() => setPick(null)} /></div>
       <p className="was center-text">You caught: "{pick.text}"</p>
-      <SayAloud lines={[swap.text]} title="Swap it" sub="Say the new line out loud, three times if you can." onDone={() => { setDay({ caught: (day.caught || 0) + 1, spoken: (day.spoken || 0) + 1 }); onDone(); }} onExit={onDone} />
+      <SayAloud lines={[swap.text]} title="Swap it" sub="Say the true line out loud, three times if you can." onDone={() => { setDay({ caught: (day.caught || 0) + 1, spoken: (day.spoken || 0) + 1 }); onDone(); }} onExit={onDone} />
     </Shell>
   );
   return (
     <Shell>
       <div className="toprow"><Back onClick={onDone} label="Today" /></div>
       <div className="flow">
-        <p className="kicker">Caught the old voice</p>
+        <p className="kicker">Caught the voice that isn't you</p>
         <h1 className="display sm">Good. Catching it is the work.</h1>
-        <p className="lede dim">Which old line was it? No judgement. Every catch is a rep.</p>
+        <p className="lede dim">Which line was it? No judgement. Every catch is a rep.</p>
         <div className="optlist">{old.map((o) => <button key={o.id} className="opt" onClick={() => setPick(o)}><span className="odot" />"{o.text}"</button>)}</div>
-        {!old.length && <p className="lede dim">You haven't named any old lines yet.</p>}
+        {!old.length && <p className="lede dim">You haven't named any lines to let go yet.</p>}
       </div>
     </Shell>
   );
@@ -994,8 +992,8 @@ function Evidence({ st, update }) {
     <Shell className="withtabs">
       <div className="flow">
         <p className="kicker">Evidence</p>
-        <h1 className="display sm">Proof the new you is real.</h1>
-        <p className="lede dim">Every time you act as the new you, it's a vote. Write the small ones down. On a bad day, read them back.</p>
+        <h1 className="display sm">Proof of who you are.</h1>
+        <p className="lede dim">Every time you act as yourself, it's a vote. Write the small ones down. On a bad day, read them back.</p>
         <div className="askrow"><textarea className="tarea" rows="2" value={t} onChange={(e) => setT(e.target.value)} placeholder="Today I…" aria-label="New evidence" /><button className="btn gold" onClick={add} disabled={!t.trim()}>Add</button></div>
         <div className="evlist">
           {ev.map((e) => <div key={e.id} className="ev"><span className="evdate">{new Date(e.at + "T12:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "short" })}</span><span>{e.text}</span></div>)}
@@ -1019,10 +1017,10 @@ function Weekly({ st, update, week, onDone }) {
   const submit = async () => {
     setStage("thinking");
     const ns = st.newSelf || {};
-    const fallback = `Week ${week}. You put yourself at ${self} out of 10. ${pull ? "The old you pulled back around this: " + pull.trim().replace(/[.]$/, "") + ". That's the rubber band, and noticing it is how it loosens." : ""} ${did ? "And the new you did this: " + did.trim().replace(/[.]$/, "") + ". That wasn't luck. That was you, voting." : ""}`.replace(/\s+/g, " ").trim() + "\n" + (need.trim() || "Morning and night. Keep going.");
+    const fallback = `Week ${week}. You put yourself at ${self} out of 10. ${pull ? "The rubber band pulled around this: " + pull.trim().replace(/[.]$/, "") + ". Noticing it is how it loosens." : ""} ${did ? "And this is what you did: " + did.trim().replace(/[.]$/, "") + ". That isn't luck. That's you, voting." : ""}`.replace(/\s+/g, " ").trim() + "\n" + (need.trim() || "Morning and night. Keep going.");
     let text = fallback;
     try {
-      text = await askAI(VOICE + "\n\nYou write a short weekly reflection for someone on a 21-day identity practice. 90 to 130 words. Speak to them as \"you\". Reflect their own words back in cleaner language. Name one pattern you can see, kindly. If the old self pulled them back, frame it as the rubber band snapping, which is normal and loosens with repetition, never as failure. End with one present-tense line for them to carry this week, on its own line.", JSON.stringify({ week, selfImageOutOf10: self, dailyFeelings: feels, newLines: (ns.statements || []).map((s) => s.text), eraName: ns.eraName, oldSelfPulledBack: pull, newSelfDid: did, lineTheyNeed: need }), 450);
+      text = await askAI(VOICE + "\n\nYou write a short weekly reflection for someone on a 21-day identity practice. 90 to 130 words. Speak to them as \"you\". Reflect their own words back in cleaner language. Name one pattern you can see, kindly. If something pulled them back, frame it as the rubber band snapping, which is normal and loosens with repetition, never as failure. Write only in the present tense about who they are: never \"old self\", \"new self\", \"becoming\" or \"future self\". End with one present-tense line for them to carry this week, on its own line.", JSON.stringify({ week, selfImageOutOf10: self, dailyFeelings: feels, newLines: (ns.statements || []).map((s) => s.text), eraName: ns.eraName, rubberBandPulled: pull, theyDid: did, lineTheyNeed: need }), 450);
     } catch {}
     setReflection(text);
     update((s) => ({ weekly: [...(s.weekly || []), { week, era: s.era.n, at: dayKey(), self, pull, did, need, reflection: text }] }));
@@ -1043,13 +1041,13 @@ function Weekly({ st, update, week, onDone }) {
       <div className="toprow"><Back onClick={onDone} label="Today" /></div>
       <div className="flow">
         <p className="kicker">Week {week} check-in</p>
-        <h1 className="display sm">How does the new you fit now?</h1>
+        <h1 className="display sm">How well does who you are fit?</h1>
         {feels.length > 1 && <><p className="tnote light">Your nightly check-ins this week</p><Spark values={feels} /></>}
-        <label className="q">When you picture yourself, how much do you see the new you?</label>
-        <div className="slider"><input type="range" min="0" max="10" value={self} onChange={(e) => setSelf(+e.target.value)} aria-label="Self-image, 0 to 10" /><div className="sliderlabels"><span>Old picture</span><b>{self}</b><span>New picture</span></div></div>
-        <label className="q" htmlFor="pull">Where did the old you pull you back this week?</label>
+        <label className="q">When you picture yourself, how much do you see who you are?</label>
+        <div className="slider"><input type="range" min="0" max="10" value={self} onChange={(e) => setSelf(+e.target.value)} aria-label="Self-image, 0 to 10" /><div className="sliderlabels"><span>Barely me</span><b>{self}</b><span>Completely me</span></div></div>
+        <label className="q" htmlFor="pull">Where did the rubber band pull this week?</label>
         <textarea id="pull" className="tarea" rows="2" value={pull} onChange={(e) => setPull(e.target.value)} placeholder="The rubber band. Where did it snap?" />
-        <label className="q" htmlFor="did">What did the new you do that the old you wouldn't have?</label>
+        <label className="q" htmlFor="did">What did you do this week that's completely you?</label>
         <textarea id="did" className="tarea" rows="2" value={did} onChange={(e) => setDid(e.target.value)} />
         <label className="q" htmlFor="need">What's the one line you most need to hear next week?</label>
         <input id="need" className="tin" value={need} onChange={(e) => setNeed(e.target.value)} placeholder="I am…" />
@@ -1065,7 +1063,7 @@ function Review({ st, update, go }) {
   const ns = st.newSelf || {};
   const days = st.days || {};
   const inEra = Object.keys(days).filter((k) => k >= st.era.start);
-  const mornings = inEra.filter((k) => days[k].morning).length, nights = inEra.filter((k) => days[k].evening).length;
+  const mornings = inEra.filter((k) => morningDone(days[k])).length, nights = inEra.filter((k) => days[k].evening).length;
   const spoken = inEra.reduce((a, k) => a + (days[k].spoken || 0), 0);
   const topups = inEra.reduce((a, k) => a + ((days[k].topups || []).length), 0);
   const visions = inEra.filter((k) => days[k].vision || (days[k].identity || {}).morning).length;
@@ -1078,7 +1076,7 @@ function Review({ st, update, go }) {
       <div className="toprow"><Back onClick={() => go("today")} label="Today" /></div>
       <div className="flow">
         <p className="kicker">Era review · {ns.eraName || "Era " + st.era.n}</p>
-        <h1 className="display sm">Twenty-one days ago, you said this about yourself.</h1>
+        <h1 className="display sm">The lines you put down, beside who you are.</h1>
         <div className="versus">
           {old.map((o) => { const s = (ns.statements || []).find((x) => x.from === o.id); return (
             <div key={o.id} className="vs"><p className="was">"{o.text}"</p>{s && <p className="now">{s.text}</p>}</div>); })}
@@ -1086,7 +1084,7 @@ function Review({ st, update, go }) {
         <div className="stats">
           <div><b>{mornings}</b><span>mornings</span></div><div><b>{nights}</b><span>nights</span></div><div><b>{spoken}</b><span>lines said aloud</span></div><div><b>{(st.evidence || []).length}</b><span>pieces of evidence</span></div>
         </div>
-        {feels.filter((v) => v != null).length > 1 && <><p className="tnote light">How much you felt like the new you, night by night</p><Spark values={feels} /></>}
+        {feels.filter((v) => v != null).length > 1 && <><p className="tnote light">How much you felt like yourself, night by night</p><Spark values={feels} /></>}
         {visions > 0 && <p className="lede dim">You started {visions} {visions === 1 ? "day" : "days"} with who you are.</p>}
         {thanks > 0 && <p className="lede dim">You wrote down {thanks} thing{thanks === 1 ? "" : "s"} you're grateful for.</p>}
         {topups > 0 && <p className="lede dim">And {topups} daytime top-up{topups === 1 ? "" : "s"}, on top of the mornings and nights.</p>}
@@ -1169,14 +1167,14 @@ function You({ st, update, go, back }) {
   const r = st.reminders || { morning: "06:45", evening: "22:00" };
   const [sure, setSure] = useState(false);
   const exportData = () => download(new Blob([JSON.stringify(st, null, 2)], { type: "application/json" }), "ishkiy-identity-backup.json");
-  const ics = () => download(new Blob([reminderICS({ start: dayKey(), days: Math.max(1, ERA_DAYS - eraDay(st) + 1), morning: r.morning, evening: r.evening, midday: r.midday, eraName: ns.eraName })], { type: "text/calendar" }), "ishkiy-identity-reminders.ics");
+  const ics = () => download(new Blob([reminderICS({ start: dayKey(), days: Math.max(1, ERA_DAYS - eraDay(st) + 1), morning: integrated(st) ? null : r.morning, evening: r.evening, midday: r.midday, eraName: ns.eraName })], { type: "text/calendar" }), "ishkiy-identity-reminders.ics");
   return (
     <Shell className="withtabs">
       {back && <div className="toprow"><Back onClick={back} /></div>}
       <div className="flow">
         <p className="kicker">You</p>
         <h1 className="display sm">{ns.eraName || "Who you are now"}</h1>
-        {(ns.statements || []).length > 0 ? <div className="idlist">{ns.statements.map((s) => <p key={s.id} style={{ "--acc": areaOf(s.area).colour }}>{s.text}</p>)}</div> : <p className="lede dim">You haven't written your new lines yet.</p>}
+        {(ns.statements || []).length > 0 ? <div className="idlist">{ns.statements.map((s) => <p key={s.id} style={{ "--acc": areaOf(s.area).colour }}>{s.text}</p>)}</div> : <p className="lede dim">You haven't written your lines yet.</p>}
         {old.some((o) => o.released) && <p className="tnote light">Let go: {old.filter((o) => o.released).map((o) => `"${o.text}"`).join(", ")}</p>}
         <div className="row wrap">
           {st.done && st.done.become && <button className="btn ink2 small" onClick={() => go("become")}>Edit my lines</button>}
@@ -1189,7 +1187,7 @@ function You({ st, update, go, back }) {
         <div className="panel">
           <p className="kicker">Reminders</p>
           <div className="times">
-            <label>On waking<input type="time" className="tin" value={r.morning} onChange={(e) => update({ reminders: { ...r, morning: e.target.value } })} /></label>
+            <label>On waking<input type="time" className="tin" value={morningTime(st)} onChange={(e) => update((s) => withMorning(s, e.target.value))} /></label>
             <label>Before sleep<input type="time" className="tin" value={r.evening} onChange={(e) => update({ reminders: { ...r, evening: e.target.value } })} /></label>
             <label className="span2">Midday top-up (optional)<input type="time" className="tin" value={r.midday || ""} onChange={(e) => update({ reminders: { ...r, midday: e.target.value } })} /></label>
           </div>

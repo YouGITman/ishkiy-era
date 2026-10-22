@@ -25,9 +25,21 @@ Done (`src/identity.jsx`, words in `src/content.js` under *Identity reinforcemen
 - Shared UI pieces (`Shell`, `Back`, `Card`, …) moved to `src/ui.jsx` so the new file could use them. Offline cache bumped to `identity-v8`.
 - Tested in headless Chromium at 390px and 340px with a fake mic (35 checks): migration from a stored vision, the history line once only, the tense check, traits and a custom domain, the built script, discard then commit, seeded affirmations, actions, cues and the calendar file, morning and evening saves, custom affirmations joining the list, the weekly review editing a past day, hide, reorder and rename, the `#vision` link, no sideways scroll, no console errors.
 
+### C. Wording and one morning (follow-up, same day): done
+Asked: reword the rest of the app to match the present-tense rule, and change the morning practice so there aren't two.
+
+Done:
+- **Wording, app-wide.** No "old you", "new you", "old me", "old self", "becoming", "will be" or "future self" left on any screen, in the recording-script builder, the AI prompt for the weekly reflection, the manifest or the page description. Path steps are now *Name what isn't you* and *Write who you are*; the tagline is "Put down what isn't you. Live as who you are."; quotes, power questions, gratitude prompts, the evening check-in, the weekly check-in, evidence and the release words ("You try to keep me safe…") are all present tense. `tenseCheck` now uses the stricter `presentCheck`.
+- **One question removed from the origin trace.** "When did you first start believing this?" (the age chips) is about the past by nature and can't be reworded, so it's off the screen. Old answers stay in storage. The other three are now present tense: whose voice it is, what it protects you from, what it costs you.
+- **Six spoken clips re-recorded** to match: `b08`, `n01`, `n06`, `q06`, `g04`, `y02` in `audio/topup/`. Same Kokoro `bm_george` voice at 0.82 through `tools/make-voice.py`. To check the pipeline, an unchanged clip (`b01`) was recorded again first and came out byte-for-byte identical to the shipped file. The models download from GitHub, so Hugging Face isn't needed for this route.
+- **One morning.** Once Identity is integrated, the Daily Practice morning *is* the morning. It counts on the 21-day dots and in the day-21 review (`morningDone`), and the old Morning card leaves Today. The ten-minute session (full recording, lines out loud, mirror) is offered after the short morning as *Go deeper*. The identity morning anchor and the era wake-up reminder are now one time, written together (`withMorning`), and the era calendar file drops its morning alarm when Identity is set up, so the phone doesn't ring twice. Users without Identity keep the old morning unchanged.
+- Offline cache bumped to `identity-v9` (new clips).
+- Tested in the same headless Chromium suite, now 53 checks, all passing twice in a row. New checks cover the merged morning on Today, the identity morning counting on the tracker, *Go deeper*, the shared wake-up time, the era calendar file without a morning alarm, and a wording sweep of Enter, Welcome, all six explainer cards, the Path, Today, You and Evidence.
+
 ### Still open
-- **The app's framing clashes with the brief.** The rest of Identity is built on "let the old you go, become the new one": the welcome, the Path ("Name the old you", "Let it go"), the Today card ("The new you"). The new feature keeps strictly to present tense, but the screens around it don't. Decide whether the wider app should be reworded to match.
-- **Two morning practices.** Inside the 21-day era, Today now has the identity Daily Practice and the original morning and night practices. Worth watching on a phone whether that feels like too much, and whether they should merge.
+- **Two identity lines on Today.** In an era, the gold card shows the Path's lines ("I am calm", rotating) and the Daily Practice shows the Identity statement. They come from two places (`newSelf.statements` and `identity.statement`). Worth deciding whether the Path's lines should feed Identity, or the other way round.
+- **The evening still has two parts in an era**: the identity evening (ticks) and the night practice (check-in, calm, fall asleep to the recording). Only the morning was asked about.
+- **Listen to the six new clips** on a phone. They come from the same voice and settings, but nobody has heard them yet.
 - Try it on a real phone, Android first: the recording plays and the morning moves on by itself; the anchor reminders' link opens the app.
 - Out of scope, as agreed: cloud sync or ERA Living Profile sharing, AI-written affirmations or analysis, streaks beyond the weekly summary.
 

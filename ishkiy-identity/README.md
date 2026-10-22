@@ -1,6 +1,6 @@
 # iSHKiY Identity v1
 
-Let the old you go. Become the new one.
+Put down what isn't you. Live as who you are.
 
 A mobile-first app that you install from the browser, in the ERA look and voice. It takes someone through letting go of the identities, habits and beliefs they've been living by, writing a new self in the present tense, hearing it in their own voice morning and night, and checking in on it for 21 days. It uses the Haven pattern: single-page React, Netlify hosting, and one optional serverless proxy for AI writing help.
 
@@ -16,23 +16,23 @@ A mobile-first app that you install from the browser, in the ERA look and voice.
 |---|---|
 | See the lock | Six cards: the frog, the firewall, the rubber band, who before why, safe first. Why nothing has stuck so far. |
 | Feel safe | *Calm body, calm mind.* A ten-minute guided balloon-valve release over an alpha bed. The nervous system has to feel safe before anything new gets in. |
-| Name the old you | Pick up to three areas (self-worth, body, money, love, work, habits), tap or write the "I am…" lines they've lived by, and optionally trace each one: how old they were, whose voice it is, what it protected them from, and what it's cost. |
-| Let it go | Each old line is shown. They say "Thank you. I don't need you now", hold the button, and the words break into gold dust and drift away, with a released-breath sound. |
-| Write the new you | A present-tense rewrite is drafted for every old line ("I'm bad with money" becomes "I am calm and capable with money") and they make it their own. A tense check flags "I will" and "trying". Then the moment it's already done, in five senses, a name for the era, and up to four power questions. |
+| Name what isn't you | Pick up to three areas (self-worth, body, money, love, work, habits), tap or write the "I am…" lines that aren't them, and optionally look closer at each one: whose voice it is, what it protects them from, and what it costs. |
+| Let it go | Each line is shown. They say "Thank you. I don't need you now", hold the button, and the words break into gold dust and drift away, with a released-breath sound. |
+| Write who you are | A present-tense rewrite is drafted for every old line ("I'm bad with money" becomes "I am calm and capable with money") and they make it their own. A tense check flags "I will" and "trying". Then the moment it's already done, in five senses, a name for the era, and up to four power questions. |
 | Make your recording | A script built from their own words: relaxation, a countdown from ten, calm body calm mind, their lines, the scene, their lines again, and a close that works for night or morning. They can edit it or get AI help, then record it in their own voice with the script as a teleprompter, and listen back over the theta bed. They can also skip and let the phone's voice read it for now. |
 | Begin your era | Set the wake-up and bedtime times, add the reminders to the calendar (an `.ics` file with 21 days of alarms), and begin. |
 
 **The era (21 days)**
 
-- **On waking.** Listen to the recording, then say each line out loud. The mic checks it was spoken, not just thought: a second of voice fills the ring. Then optional mirror work with the front camera.
-- **Through the day.** A power question that rotates by the hour. *I caught the old voice*: pick the old line and say the new one out loud to swap it. *Log evidence*: votes for the new self.
+- **On waking.** One morning. Once *Who I am* is set up, its Daily Practice is the morning (under two minutes) and it counts for the 21 days. The longer session (listen to the recording, say each line out loud with the mic checking it was spoken, then optional mirror work) is offered afterwards as *Go deeper*, and is the morning on its own for anyone who hasn't set up *Who I am*.
+- **Through the day.** A power question that rotates by the hour. *I caught the voice that isn't me*: pick the line and say the true one out loud to swap it. *Log evidence*: votes for who you are.
 - **Daytime top-ups (optional).** Six short sessions, spoken in the same voice over a soft bed: *Two-minute reset* (when stress spikes), *Before it matters* (before a call or a hard conversation), *After the noise* (after the news or the scroll), *Power questions*, *Two minutes of thank you*, and *Your lines, out loud*. That last one hands over to the mic for your own lines, then the voice picks up again. The list highlights the one that fits the time of day. Each top-up counts towards the day and the era review, and there's an optional midday calendar reminder.
 - **Who I am (identity reinforcement).** A record of who you are, in the present tense only. *Create* once: a one-line statement, three to five traits linked to parts of your life (Wealth, Relationships, Mind mastery, Habit mastery, Self-control, Spirituality, or your own), an ordinary day, a recording in your own voice, and affirmations for each part of life. *Integrate*: one small proof action per trait, an if-then plan for each ("When I sit down at my desk, I…"), and morning and evening anchor times that go into your calendar. Then one *Daily practice* button on the home screen: in the morning, hear it, read today's affirmations beside the week's proof, and choose today's actions (under two minutes); in the evening, tick them off as "This is what I do", add anything of your own, and write one line (under a minute). A weekly review shows the evidence by trait and area and lets you sharpen anything. Everything can be edited at any time. This replaced the standalone vision, which carries across on its own.
 - **Gratitude.** A log of what you're thankful for, a line at a time, with a prompt that changes. Pick reminder times: the Today card turns gold at each until you've added one, and the calendar file's reminders rotate through ten prompts, coming back round with no end date. Earlier thank-yous circle back on screen. The log becomes a short thank-you script you record in your own voice.
 - **Even recordings.** The mic records with the phone's own gain control, echo cancellation and noise suppression off (gain control made takes start quiet and swell), and every take is evened out as it plays, so older takes sound steady too.
 - **Re-recording.** The daily recording, the identity recording and the thank-you recording are each single takes. A re-record lets you hear the new take and your current one, then commit it (replacing the old one, no undo) or discard it (the old one stays).
 - **The transition timer (task switching).** For moving between different kinds of work. Pick *Prime for creativity* (eyes shut, clearing the last task onto a mental shelf, over the alpha bed) or *Prime for focus* (eyes open, close what you don't need, square breathing, name the first step, no beat). Take a one-, two- or three-minute break, and when it ends the primer starts on its own. Both primers also appear in the top-up list to play straight away. Completions log with the other top-ups.
-- **Before sleep.** A check-in (how much they felt like the new self, from 0 to 10; what went in today, clean or noise; one vote), then a three-minute calm, then the recording. The screen dims itself and the bed plays on for ten minutes after the words stop.
+- **Before sleep.** A check-in (how much they felt like themselves, from 0 to 10; what went in today, clean or noise; one vote), then a three-minute calm, then the recording. The screen dims itself and the bed plays on for ten minutes after the words stop.
 - **Every 7 days.** A weekly check-in: self-image from 0 to 10, where the old self pulled back (the rubber band), what the new self did, and the line they need next week. It ends with a short written reflection.
 - **Day 21.** The era review: the old lines struck through beside the new ones, counts of mornings, nights, lines said aloud and pieces of evidence, the nightly trend, and then run another 21 days, rewrite the lines, or let go of something new.
 
@@ -103,4 +103,4 @@ Run it locally with `npm install`, then `npm run preview` → `http://127.0.0.1:
 - **Push notifications.** Real background pushes need a server. The calendar file does the same job on every phone with nothing to run.
 - **App Store and Play Store builds.** The code is ready to wrap with Capacitor when you want store listings. Background audio with the screen off would then work natively too. Until then, the downloadable mix covers all-night listening.
 - **Accounts or sync.** *Download a backup* under You exports everything as JSON.
-- **A link to ERA.** A natural next step: feed ERA's values and Big Five into the "name the old you" prompts.
+- **A link to ERA.** A natural next step: feed ERA's values and Big Five into the "name what isn't you" prompts.

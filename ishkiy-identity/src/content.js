@@ -5,21 +5,21 @@
    the story it is ("the story goes", "the idea is") rather than as settled
    fact, because some of it isn't. */
 export const EXPLAIN = [
-  { kicker: "The lock, not the key", line: "You've been hunting for the key.", sub: "Another book. Another podcast. One more video that's meant to change everything. It feels good for a day, then it fades. That's because the problem was never the key. It's the lock." },
+  { kicker: "The lock, not the key", line: "You keep hunting for the key.", sub: "Another book. Another podcast. One more video that's meant to change everything. It feels good for a day, then it fades. That's because the problem was never the key. It's the lock." },
   { kicker: "The frog", line: "A frog can starve beside a pile of flies.", sub: "The story goes that it only sees what moves. Dead flies don't, so to the frog they aren't there. You're wired in a similar way. Your nervous system decides what you notice, and it quietly filters out anything that doesn't fit the picture you already hold of yourself.", visual: "frog" },
-  { kicker: "The firewall", line: "Your beliefs are apps. Your nervous system is the firewall.", sub: "Most of its settings were fixed early, largely before you were seven, by what you saw and heard and felt. It isn't there to make you happy. It's there to keep you safe, and to it, familiar means safe. So new beliefs bounce off.", visual: "firewall" },
-  { kicker: "The rubber band", line: "Go past the picture you hold of yourself and you snap back.", sub: "The weight comes back. The money goes. The old habit returns on a bad Tuesday. The strongest pull in you is the need to stay consistent with who you think you are. Change the picture and the snapping back stops.", visual: "band" },
-  { kicker: "Who before why", line: "\"I'm trying to quit.\" \"I'm not a smoker.\"", sub: "Same cigarette, two different people. The first still sees a smoker in the mirror and hopes the behaviour changes. The second has already moved. Be first. Then doing gets easy, and having follows the doing.", visual: "who" },
-  { kicker: "How this works", line: "Safe first. Then new.", sub: "A nervous system lets new things in when it feels safe, not when it's pushed. So we begin with calm, not effort. Then you name who you've been, let it go, write who you are now, and hear it in your own voice every morning and every night for 21 days.", visual: "path" },
+  { kicker: "The firewall", line: "Your beliefs are apps. Your nervous system is the firewall.", sub: "The idea is that most of its settings come from very early life, from what a child sees and hears and feels. It isn't there to make you happy. It's there to keep you safe, and to it, familiar means safe. So new beliefs bounce off.", visual: "firewall" },
+  { kicker: "The rubber band", line: "Go past the picture you hold of yourself and you snap back.", sub: "The weight comes back. The money goes. The habit creeps back on a bad Tuesday. The strongest pull in you is the need to stay consistent with who you think you are. Change the picture and the snapping back stops.", visual: "band" },
+  { kicker: "Who before why", line: "\"I'm trying to quit.\" \"I'm not a smoker.\"", sub: "Same cigarette, two different people. The first still sees a smoker in the mirror and hopes the behaviour changes. The second is a non-smoker, right now. Be first. Then doing gets easy, and having follows the doing.", visual: "who" },
+  { kicker: "How this works", line: "Safe first. Then new.", sub: "A nervous system lets new things in when it feels safe, not when it's pushed. So we begin with calm, not effort. Then you name the lines that aren't you, put them down, write who you are, and hear it in your own voice every morning and every night for 21 days.", visual: "path" },
 ];
 
 /* The Path: the one-time setup, in order. */
 export const PATH = [
-  { id: "explain", name: "See the lock", line: "Why nothing has stuck so far" },
+  { id: "explain", name: "See the lock", line: "Why the picture you hold decides everything" },
   { id: "calm", name: "Feel safe", line: "Calm body, calm mind. Ten minutes" },
-  { id: "audit", name: "Name the old you", line: "The lines you've been living by" },
+  { id: "audit", name: "Name what isn't you", line: "The lines that don't fit who you are" },
   { id: "release", name: "Let it go", line: "Thank them, and put them down" },
-  { id: "become", name: "Write the new you", line: "Who you are now, in the present tense" },
+  { id: "become", name: "Write who you are", line: "In the present tense, as it is" },
   { id: "script", name: "Make your recording", line: "Your words, your voice, a theta bed" },
   { id: "begin", name: "Begin your era", line: "21 days, morning and night" },
 ];
@@ -36,10 +36,10 @@ export const areaOf = (id) => AREAS.find((a) => a.id === id) || AREAS[0];
 
 export const ORIGIN_AGES = ["Before I was seven", "Seven to twelve", "As a teenager", "As an adult", "I honestly don't know"];
 
-/* A gentle first draft of the new line, offered, never imposed. */
+/* A gentle first draft of the true line, offered, never imposed. */
 export const REWRITES = {
   "I'm not enough": "I am enough, exactly as I am today",
-  "I have to earn my place": "I belong here. My place was never up for sale",
+  "I have to earn my place": "I belong here. My place isn't up for sale",
   "I'm the one who gets overlooked": "I am seen, and I let myself be seen",
   "I'm too much": "I am the right amount. The right people are glad of all of me",
   "I always put the weight back on": "I am someone who lives in a strong, looked-after body",
@@ -49,7 +49,7 @@ export const REWRITES = {
   "Money slips through my fingers": "Money stays with me and grows",
   "I'm bad with money": "I am calm and capable with money",
   "People like me don't get rich": "I am someone wealth comes to and stays with",
-  "There's never enough": "I have enough, and more is on its way",
+  "There's never enough": "I have enough, and more keeps coming",
   "I always end up alone": "I am loved, and I let love stay",
   "I give more than I get": "I give and I receive in equal measure",
   "I pick the wrong people": "I choose people who are good for me",
@@ -63,10 +63,11 @@ export const REWRITES = {
   "I'm hopeless with my phone": "I am in charge of my attention",
   "I need a drink to unwind": "I unwind easily, clear-headed",
 };
-/* For lines people write themselves: a nudge towards present tense. */
+/* For lines people write themselves: a nudge towards present tense. The
+   tense half is the same check Identity uses everywhere (presentCheck). */
 export const tenseCheck = (t) => {
   const s = (t || "").toLowerCase();
-  if (/\b(i will|i'll|i want to|i'm going to|i hope|i'm trying|i try to|one day)\b/.test(s)) return "Say it as if it's already true. \"I am\", not \"I will\".";
+  if (presentCheck(s)) return presentCheck(s);
   if (/\b(not|never|don't|no longer|stop)\b/.test(s) && !/^i am not a /.test(s) && !/^i'm not a /.test(s)) return "Where you can, say what you are rather than what you're not. \"I'm not a smoker\" is the exception that works.";
   return null;
 };
@@ -76,7 +77,7 @@ export const SENSES = [
   { id: "see", q: "What do you see?", hint: "Colours, light, faces. What's in front of you?" },
   { id: "hear", q: "What do you hear?", hint: "Voices, what someone says to you, the sound of the room." },
   { id: "feel", q: "What do you feel in your body?", hint: "Your chest, your shoulders, your face. How does it feel to already have it?" },
-  { id: "thanks", q: "What are you grateful for?", hint: "Say thank you as if it's already happened." },
+  { id: "thanks", q: "What are you grateful for?", hint: "Say thank you for it, here and now." },
 ];
 
 /* Straight from the idea that the brain can't refuse a question. */
@@ -85,10 +86,10 @@ export const POWER_QUESTIONS = [
   "What would a healed nervous system feel like right now?",
   "What can I be grateful for right now?",
   "Who do I love, and who loves me?",
-  "What would the new me do with the next ten minutes?",
+  "What does someone like me do with the next ten minutes?",
   "What's already going right today?",
   "If this were easy, what would I do next?",
-  "What am I letting in right now, and does it belong to the old me or the new?",
+  "What am I letting in right now, and does it fit who I am?",
 ];
 
 /* Calm body, calm mind: spoken, so it works with the eyes shut. Each step is
@@ -129,27 +130,27 @@ export const MORNING_LINES = [
 ];
 export const EVENING_LINES = [
   "The last twenty minutes before sleep carry the most weight.",
-  "Fall asleep as the new you, and you wake up as them.",
+  "Fall asleep as who you are, and wake up the same.",
 ];
 
 export const INPUT_CHOICES = [
   { id: "clean", label: "Mostly clean", sub: "Things that lift me" },
   { id: "mixed", label: "Mixed", sub: "Some of both" },
-  { id: "noise", label: "Mostly noise", sub: "Old-me stuff" },
+  { id: "noise", label: "Mostly noise", sub: "Things that don't fit me" },
 ];
 
 export const QUOTES = [
-  "The me I see is the me I will be.",
+  "The me I see is the me I am.",
   "Be. Then do. Then have.",
   "You don't need a new key. You need a softer lock.",
   "The harder you try, the further away it gets. Soften.",
   "Every word you speak is an affirmation. Choose which one.",
-  "Not \"I will be\". \"I am.\"",
+  "Not someday. \"I am.\"",
   "Feel it done. Then rest there.",
-  "What you let in today is who you are tomorrow.",
+  "What you let in is who you are.",
 ];
 
-export const SAFETY = "iSHKiY Identity is a self-development practice, not therapy or medical treatment. If looking back at old beliefs brings up something heavy, stop, breathe, and talk to someone you trust or a professional. Never listen to the sound beds while driving or doing anything that needs your full attention.";
+export const SAFETY = "iSHKiY Identity is a self-development practice, not therapy or medical treatment. If naming these beliefs brings up something heavy, stop, breathe, and talk to someone you trust or a professional. Never listen to the sound beds while driving or doing anything that needs your full attention.";
 
 export const SOS_LINES = [
   { name: "Emergency services", what: "If you or someone else is in immediate danger.", call: "999" },
@@ -171,7 +172,7 @@ export function buildScript({ statements, scene, eraName }) {
   parts.push(`Take a breath in … and as you let it go, let your shoulders drop … Again … in … and out … and with every breath out, you go a little deeper … a little softer.`);
   parts.push(`In a moment I'll count down from ten to one … and with each number, you'll drift twice as deep … Ten … nine … letting go … eight … seven … softer now … six … five … heavier … four … three … nearly there … two … and one … Deep. Calm. Open.`);
   parts.push(`Calm body … calm mind … Calm body … calm mind.`);
-  parts.push(`The old stories have been thanked, and put down … You don't need them now … They kept you safe once … and you're safe without them.`);
+  parts.push(`These stories are thanked, and put down … You don't need them … You are safe … exactly as you are.`);
   if (iam.length) {
     parts.push(`Now listen … not with effort … just let these words land where they belong.`);
     iam.forEach((l) => parts.push(`${l} …`));
@@ -189,8 +190,8 @@ export function buildScript({ statements, scene, eraName }) {
     parts.push(`Once more … quietly …`);
     iam.slice(0, 3).forEach((l) => parts.push(`${l} …`));
   }
-  parts.push(`${eraName ? `This is ${eraName} … ` : ""}This is who you are now … The me I see is the me I will be.`);
-  parts.push(`If it's night, let yourself drift into sleep carrying this feeling … If it's morning, take one more breath … and when you're ready, open your eyes … as the new you.`);
+  parts.push(`${eraName ? `This is ${eraName} … ` : ""}This is who you are … The me I see is the me I am.`);
+  parts.push(`If it's night, let yourself drift into sleep carrying this feeling … If it's morning, take one more breath … and when you're ready, open your eyes … as who you are.`);
   return parts.join("\n\n");
 }
 const fix = (t) => { let s = t.trim().replace(/\s+/g, " "); s = s.charAt(0).toUpperCase() + s.slice(1); return /[.!?]$/.test(s) ? s.replace(/[.!?]$/, "") : s; };
@@ -219,7 +220,7 @@ export const TOPUPS = [
   },
   {
     id: "before", name: "Before it matters", when: "Before a call, a meeting, a hard talk", mins: 2, bed: "alpha",
-    line: "Walk in as the new you, not the old one.",
+    line: "Walk in as who you are.",
     steps: [
       { id: "b01", line: "Something's coming up that matters.", sub: "Let's get you ready.", say: "Something's coming up that matters. A call, a meeting, a conversation. Let's get you ready.", gap: 4 },
       { id: "b02", line: "Feet on the floor.", sub: "Breathe out slowly, longer than the breath in. Twice more.", say: "Feet on the floor. Breathe out slowly, longer than the breath in. And twice more.", gap: 12 },
@@ -228,19 +229,19 @@ export const TOPUPS = [
       { id: "b05", line: "See yourself doing it.", sub: "Unhurried. Clear.", say: "See yourself doing it. The way you stand. The way you speak. Unhurried. Clear.", gap: 14 },
       { id: "b06", line: "It's done, and it went well.", sub: "How does that feel in your chest?", say: "Now fast forward. It's done, and it went well. How does that feel, in your chest?", gap: 14 },
       { id: "b07", line: "Stay in that feeling.", sub: "It isn't a hope. It's already yours.", say: "Stay in that feeling. It isn't a hope. It's already yours.", gap: 10 },
-      { id: "b08", line: "Go and be them.", sub: "", say: "It isn't the old you walking into this. It's the new one. Go and be them.", gap: 2 },
+      { id: "b08", line: "Go and be you.", sub: "", say: "This is who you are, walking into it. Go and be you.", gap: 2 },
     ],
   },
   {
     id: "noise", name: "After the noise", when: "After the news, the scroll, a hard person", mins: 2, bed: "still",
     line: "Clear what went in. Choose what goes in next.",
     steps: [
-      { id: "n01", line: "Something got in that belongs to the old you.", sub: "That's alright. Let's clear it.", say: "You've let something in that belongs to the old you. The news, the scroll, a hard conversation. That's alright. Let's clear it.", gap: 4 },
+      { id: "n01", line: "Something got in that doesn't fit who you are.", sub: "That's alright. Let's clear it.", say: "Something got in that doesn't fit who you are. The news, the scroll, a hard conversation. That's alright. Let's clear it.", gap: 4 },
       { id: "n02", line: "Phone face down, if you can.", sub: "Breathe out, long and slow.", say: "Put the phone face down, if you can. Breathe out, long and slow.", gap: 8 },
       { id: "n03", line: "It's just static on the surface.", sub: "You don't need to fight it.", say: "Picture it as grey static on the surface of your mind. You don't need to fight it. It's just noise.", gap: 10 },
       { id: "n04", line: "With every breath out, a little more drifts away.", sub: "", say: "With every breath out, watch a little more of it drift away.", gap: 14 },
       { id: "n05", line: "What went in doesn't decide who you are.", sub: "What you let in next does.", say: "What went in doesn't decide who you are. What you let in next does.", gap: 8 },
-      { id: "n06", line: "Choose it now.", sub: "Music, a walk, someone who lifts you, your own recording.", say: "So choose it now. Something that feeds the new you. Music, a walk, someone who lifts you, your own recording.", gap: 10 },
+      { id: "n06", line: "Choose it now.", sub: "Music, a walk, someone who lifts you, your own recording.", say: "So choose it now. Something that feeds who you are. Music, a walk, someone who lifts you, your own recording.", gap: 10 },
       { id: "n07", line: "Your input is your outlook.", sub: "", say: "Your input is your outlook. Go and choose it.", gap: 2 },
     ],
   },
@@ -253,7 +254,7 @@ export const TOPUPS = [
       { id: "q03", line: "What would a healed nervous system feel like right now?", sub: "", say: "What would a healed nervous system feel like, right now?", gap: 20 },
       { id: "q04", line: "What can I be grateful for right now?", sub: "", say: "What can I be grateful for, right now?", gap: 20 },
       { id: "q05", line: "Who do I love, and who loves me?", sub: "", say: "Who do I love? And who loves me?", gap: 20 },
-      { id: "q06", line: "What would the new me do with the next ten minutes?", sub: "", say: "What would the new me do with the next ten minutes?", gap: 20 },
+      { id: "q06", line: "What does someone like me do with the next ten minutes?", sub: "", say: "What does someone like me do, with the next ten minutes?", gap: 20 },
       { id: "q07", line: "Let whatever came up lead the next hour.", sub: "", say: "Whatever came up, let it lead the next hour. Go gently.", gap: 2 },
     ],
   },
@@ -264,7 +265,7 @@ export const TOPUPS = [
       { id: "g01", line: "Two minutes of thank you.", sub: "Let your breath slow down.", say: "Two minutes of thank you. Let your breath slow down.", gap: 6 },
       { id: "g02", line: "One thing from today that went right.", sub: "However small. Hold it.", say: "Think of one thing from today that went right. However small. Hold it.", gap: 14 },
       { id: "g03", line: "One person who's glad you exist.", sub: "See their face.", say: "Now one person. Someone who's glad you exist. See their face.", gap: 14 },
-      { id: "g04", line: "One thing about you.", sub: "Something the new you does that the old you didn't.", say: "And one thing about yourself. Something the new you is doing, that the old you didn't.", gap: 16 },
+      { id: "g04", line: "One thing about you.", sub: "Something you do that's completely you.", say: "And one thing about yourself. Something you do, that's completely you.", gap: 16 },
       { id: "g05", line: "Say thank you for all three.", sub: "Inside, or out loud.", say: "Say thank you, inside or out loud, for all three.", gap: 10 },
       { id: "g06", line: "Carry the feeling of already having.", sub: "", say: "Gratitude is the feeling of already having. Carry that into the rest of your day.", gap: 2 },
     ],
@@ -275,7 +276,7 @@ export const TOPUPS = [
     steps: [
       { id: "y01", line: "Let's say your lines.", sub: "Out loud, present tense, like they're already true.", say: "Let's say your lines. Out loud, in the present tense, like they're already true. Stand up if you can.", gap: 1 },
       { id: "lines", lines: true },
-      { id: "y02", line: "That's a vote for the new you.", sub: "", say: "That's a vote for the new you. Every word you speak is an affirmation. Keep choosing these ones.", gap: 2 },
+      { id: "y02", line: "That's a vote for who you are.", sub: "", say: "That's a vote for who you are. Every word you speak is an affirmation. Keep choosing these ones.", gap: 2 },
     ],
   },
 ];
@@ -411,13 +412,13 @@ export const GRATITUDE_TIMES = [["Morning", "08:00"], ["Midday", "13:00"], ["Eve
 export const GRATITUDE_PROMPTS = [
   "Someone who made today a little easier.",
   "Something your body did for you today.",
-  "Something you have now that you once wished for.",
+  "Something you have that you love having.",
   "A small thing you'd miss if it went.",
   "Something you got right today.",
   "A person you're glad is in your life, and why.",
   "Something about the place you live.",
   "A moment today you'd happily live again.",
-  "Something the new you did today.",
+  "Something you did today that's completely you.",
   "Something hard that taught you something.",
 ];
 export const promptFor = (n) => GRATITUDE_PROMPTS[((n % GRATITUDE_PROMPTS.length) + GRATITUDE_PROMPTS.length) % GRATITUDE_PROMPTS.length];
@@ -448,7 +449,7 @@ export function draftGratitude(log = [], { eraName } = {}) {
   parts.push("Take a breath in … and let it go … Let your shoulders drop … and your jaw soften … There's nothing to do for the next minute … except notice what's already here.");
   if (lines.length) parts.push(lines.join(" … ") + " …");
   else parts.push("Thank you for this breath … Thank you for the people who love me … Thank you for this body, which carries me every day …");
-  parts.push("Thank you for the things I can't see yet … the ones already on their way to me … I have enough … I am enough … and there is more good here than I usually stop to notice.");
+  parts.push("Thank you for the good that's here that I don't always notice … I have enough … I am enough … and there is more good here than I usually stop to notice.");
   parts.push(`${eraName ? `This is ${eraName} … ` : ""}I'm grateful … and it shows in how I live … Take one more breath … and carry that feeling with you.`);
   return parts.join("\n\n");
 }

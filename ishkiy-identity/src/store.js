@@ -56,7 +56,8 @@ export function reminderICS({ start, days = 21, morning = "06:45", evening = "22
   };
   return [
     "BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//iSHKiY//Identity//EN", "CALSCALE:GREGORIAN",
-    ev(morning, "iSHKiY · Morning. Before the phone, you first", `Open iSHKiY Identity. Listen once and say your lines out loud${eraName ? " as " + eraName : ""}.`, "am"),
+    // no morning when Identity is set up: its own reminder is the morning
+    ...(morning ? [ev(morning, "iSHKiY · Morning. Before the phone, you first", `Open iSHKiY Identity. Listen once and say your lines out loud${eraName ? " as " + eraName : ""}.`, "am")] : []),
     ev(evening, "iSHKiY · Tonight. Calm body, calm mind", "Open iSHKiY Identity. Check in, then fall asleep to your recording.", "pm"),
     ...(midday ? [ev(midday, "iSHKiY · A two-minute top-up", "Open iSHKiY Identity. Two minutes to come back to the new you.", "md")] : []),
     "END:VCALENDAR",
