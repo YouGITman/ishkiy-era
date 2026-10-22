@@ -314,11 +314,84 @@ TOPUPS.push(
 export const PRIMES = TOPUPS.filter((t) => t.prime);
 export const topupOf = (id) => TOPUPS.find((t) => t.id === id);
 
-/* Vision: one short paragraph, present tense, the life as if it's already
-   here. Kept as text and as one recording (re-recorded by overwriting), and
-   played daily at a time the person picks. */
-export const VISION_TIMES = [["Morning", "07:00"], ["Midday", "12:30"], ["Evening", "19:00"]];
-export const VISION_HINT = "A short paragraph in the present tense. Who you are, how your days feel, what you have, who's around you, what you're grateful for. Read aloud, it should take under a minute.";
+/* Identity reinforcement. It records who the person IS, never who they
+   were or want to be: every prompt, example and placeholder is "I am", "I do",
+   "My life is". The one nod to the past is HISTORY_LINE, shown once, at the
+   start of Create. It supersedes the standalone vision: the vision's words
+   live on as "A day in my life", and its recording as the identity recording. */
+export const HISTORY_LINE = "Everyone has a history. That's exactly what it is: history. This is who you are now.";
+export const ID_DOMAINS = [
+  { id: "wealth", name: "Wealth" },
+  { id: "relationships", name: "Relationships" },
+  { id: "mind", name: "Mind mastery" },
+  { id: "habits", name: "Habit mastery" },
+  { id: "control", name: "Self-control" },
+  { id: "spirit", name: "Spirituality" },
+];
+/* Suggestions to edit, never to keep as they are. Domains the person adds
+   themselves get none. */
+export const ID_SEEDS = {
+  wealth: ["I am calm and capable with money.", "Money comes to me through work I'm proud of.", "I spend with intention and save with ease.", "I am generous, because I have enough."],
+  relationships: ["I am present with the people I love.", "I say what I mean, kindly.", "I am easy to trust.", "My relationships are honest and warm."],
+  mind: ["I choose where my attention goes.", "My mind is clear and steady.", "I meet hard thoughts with curiosity.", "I learn something every day."],
+  habits: ["I do what I say I'll do.", "Small actions are how I live.", "My mornings belong to me.", "I keep my word to myself."],
+  control: ["I pause before I act.", "I feel the urge and let it pass.", "I choose the long view.", "I am in charge of what I reach for."],
+  spirit: ["I make time for stillness.", "I live by my values.", "I am part of something larger than me.", "I notice what's already good."],
+};
+export const ID_TRAIT_EXAMPLES = [
+  { name: "Steady", how: "I keep my voice low and my pace slow when things get loud." },
+  { name: "Disciplined", how: "I do the important thing first, before I open my phone." },
+  { name: "Generous", how: "I give my full attention to whoever is in front of me." },
+  { name: "Brave", how: "I say the true thing in the meeting, calmly." },
+  { name: "Healthy", how: "I move every day and I eat food that feels good an hour later." },
+];
+/* Proof actions start with a verb, so "When [cue], I [action]" reads as a sentence. */
+export const ID_ACTION_EXAMPLES = ["sit still for two minutes", "spend ten minutes on the hardest task, before email", "put my phone in another room", "drink a glass of water before coffee", "send one message of thanks"];
+export const ID_CUE_EXAMPLES = ["I sit down at my desk", "I put the kettle on", "we sit down to eat", "I close my laptop at lunch", "I get into bed"];
+export const ID_TIMES = { morning: "07:00", evening: "21:00" };
+export const ID_CUSTOM_KINDS = [
+  { id: "did", label: "Something I did" },
+  { id: "moment", label: "A moment" },
+  { id: "affirm", label: "A new affirmation" },
+];
+export const ID_LIFE_HINT = "An ordinary day, in the present tense. When you wake, what you do, who's around you, how it feels. Read aloud, the whole thing takes about a minute.";
+export const ID_RECORD_INTRO = "Somewhere quiet, phone a hand's width away. Read it slowly and warmly, as a description of your life as it is. Sixty to ninety seconds is right.";
+export const ID_PRACTICE = {
+  morning: "Hear it, read it, choose today's proof. Under two minutes.",
+  evening: "Tick what you did. This is the evidence. Under a minute.",
+  ticked: "This is what I do.",
+  unticked: "Tap when it's done.",
+};
+
+/* For everything in Identity: present tense only. Catches the future, the
+   wish, the attempt and the past, and nudges towards "I am". */
+const NOT_NOW = /\b(i will|i'll|i'd like|i would like|i want|i wanna|wants? to|would like to|will be|going to|trying to|hopes? to|wish(?:es)? to|plans? to|i'm going to|i am going to|i'm gonna|i hope|i wish|i plan to|i'm trying|i am trying|i try to|i'm working on|i am working on|i need to|i should|one day|someday|some day|becoming|i'm becoming|i am becoming|goals?|future self|future me|old me|old self|the old you|used to|no longer|anymore|any more)\b/;
+export const presentCheck = (t) => (NOT_NOW.test((t || "").toLowerCase()) ? "Say it as it is now: \"I am\", \"I do\", \"My life is\"." : null);
+
+/* "When I sit down at my desk, I open the hardest task." The action reads
+   with or without its own "I". */
+export function ifThen(cue, action) {
+  const a = String(action || "").trim().replace(/[.!?]+$/, "").replace(/^i\s+/i, "");
+  const c = String(cue || "").trim().replace(/[.!?,]+$/, "").replace(/^(when|whenever|after|as soon as)\s+/i, "");
+  if (!a) return "";
+  const lower = (x) => (/^(I\b|I'|[A-Z]{2})/.test(x) ? x : x.charAt(0).toLowerCase() + x.slice(1));
+  return c ? `When ${lower(c)}, I ${lower(a)}.` : `I ${lower(a)}.`;
+}
+
+/* The recording: the statement, the traits by name, a day in the life, and
+   the paragraph per domain, closing in the present. About a minute aloud. */
+export function buildIdentityScript({ statement, traits = [], life = {}, domains = [] }) {
+  const end = (t) => { const x = String(t || "").trim(); return !x ? "" : /[.!?]$/.test(x) ? x : x + "."; };
+  const names = traits.map((t) => (t.name || "").trim().toLowerCase()).filter(Boolean);
+  const parts = [];
+  if (statement) parts.push(end(statement));
+  if (names.length) parts.push(`I am ${names.length > 1 ? names.slice(0, -1).join(", ") + " and " + names[names.length - 1] : names[0]}.`);
+  if (life.text) parts.push(end(life.text));
+  domains.forEach((d) => { const p = (life.by || {})[d.id]; if (p && p.trim()) parts.push(end(p)); });
+  parts.push("This is who I am. This is my life.");
+  return parts.join("\n\n");
+}
+
 /* A first draft from what they've already written, to edit rather than face a blank page. */
 export function draftVision({ statements = [], scene = {}, eraName }) {
   const s = (t) => { const x = present(t); return /[.!?]$/.test(x) ? x : x + "."; };

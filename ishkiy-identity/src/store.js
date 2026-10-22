@@ -23,8 +23,9 @@ const tx = async (mode, fn) => {
   });
 };
 /* Three recordings, each a single take that a re-record overwrites (no
-   history): "induction", the daily recording, "vision", the vision statement,
-   and "gratitude", the thank-you script. */
+   history): "induction", the daily recording, "vision", the identity
+   recording (it kept the key from the vision it replaced, so takes made
+   before carry straight over), and "gratitude", the thank-you script. */
 export const putVoice = (blob, key = "induction") => tx("readwrite", (s) => s.put(blob, key));
 export const getVoice = async (key = "induction") => { try { return await tx("readonly", (s) => s.get(key)); } catch { return null; } };
 export const delVoice = async (key = "induction") => { try { await tx("readwrite", (s) => s.delete(key)); } catch {} };
@@ -62,23 +63,28 @@ export function reminderICS({ start, days = 21, morning = "06:45", evening = "22
   ].join("\r\n");
 }
 
-/* The vision reminder: one daily alarm with no end date, linking straight to
-   the vision screen. */
-export function visionICS({ time = "07:30", url }) {
+/* The identity anchor times: a morning and an evening alarm, daily with no
+   end date, each linking straight to the daily practice. */
+export function identityICS({ morning = "07:00", evening = "21:00", url }) {
   const d = dayKey().replace(/-/g, "");
-  return [
-    "BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//iSHKiY//Identity//EN", "CALSCALE:GREGORIAN",
+  const stamp = new Date().toISOString().replace(/[-:]/g, "").slice(0, 15) + "Z";
+  const ev = (time, id, title, body) => [
     "BEGIN:VEVENT",
-    `UID:vision-${d}@identity.ishkiy.com`,
-    `DTSTAMP:${new Date().toISOString().replace(/[-:]/g, "").slice(0, 15)}Z`,
+    `UID:identity-${id}-${d}@identity.ishkiy.com`,
+    `DTSTAMP:${stamp}`,
     `DTSTART:${d}T${time.replace(":", "")}00`,
     "DURATION:PT5M",
     "RRULE:FREQ=DAILY",
-    "SUMMARY:iSHKiY · Your vision",
-    `DESCRIPTION:Open iSHKiY Identity and play your vision. ${url || ""}`,
+    `SUMMARY:${title}`,
+    `DESCRIPTION:${body} ${url || ""}`,
     ...(url ? [`URL:${url}`] : []),
-    "BEGIN:VALARM", "ACTION:DISPLAY", "DESCRIPTION:iSHKiY · Your vision", "TRIGGER:PT0M", "END:VALARM",
+    "BEGIN:VALARM", "ACTION:DISPLAY", `DESCRIPTION:${title}`, "TRIGGER:PT0M", "END:VALARM",
     "END:VEVENT",
+  ].join("\r\n");
+  return [
+    "BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//iSHKiY//Identity//EN", "CALSCALE:GREGORIAN",
+    ev(morning, "am", "iSHKiY · Who I am", "Open iSHKiY Identity. Hear it, read it, choose today's proof."),
+    ev(evening, "pm", "iSHKiY · This is what I do", "Open iSHKiY Identity. Tick today's proof."),
     "END:VCALENDAR",
   ].join("\r\n");
 }

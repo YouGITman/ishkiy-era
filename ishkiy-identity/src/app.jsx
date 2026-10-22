@@ -2,11 +2,13 @@
 // the ERA pattern: everything on the phone, one optional AI proxy.
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { VISION_TIMES, VISION_HINT, draftVision, GRATITUDE_TIMES, GRATITUDE_PROMPTS, GRATITUDE_HINT, promptFor, draftGratitude, TOPUPS, PRIMES, topupOf, EXPLAIN, PATH, AREAS, areaOf, ORIGIN_AGES, REWRITES, tenseCheck, SENSES, POWER_QUESTIONS, INPUT_CHOICES, QUOTES, SAFETY, SOS_LINES, MORNING_LINES, EVENING_LINES, buildScript } from "./content.js";
-import { load, save, wipe, putVoice, getVoice, delVoice, dayKey, daysBetween, uid, reminderICS, visionICS, gratitudeICS, download } from "./store.js";
+import { GRATITUDE_TIMES, GRATITUDE_PROMPTS, GRATITUDE_HINT, promptFor, draftGratitude, TOPUPS, PRIMES, topupOf, EXPLAIN, PATH, AREAS, areaOf, ORIGIN_AGES, REWRITES, tenseCheck, SENSES, POWER_QUESTIONS, INPUT_CHOICES, QUOTES, SAFETY, SOS_LINES, MORNING_LINES, EVENING_LINES, buildScript } from "./content.js";
+import { load, save, wipe, putVoice, getVoice, delVoice, dayKey, daysBetween, uid, reminderICS, gratitudeICS, download } from "./store.js";
 import { BEDS, playSession, speakScript, startBed, stopBed, liveBed, releaseSound, bowl, renderMix, getCtx } from "./audio.js";
-import { Field, Orb, Dissolve, ExplainArt, Spark } from "./visuals.jsx";
+import { Orb, Dissolve, ExplainArt, Spark } from "./visuals.jsx";
 import { useWakeLock, CalmSession, GuideSession, ListenSession, SayAloud, Mirror, Recorder } from "./sessions.jsx";
+import { Wordmark, Shell, Back, Steps, Card, nowHM } from "./ui.jsx";
+import { PracticeButton, IdentityHub, IdCreate, IdIntegrate, Practice, IdWeek, migrateVision } from "./identity.jsx";
 
 const ERA_DAYS = 21;
 
@@ -24,24 +26,15 @@ async function askAI(system, prompt, max_tokens = 700) {
 }
 
 /* ---------------- small pieces ---------------- */
-function Wordmark({ light = true, sub }) {
-  return (<div className="wmrow"><div className={"wordmark" + (light ? " light" : "")} aria-label="iSHKiY">
-    <span className="wm-i">{"ı"}<span className="tittle" /></span>SHK<span className="wm-i">{"ı"}<span className="tittle" /></span>Y
-  </div>{sub && <span className="wmsub">{sub}</span>}</div>);
-}
-function Shell({ children, light, field = !light, className = "" }) {
-  return (<div className={"shell " + (light ? "light " : "dark ") + className}>{field && <Field />}<div className="col">{children}</div></div>);
-}
-function Back({ onClick, label = "Back" }) { return <button className="back" onClick={onClick}>← {label}</button>; }
-function Steps({ n, of }) { return <div className="dots" aria-label={`Step ${n + 1} of ${of}`}>{[...Array(of)].map((_, i) => <span key={i} className={"dot" + (i < n ? " done" : i === n ? " now" : "")} />)}</div>; }
-
-const linked = () => ({ "#vision": "vision", "#gratitude": "gratitude" })[location.hash] || null;
+/* Calendar links. #vision is from the old vision reminder, which the daily
+   practice replaced, so it opens the practice too. */
+const linked = () => ({ "#practice": "practice", "#vision": "practice", "#gratitude": "gratitude" })[location.hash] || null;
 const quoteFor = (d = new Date()) => QUOTES[(d.getDate() + d.getMonth()) % QUOTES.length];
 const questionFor = (qs, d = new Date()) => { const list = qs && qs.length ? qs : POWER_QUESTIONS.slice(0, 4); return list[(d.getHours() + d.getDate()) % list.length]; };
 
 /* ================================================================ */
 function App() {
-  const [st, setSt] = useState(load);
+  const [st, setSt] = useState(() => { const s = load(), m = migrateVision(s); if (m !== s) save(m); return m; });
   const [view, setView] = useState("enter");
   const [arg, setArg] = useState(null);
   const update = (patch) => setSt((s) => { const n = { ...s, ...(typeof patch === "function" ? patch(s) : patch) }; save(n); return n; });
@@ -51,7 +44,7 @@ function App() {
   const day = (st.days || {})[today] || {};
   const setDay = (patch) => update((s) => ({ days: { ...(s.days || {}), [today]: { ...((s.days || {})[today] || {}), ...patch } } }));
   const inEra = !!(st.era && st.era.start);
-  // a reminder's link (vision or gratitude), tapped while the app is already open
+  // a reminder's link (practice or gratitude), tapped while the app is already open
   useEffect(() => {
     const onHash = () => { const v = linked(); if (v && st.started) { history.replaceState(null, "", location.pathname); setArg(null); setView(v); window.scrollTo(0, 0); } };
     window.addEventListener("hashchange", onHash);
@@ -61,7 +54,7 @@ function App() {
 
   if (view === "enter") return <Enter first={!st.started} onEnter={() => {
     if (!st.started) { update({ started: today }); go("welcome"); return; }
-    // the daily reminders link to /#vision and /#gratitude
+    // the daily reminders link to /#practice and /#gratitude
     const v = linked();
     if (v) { history.replaceState(null, "", location.pathname); go(v); return; }
     home();
@@ -80,7 +73,11 @@ function App() {
   if (view === "topups") return <TopUps st={st} day={day} go={go} back={() => go(arg || (inEra ? "today" : "path"))} />;
   if (view === "topup") return <TopUp st={st} id={arg} onDone={(r) => { setDay({ topups: [...(day.topups || []), arg], spoken: (day.spoken || 0) + ((r && r.spoken) || 0) }); go("topups"); }} onExit={() => go("topups")} />;
   if (view === "transition") return <Transition st={st} update={update} onExit={() => go("topups")} onDone={(id, r) => { setDay({ topups: [...(day.topups || []), id], spoken: (day.spoken || 0) + ((r && r.spoken) || 0) }); go("topups"); }} />;
-  if (view === "vision") return <Vision st={st} day={day} setDay={setDay} update={update} onBack={() => go(arg || (inEra ? "today" : "path"))} />;
+  if (view === "identity") return <IdentityHub st={st} update={update} go={go} back={home} />;
+  if (view === "idcreate") return <IdCreate st={st} update={update} go={go} arg={arg || {}} />;
+  if (view === "idintegrate") return <IdIntegrate st={st} update={update} go={go} arg={arg || {}} />;
+  if (view === "practice") return <Practice st={st} update={update} go={go} home={home} arg={arg} />;
+  if (view === "idweek") return <IdWeek st={st} update={update} go={go} />;
   if (view === "gratitude") return <Gratitude st={st} day={day} update={update} onBack={() => go(arg || (inEra ? "today" : "path"))} />;
   if (view === "caught") return <Caught st={st} day={day} setDay={setDay} onDone={() => go("today")} />;
   if (view === "weekly") return <Weekly st={st} update={update} week={arg} onDone={() => go("today")} />;
@@ -173,6 +170,7 @@ function PathView({ st, go }) {
         <Wordmark sub="Identity" />
         <p className="kicker hgreet">The path</p>
         <h1 className="display sm">{next ? (Object.keys(done).length ? "Pick up where you left off." : "Seven steps. One at a time.") : "Ready."}</h1>
+        <PracticeButton st={st} go={go} />
         <ol className="path">
           {PATH.map((p, i) => {
             const isDone = !!done[p.id], isNext = next && next.id === p.id;
@@ -188,7 +186,7 @@ function PathView({ st, go }) {
             );
           })}
         </ol>
-        <div className="linkrow"><button className="ghost light" onClick={() => go("vision", "path")}>Vision</button><button className="ghost light" onClick={() => go("gratitude", "path")}>Gratitude</button><button className="ghost light" onClick={() => go("sound")}>Sound room</button><button className="ghost light" onClick={() => go("you")}>Settings</button><button className="ghost light" onClick={() => go("sos", "path")}>SOS</button></div>
+        <div className="linkrow"><button className="ghost light" onClick={() => go("identity")}>Who I am</button><button className="ghost light" onClick={() => go("gratitude", "path")}>Gratitude</button><button className="ghost light" onClick={() => go("sound")}>Sound room</button><button className="ghost light" onClick={() => go("you")}>Settings</button><button className="ghost light" onClick={() => go("sos", "path")}>SOS</button></div>
       </div>
     </Shell>
   );
@@ -552,11 +550,11 @@ function Today({ st, day, go }) {
           <p className="idline" key={lineI}>{lines[lineI % Math.max(1, lines.length)] || "I am…"}</p>
           <div className="eradots" aria-label={`${practised} of ${Math.min(n, ERA_DAYS)} days practised`}>{dots.map((d) => <span key={d.k} className={"ed" + (d.v === 2 ? " full" : d.v === 1 ? " half" : "") + (d.today ? " now" : "") + (d.future ? " future" : "")} />)}</div>
         </div>
+        <PracticeButton st={st} go={go} />
         {missedYesterday && !day.morning && <p className="gentle">You missed yesterday. Nothing resets. The era carries on from right here.</p>}
         {reviewReady && <Card kicker="Day 21" title="Your era review" line="Look at who you were and who you've become. Then choose what's next." cta="Open it" onClick={() => go("review")} accent />}
         {due && <Card kicker={`Week ${due}`} title="Your weekly check-in" line="Five minutes. Where did the old you pull back, and what did the new you do?" cta="Check in" onClick={() => go("weekly", due)} accent />}
         <Card kicker="On waking" title={day.morning ? "Morning done" : "Morning practice"} line={day.morning ? (day.spoken ? `Said out loud ${day.spoken} ${day.spoken === 1 ? "time" : "times"}. Every one is a vote for the new you.` : "Done. Tomorrow, say your lines out loud too. Spoken lands deeper than thought.") : "Listen once, say your lines out loud, look yourself in the eye."} cta={day.morning ? "Again" : "Start"} done={day.morning} onClick={() => go("morning")} soft={hour >= 12 && !day.morning} />
-        <VisionCard st={st} day={day} go={go} />
         <GratitudeCard st={st} day={day} go={go} />
         <div className="daycard">
           <p className="kicker">Through the day</p>
@@ -576,17 +574,6 @@ function Today({ st, day, go }) {
     </Shell>
   );
 }
-function Card({ kicker, title, line, cta, onClick, done, accent, soft }) {
-  return (
-    <button className={"tcard" + (done ? " done" : "") + (accent ? " accent" : "") + (soft ? " soft" : "")} onClick={onClick}>
-      <span className="tck">{done && <span className="tick">✓</span>}{kicker}</span>
-      <span className="tct">{title}</span>
-      <span className="tcl">{line}</span>
-      <span className="tcgo">{cta} →</span>
-    </button>
-  );
-}
-
 /* ---------------- morning ---------------- */
 function Morning({ st, day, setDay, onDone }) {
   const [stage, setStage] = useState("intro"); // intro | listen | say | mirror | done
@@ -665,103 +652,6 @@ function Evening({ st, day, setDay, update, go, onDone }) {
         <p className="gsub">Assume the feeling of it done, and rest there.</p>
         <button className="btn gold" onClick={onDone}>Goodnight</button>
       </div>}
-    </Shell>
-  );
-}
-
-/* ---------------- vision ----------------
-   One short statement of the life as if it's already here, kept as text and
-   as a single recording, played daily at a time the person picks. The Today
-   card turns gold once that time has passed and it hasn't been heard yet. */
-const nowHM = () => { const d = new Date(); return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`; };
-function VisionCard({ st, day, go }) {
-  const v = st.vision || {};
-  if (!v.text) return <Card kicker="Your vision" title="Write your vision" line="One short paragraph, in the present tense, to hear every day." cta="Start" onClick={() => go("vision", "today")} />;
-  const due = !day.vision && nowHM() >= (v.time || "07:00");
-  return <Card kicker="Your vision" title={day.vision ? "Vision heard" : due ? "Time for your vision" : "Your vision"} line={v.text.length > 110 ? v.text.slice(0, 107).trim() + "…" : v.text}
-    cta={day.vision ? "Hear it again" : "Play"} done={day.vision} accent={due} onClick={() => go("vision", "today")} />;
-}
-function Vision({ st, day, setDay, update, onBack }) {
-  const v = st.vision || {};
-  const ns = st.newSelf || {};
-  const [stage, setStage] = useState(v.text ? "view" : "edit"); // view | edit | record
-  const [text, setText] = useState(v.text || "");
-  const [blob, setBlob] = useState(null);
-  const [playing, setPlaying] = useState(false);
-  const [time, setTime] = useState(v.time || "07:00");
-  const [added, setAdded] = useState(false);
-  const handle = useRef(null);
-  useEffect(() => { getVoice("vision").then((b) => setBlob(b || null)); return () => { handle.current && handle.current.stop(); stopBed(1.5); }; }, []);
-  const setV = (patch) => update((s) => ({ vision: { ...(s.vision || {}), ...patch } }));
-  const stale = v.audio && v.text && v.audio.text !== v.text; // recording no longer matches the words
-
-  const play = async () => {
-    if (playing) { handle.current && handle.current.stop(); handle.current = null; setPlaying(false); return; }
-    getCtx(); setPlaying(true); setDay({ vision: true });
-    if (blob) handle.current = await playSession({ bedKey: "alpha", voiceBlob: blob, volume: 0.5, tailMin: 0.25, onEnd: () => setPlaying(false) });
-    else {
-      startBed("alpha", { volume: 0.4 });
-      const sp = speakScript(v.text, { onDone: () => { stopBed(4); setPlaying(false); } });
-      handle.current = { stop: () => { sp.stop(); stopBed(1.5); } };
-    }
-  };
-  const saveText = () => { setV({ text: text.trim(), at: dayKey() }); setStage("view"); };
-  const pickTime = (t) => { setTime(t); setV({ time: t }); setAdded(false); };
-  const ics = () => { download(new Blob([visionICS({ time, url: location.origin + "/#vision" })], { type: "text/calendar" }), "ishkiy-vision-reminder.ics"); setAdded(true); };
-
-  if (stage === "record") return (
-    <Shell className="practice">
-      <div className="toprow"><Back onClick={() => setStage("view")} label="Vision" /></div>
-      <div className="flow">
-        <p className="kicker">{blob ? "Re-record your vision" : "Record your vision"}</p>
-        <h1 className="display sm">Say it like you're telling a friend about your life now.</h1>
-        <Recorder script={v.text} existing={blob} what="vision" bed="alpha" onDiscard={() => setStage("view")}
-          intro="Somewhere quiet, phone a hand's width away. Read it slowly and warmly, present tense, as if it's already true. Under a minute is plenty."
-          onSaved={async (b) => { await putVoice(b, "vision"); setBlob(b); setV({ audio: { at: dayKey(), mime: b.type, text: v.text } }); bowl(261.6, 0.1); setStage("view"); }} />
-      </div>
-    </Shell>
-  );
-  if (stage === "edit") {
-    const hint = tenseCheck(text);
-    return (
-      <Shell>
-        <div className="toprow"><Back onClick={() => (v.text ? setStage("view") : onBack())} /></div>
-        <div className="flow">
-          <p className="kicker">Your vision</p>
-          <h1 className="display sm">Write it as if it's already true.</h1>
-          <p className="lede dim">{VISION_HINT}</p>
-          <textarea id="vision-text" className="tarea big" rows="7" value={text} onChange={(e) => setText(e.target.value)} placeholder="I wake up…" aria-label="Your vision" />
-          {hint && <p className="hint">{hint}</p>}
-          {(ns.statements || []).some((x) => x.text) && <button className="ghost light" onClick={() => setText(draftVision(ns))}>{text.trim() ? "Replace with a draft from my lines" : "Start from my lines"}</button>}
-          {v.audio && text.trim() !== v.text && <p className="tnote light">Your recording still says the old words. You can re-record once you've saved.</p>}
-          <button className="btn gold" disabled={!text.trim()} onClick={saveText}>Save my vision</button>
-        </div>
-      </Shell>
-    );
-  }
-  return (
-    <Shell>
-      <div className="toprow"><Back onClick={onBack} /></div>
-      <div className="flow">
-        <p className="kicker">Your vision{day.vision ? " · heard today" : ""}</p>
-        <p className="visiontext">{v.text}</p>
-        <button className="btn gold" onClick={play}>{playing ? "Stop" : blob ? "Play my vision" : "Play it (phone's voice)"}</button>
-        {!blob && <p className="tnote light">Your own voice lands deeper than the phone's. Record it when you're ready.</p>}
-        {stale && <p className="tnote light">You've changed the words since you recorded it. Re-record to match.</p>}
-        <div className="row wrap">
-          <button className="btn ink2 small" onClick={() => setStage("record")}>{blob ? "Re-record" : "Record it in my voice"}</button>
-          <button className="btn ink2 small" onClick={() => { setText(v.text); setStage("edit"); }}>Edit the words</button>
-        </div>
-        <div className="panel">
-          <p className="kicker">Daily reminder</p>
-          <p className="lede dim">Pick when you want to hear it. Today's screen turns gold at that time until you've played it.</p>
-          <div className="chips">{VISION_TIMES.map(([label, t]) => <button key={t} className={"chip" + (time === t ? " on" : "")} aria-pressed={time === t} onClick={() => pickTime(t)}>{label} · {t}</button>)}</div>
-          <label className="q" htmlFor="vision-time">Or your own time</label>
-          <input id="vision-time" type="time" className="tin" value={time} onChange={(e) => pickTime(e.target.value || "07:00")} />
-          <button className="btn ink2" onClick={ics}>{added ? "Added. Open the file to save it" : "Add a daily reminder to my calendar"}</button>
-          <p className="tnote light">The calendar reminds you every day at {time}, and the link in it opens your vision. Nothing is sent anywhere.</p>
-        </div>
-      </div>
     </Shell>
   );
 }
@@ -1178,7 +1068,7 @@ function Review({ st, update, go }) {
   const mornings = inEra.filter((k) => days[k].morning).length, nights = inEra.filter((k) => days[k].evening).length;
   const spoken = inEra.reduce((a, k) => a + (days[k].spoken || 0), 0);
   const topups = inEra.reduce((a, k) => a + ((days[k].topups || []).length), 0);
-  const visions = inEra.filter((k) => days[k].vision).length;
+  const visions = inEra.filter((k) => days[k].vision || (days[k].identity || {}).morning).length;
   const thanks = ((st.gratitude || {}).log || []).filter((e) => e.at >= st.era.start).length;
   const feels = inEra.sort().map((k) => days[k].feel);
   const weekly = (st.weekly || []).filter((w) => w.era === st.era.n);
@@ -1197,7 +1087,7 @@ function Review({ st, update, go }) {
           <div><b>{mornings}</b><span>mornings</span></div><div><b>{nights}</b><span>nights</span></div><div><b>{spoken}</b><span>lines said aloud</span></div><div><b>{(st.evidence || []).length}</b><span>pieces of evidence</span></div>
         </div>
         {feels.filter((v) => v != null).length > 1 && <><p className="tnote light">How much you felt like the new you, night by night</p><Spark values={feels} /></>}
-        {visions > 0 && <p className="lede dim">You heard your vision on {visions} {visions === 1 ? "day" : "days"}.</p>}
+        {visions > 0 && <p className="lede dim">You started {visions} {visions === 1 ? "day" : "days"} with who you are.</p>}
         {thanks > 0 && <p className="lede dim">You wrote down {thanks} thing{thanks === 1 ? "" : "s"} you're grateful for.</p>}
         {topups > 0 && <p className="lede dim">And {topups} daytime top-up{topups === 1 ? "" : "s"}, on top of the mornings and nights.</p>}
         {weekly.length > 0 && <p className="lede dim">Week one you put yourself at {weekly[0].self} out of 10. {weekly.length > 1 ? `Now: ${weekly[weekly.length - 1].self}.` : ""}</p>}
@@ -1292,7 +1182,7 @@ function You({ st, update, go, back }) {
           {st.done && st.done.become && <button className="btn ink2 small" onClick={() => go("become")}>Edit my lines</button>}
           {st.script && <button className="btn ink2 small" onClick={() => go("script")}>Script and recording</button>}
           {st.voice && <button className="btn ink2 small" onClick={() => go("script", "rerecord")}>Re-record</button>}
-          <button className="btn ink2 small" onClick={() => go("vision", "you")}>My vision</button>
+          <button className="btn ink2 small" onClick={() => go("identity")}>Who I am</button>
           <button className="btn ink2 small" onClick={() => go("gratitude", "you")}>Gratitude</button>
           <button className="btn ink2 small" onClick={() => go("calm")}>Calm body, calm mind</button>
         </div>

@@ -55,7 +55,7 @@ All the app's words live in **`src/content.js`**. Edit voice there, not in compo
 | Build | `npm run build` bundles to `site/dist/app.js` and **copies only the real files** into `site/` (`index.html`, `manifest.json`, `sw.js`, icons, `audio/`). **Netlify publishes `site/`, never the project folder** |
 | Hosting | Netlify, project **`stately-pika-8b9efc`** (not renamed yet). Branch to deploy: **`claude/upbeat-knuth-s0xvxv`**. Base directory: **`ishkiy-identity`**. Build command and publish directory are left blank; `netlify.toml` supplies them |
 | AI | `netlify/functions/claude.js`, a copy of ERA's proxy at `/api/claude`. Needs `ANTHROPIC_API_KEY` in Netlify. Used for exactly two things (section 6) |
-| Offline | `sw.js` caches the shell and every audio clip. **Bump the `CACHE` name (now `identity-v7`) whenever audio or app files change**, or installed phones keep the old ones |
+| Offline | `sw.js` caches the shell and every audio clip. **Bump the `CACHE` name (now `identity-v8`) whenever audio or app files change**, or installed phones keep the old ones |
 | Package type | `"type": "module"`. The ElevenLabs build plugin dynamically imports `src/content.js` |
 
 ### Traps (each one has already cost time)
@@ -73,7 +73,7 @@ All the app's words live in **`src/content.js`**. Edit voice there, not in compo
 ## 4. The user journey
 
 ### Screens (`view` in `App()`, a string, routed at the top of `src/app.jsx`)
-`enter` → `welcome` → `explain` → `path` (the setup checklist) → `calm`, `audit`, `release`, `become`, `script`, `begin` → the era: `today`, `morning`, `evening`, `topups` / `topup`, `caught`, `weekly`, `review`, plus tabs `sound`, `evidence`, `you`, and `sos`.
+`enter` → `welcome` → `explain` → `path` (the setup checklist) → `calm`, `audit`, `release`, `become`, `script`, `begin` → the era: `today`, `morning`, `evening`, `topups` / `topup`, `caught`, `weekly`, `review`, plus tabs `sound`, `evidence`, `you`, and `sos`. Identity reinforcement, reachable before and during the era: `identity` (the hub), `idcreate` and `idintegrate` (arg `{ step, edit }`), `practice`, `idweek`.
 
 ### The Path: one-time setup, seven steps, about 45 minutes, spread over days if needed
 | # | Step | What happens |
@@ -91,9 +91,9 @@ All the app's words live in **`src/content.js`**. Edit voice there, not in compo
 - **Morning**: listen to the recording, **say each line out loud** (the mic fills a ring when a second of voice is heard), then optional **mirror work** with the front camera.
 - **Through the day**: a power question that rotates by the hour; **I caught the old voice** (pick the old line, say the new one to swap it); **Log evidence** (a list of votes for the new self); **Top-up sessions** (below).
 - **Night**: a check-in (0 to 10 "how much did I feel like the new me", what went in today: clean, mixed or noise, one vote), a three-and-a-half-minute spoken calm, then the recording, which **starts automatically** (eyes still shut). The screen dims after 20 seconds and the bed plays on for ten minutes after the words end.
-- **Vision**: a short present-tense statement kept as text and as a single recording (IndexedDB key `"vision"`), with a daily calendar reminder at a time the person picks and a link to `/#vision`. A Today card turns gold once that time has passed and it hasn't been played. See `docs/HANDOFF.md`, 4 October.
+- **Identity reinforcement** (`src/identity.jsx`, replaces the old Vision): who the person *is*, present tense only. Create (statement, 3 to 5 traits linked to life domains, a day in my life, a recording in their own voice under IndexedDB key `"vision"`, affirmations per domain), Integrate (a proof action and an if-then plan per trait, morning and evening anchor times), and a Daily Practice button on the home screen: morning under two minutes, evening under one, a weekly review. Affirmations always sit beside their proof. Link `/#practice` (old `/#vision` links land there too). See `docs/HANDOFF.md`, 22 October.
 - **Gratitude**: a log of thank-yous with a rotating prompt; reminder times that turn the Today card gold until answered, and a calendar file whose reminders rotate through ten prompts and repeat with no end date; earlier thank-yous circling back on screen; and a thank-you script drafted from the log, recorded in their own voice (IndexedDB key `"gratitude"`), played over the alpha bed. Link `/#gratitude`. See `docs/HANDOFF.md`, 15 October.
-- **Re-record** (daily recording, vision and gratitude): listen to the new take and the current one, then commit (overwrite, no history) or discard (old one kept). Nothing is written until commit.
+- **Re-record** (daily recording, identity recording and gratitude): listen to the new take and the current one, then commit (overwrite, no history) or discard (old one kept). Nothing is written until commit.
 - **Daytime top-ups (optional)**: six spoken sessions of one to two minutes: *Two-minute reset*, *Before it matters*, *After the noise*, *Power questions*, *Two minutes of thank you*, *Your lines, out loud* (the voice hands over to the mic for the person's own lines, then carries on). The list highlights the one that fits the hour.
 - **The transition timer (task switching)**: reached from the top of the top-ups list. Pick *Prime for creativity* (eyes shut, alpha bed) or *Prime for focus* (eyes open, square breathing, no-beat bed), take a one-, two- or three-minute break, then the primer starts on its own through `GuideSession`'s `autoStart`. The countdown runs from an end time, so a throttled page still lands on time. The last choice is remembered in `transition`. The primers are entries in `TOPUPS` marked `prime: true` (exported as `PRIMES`), so they also play directly from the list and log to `days[...].topups`.
 - **Weekly check-in** (days 7, 14, 21): self-image 0 to 10, where the old self pulled back ("the rubber band"), what the new self did, the line they need next week, and a short reflection.
@@ -179,11 +179,11 @@ Changing a voice means: edit `CALM_SCRIPT` / `TOPUPS` in `content.js`, run `node
 | `weekly` | `[{ week, era, at, self, pull, did, need, reflection }]` |
 | `reminders` | `{ morning, evening, midday? }` |
 | `transition` | `{ prime, mins }`: the last primer and break length chosen |
-| `vision` | `{ text, at, time, audio: { at, mime, text } }`; the audio itself is in IndexedDB under `"vision"`. Plays log `days[date].vision` |
+| `identity` | `{ statement, domains: [{ id, name, hidden?, custom? }], traits: [{ id, name, domain, how, action, cue }], life: { text, by: { domainId: text } }, affirmations: [{ id, domain (null = across my life), text }], script, audio: { at, mime, text }, anchors: { morning, evening }, created, integrated, reviewed, seenHistory }`; the audio is in IndexedDB under `"vision"`. Each day: `days[date].identity = { heard, morning, confirmed: [traitIds], ticks: [traitIds], custom: [{ id, kind, text, trait?, domain? }], reflection, evening }`. Replaced `vision`, which `migrateVision` converts once (old `days[date].vision` flags are kept) |
 | `gratitude` | `{ log: [{ id, at, hm, text }], times: ['HH:MM'], script, scriptAt, audio: { at, mime, text } }`; the audio itself is in IndexedDB under `"gratitude"`. Each thank-you adds its time to `days[date].thanks`; a play sets `days[date].thanksHeard` |
 | `calmCount` | How many calm sessions completed |
 
-**IndexedDB** `ishkiy-identity` / store `voice`: key `induction` (the daily recording), key `vision` (the vision) and key `gratitude` (the thank-you script), each one Blob, overwritten on commit.
+**IndexedDB** `ishkiy-identity` / store `voice`: key `induction` (the daily recording), key `vision` (the identity recording, which took over the old vision's slot) and key `gratitude` (the thank-you script), each one Blob, overwritten on commit.
 
 Dates are local `YYYY-MM-DD` (`dayKey`), so "today" is the person's today. `eraDay(st)` is `daysBetween(start, today) + 1`.
 
@@ -242,6 +242,8 @@ State these before writing code:
 |---|---|
 | Any word the app says; the calm and top-up scripts; the recording-script builder | `src/content.js` |
 | Screens, flow, state, the AI calls | `src/app.jsx` |
+| Identity reinforcement: create, integrate, daily practice, weekly review, the vision migration | `src/identity.jsx` |
+| Shared UI pieces (`Shell`, `Back`, `Card`, `Wordmark`) | `src/ui.jsx` |
 | Calm / listen / say-aloud / mirror / recorder / the guided-session player | `src/sessions.jsx` |
 | Generated beds, bowls, the voice engine, the WAV mix | `src/audio.js` |
 | Orb, dust field, dissolve, explainer art, trend line | `src/visuals.jsx` |

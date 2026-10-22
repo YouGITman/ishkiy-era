@@ -4,6 +4,35 @@ Newest entry first. Each entry: what was asked, what was done, and what is still
 
 ---
 
+## 22 October 2026
+
+### A. Re-record (prerequisite): already done, reused
+Checked first, as asked. The 4 October build already covers it: one recording per kind, a commit overwrites with no history, and the listen-and-commit step (*Listen to the new take*, *Listen to my current recording*, **Commit: replace my recording**, *Discard this take*). The Identity recording uses the same `Recorder`, unchanged. Re-tested: a discarded take leaves the stored one byte-for-byte as it was; a committed take replaces it.
+
+### B. Identity reinforcement: done
+Asked: a present-tense identity feature in three stages (Create, Integrate, Daily Practice), every piece editable, superseding the standalone Vision (1 October).
+
+Done (`src/identity.jsx`, words in `src/content.js` under *Identity reinforcement*):
+- **Present tense only.** Every prompt, placeholder and example says "I am", "I do" or "My life is". `presentCheck` flags future, wish, attempt and past wording ("want to", "will be", "trying", "becoming", "goal", "old me", "used to", "no longer"…) on every field in the feature. The only line about the past is `HISTORY_LINE`, shown once, at the top of the first Create screen (`identity.seenHistory` stops it showing again).
+- **Life domains**: Wealth, Relationships, Mind mastery, Habit mastery, Self-control, Spirituality, plus any the person adds. Rename, hide, reorder (↑ ↓) from the hub or from the traits step. Hidden domains keep their traits and affirmations but leave the daily practice.
+- **Stage 1, Create** (`idcreate`, five steps): one-line statement ("I am someone who…"); 3 to 5 traits, each with a name, a domain and how it shows up; a day in my life, with an optional paragraph per domain; the recording, built from those words (`buildIdentityScript`: statement, traits by name, the day, the domain paragraphs, "This is who I am. This is my life."), editable, recorded with the listen-and-commit `Recorder`; affirmations per domain, seeded with two editable suggestions for each domain a trait lives in, more as tap-to-add chips, plus their own.
+- **Stage 2, Integrate** (`idintegrate`, three steps): one proof action per trait (verb first, shown as "I …"); an if-then plan per action, previewed live as "When [cue], I [action]." (`ifThen`); morning and evening anchor times, with a calendar file of two daily alarms, no end date, linking to `/#practice` (`identityICS`).
+- **Stage 3, Daily Practice** (`practice`): one prominent button on the home screen, at the top of the Path and under the identity card on Today (`PracticeButton`). It knows the stage (create, integrate, or practice), picks morning or evening by the halfway point between the anchors, and turns solid gold once an anchor time has passed and that half isn't done. Morning: play the recording (moves on by itself when the words end), today's affirmations with the week's proof beside each, confirm today's proof actions. Evening: tick the actions ("This is what I do", never "task complete"), add your own entry (something I did, a moment, or a new affirmation, optionally linked to a trait or domain; a new affirmation also joins the affirmation list), and a one-line reflection.
+- **Affirmations beside the evidence**: `ProofGrid` puts each domain's affirmations on the left and that week's proof (ticks and custom entries in that domain) on the right, in the morning, in the hub, and with a count. It stacks on phones under 360px wide.
+- **Weekly review** (`idweek`): seven days as evidence, grouped by domain then trait (ticks out of 7, dot row), custom entries by domain; every day opens to edit ticks, entries and the reflection; then buttons to sharpen traits, actions, if-then plans or affirmations. Offered on the hub and at the end of the evening once seven days have passed since creation or the last review.
+- **Edit everything**: the hub (`identity`, reached from the home button, the Path's *Who I am* and You) shows every element with an edit route back into the same step screens. Edits overwrite; no history.
+- **Vision superseded**: the `vision` screen, card and `visionICS` are gone. `migrateVision` runs once on load: the vision text becomes *a day in my life*, its time the morning anchor, and its recording carries straight over (the identity recording kept IndexedDB key `"vision"`). The script isn't carried over, so it is built fresh from the new statement and traits, and the screen says the old take has different words until it's re-recorded. Old calendar links to `/#vision` open the daily practice. The day-21 review counts days that began with either.
+- Shared UI pieces (`Shell`, `Back`, `Card`, …) moved to `src/ui.jsx` so the new file could use them. Offline cache bumped to `identity-v8`.
+- Tested in headless Chromium at 390px and 340px with a fake mic (35 checks): migration from a stored vision, the history line once only, the tense check, traits and a custom domain, the built script, discard then commit, seeded affirmations, actions, cues and the calendar file, morning and evening saves, custom affirmations joining the list, the weekly review editing a past day, hide, reorder and rename, the `#vision` link, no sideways scroll, no console errors.
+
+### Still open
+- **The app's framing clashes with the brief.** The rest of Identity is built on "let the old you go, become the new one": the welcome, the Path ("Name the old you", "Let it go"), the Today card ("The new you"). The new feature keeps strictly to present tense, but the screens around it don't. Decide whether the wider app should be reworded to match.
+- **Two morning practices.** Inside the 21-day era, Today now has the identity Daily Practice and the original morning and night practices. Worth watching on a phone whether that feels like too much, and whether they should merge.
+- Try it on a real phone, Android first: the recording plays and the morning moves on by itself; the anchor reminders' link opens the app.
+- Out of scope, as agreed: cloud sync or ERA Living Profile sharing, AI-written affirmations or analysis, streaks beyond the weekly summary.
+
+---
+
 ## 15 October 2026
 
 ### 1. Recordings that start quiet and swell: fixed

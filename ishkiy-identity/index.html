@@ -113,7 +113,7 @@
   .pname{font-family:Lora,serif; font-weight:700; font-size:18px}
   .pline{font-size:13.5px; color:var(--bone50)}
   .pgo{font-size:13px; font-weight:600; color:var(--ink); background:var(--gold); padding:6px 12px; border-radius:999px}
-  .linkrow{display:flex; gap:18px; margin-top:22px}
+  .linkrow{display:flex; flex-wrap:wrap; gap:4px 18px; margin-top:22px} .linkrow .ghost{white-space:nowrap}
 
   /* forms */
   .flow{display:flex; flex-direction:column; padding:10px 0 20px; animation:rise .35s ease}
@@ -236,6 +236,64 @@
   .topup.switch{border-style:dashed; border-color:var(--gold)}
   .countdown{font-family:Lora,serif; font-weight:600; font-size:56px; line-height:1; color:var(--gold); margin:26px 0 6px; font-variant-numeric:tabular-nums}
 
+  /* identity reinforcement */
+  .bigpractice{display:flex; flex-direction:column; align-items:flex-start; gap:4px; width:100%; text-align:left; margin-top:14px; padding:20px; border-radius:20px; border:1.5px solid var(--gold); background:linear-gradient(160deg, rgba(212,165,71,.24), rgba(212,165,71,.06) 70%)}
+  .bigpractice.due{background:var(--gold); color:var(--ink)}
+  .bigpractice.due .bpk,.bigpractice.due .bpgo,.bigpractice.due .bpl{color:var(--ink)}
+  .bigpractice.done{border-color:var(--bone22); background:rgba(245,241,232,.04)}
+  .bpk{font-size:12px; font-weight:600; letter-spacing:.12em; text-transform:uppercase; color:var(--gold); display:flex; gap:6px; align-items:center}
+  .bpt{font-family:Lora,serif; font-weight:700; font-size:25px; line-height:1.2}
+  .bpl{font-family:Lora,serif; font-style:italic; font-size:15.5px; line-height:1.45; color:var(--bone70)}
+  .bpgo{font-size:14px; font-weight:600; color:var(--gold); margin-top:8px}
+  .today .bigpractice{margin-top:0}
+  .home .bigpractice{margin:4px 0 16px}
+  .history{font-family:Lora,serif; font-style:italic; font-size:18px; line-height:1.5; color:var(--bone70); margin:4px 0 26px; padding-left:14px; border-left:3px solid var(--gold); animation:rise 1s ease}
+  .trait,.traitedit,.wtrait{padding:12px 0; border-top:1px solid var(--bone10)}
+  .trait:first-of-type,.wtrait:first-of-type{border-top:none; padding-top:0}
+  .traitedit{display:flex; flex-direction:column; gap:10px; padding:16px 0}
+  .trname{font-family:Lora,serif; font-weight:700; font-size:19px; margin:0}
+  .trdom{font-family:Inter,sans-serif; font-size:12px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; color:var(--gold)}
+  .trhow{font-size:14.5px; color:var(--bone70); margin:4px 0 0; line-height:1.5}
+  .trif{font-family:Lora,serif; font-style:italic; font-size:16px; color:var(--gold); margin:6px 0 0}
+  .lifetext{font-family:Lora,serif; font-size:17px; line-height:1.6; margin:0 0 10px; white-space:pre-wrap}
+  .domains{display:flex; flex-direction:column; gap:8px}
+  .domrow{display:flex; gap:6px; align-items:center} .domrow .tin{flex:1; padding:10px 12px}
+  .domrow.off .tin{opacity:.45; text-decoration:line-through}
+  .domb{flex:none; min-width:40px; height:40px; border-radius:10px; border:1.5px solid var(--bone22); color:var(--bone70); font-size:15px}
+  .domb.wide{min-width:58px; font-size:13px; font-weight:600}
+  .domb:disabled{opacity:.3}
+  .pgrid{display:flex; flex-direction:column; gap:8px; margin:6px 0 4px}
+  .phead,.prow{display:grid; grid-template-columns:1.25fr 1fr; gap:12px}
+  .phead span{font-size:11.5px; font-weight:600; letter-spacing:.1em; text-transform:uppercase; color:var(--bone50)}
+  .prow{padding:14px; border-radius:14px; background:rgba(245,241,232,.04)}
+  .paff p{font-family:Lora,serif; font-weight:600; font-size:16.5px; line-height:1.4; margin:6px 0 0}
+  .pproof{border-left:2px solid var(--gold); padding-left:12px}
+  .pproof b{display:block; font-family:Lora,serif; font-size:24px; line-height:1; color:var(--gold)}
+  .pproof p{font-size:13.5px; line-height:1.45; color:var(--bone70); margin:6px 0 0}
+  .pproof .dimtext{color:var(--bone50); margin:0}
+  .affdom{padding-bottom:6px; border-bottom:1px solid var(--bone10)}
+  .affdom .askrow{margin-top:8px}
+  .chips.seeds{margin-top:10px} .chips.seeds .chip{font-size:13.5px; text-align:left; border-style:dashed}
+  .chips.small .chip{padding:7px 12px; font-size:13.5px}
+  .cuerow{display:flex; gap:10px; align-items:center; font-family:Lora,serif; font-size:17px} .cuerow .tin{flex:1}
+  .modes{display:flex; gap:4px; padding:3px; border-radius:999px; border:1.5px solid var(--bone22)}
+  .mode{padding:6px 14px; border-radius:999px; font-size:13.5px; font-weight:600; color:var(--bone70)}
+  .mode.on{background:var(--gold); color:var(--ink)}
+  .proofs{display:flex; flex-direction:column; gap:9px; margin:6px 0 4px}
+  .proof{display:flex; gap:14px; align-items:center; text-align:left; padding:15px 16px; border-radius:14px; border:1.5px solid var(--bone10); background:rgba(245,241,232,.04)}
+  .proof.on{border-color:var(--gold); background:var(--goldsoft)}
+  .pbox{flex:none; width:28px; height:28px; border-radius:50%; border:1.5px solid var(--bone22); display:flex; align-items:center; justify-content:center; font-size:14px; font-weight:700; color:var(--ink)}
+  .proof.on .pbox{background:var(--gold); border-color:var(--gold)}
+  .ptxt{display:flex; flex-direction:column; gap:2px}
+  .pif{font-family:Lora,serif; font-weight:600; font-size:17px; line-height:1.4}
+  .pname2{font-size:12.5px; font-weight:600; color:var(--gold)}
+  .stats.three{grid-template-columns:repeat(3, 1fr); margin-top:6px}
+  .wdots{display:grid; grid-template-columns:repeat(7, 18px); gap:6px; margin:8px 0 2px}
+  .wday{border-radius:12px; background:rgba(245,241,232,.04); margin-top:8px}
+  .wdayhead{width:100%; display:flex; justify-content:space-between; align-items:baseline; gap:10px; padding:13px 15px; font-weight:600; text-align:left}
+  .wdaybody{display:flex; flex-direction:column; gap:10px; padding:0 15px 15px}
+  .wdaybody .askrow{margin-top:0}
+  .proof:focus-visible,.mode:focus-visible,.domb:focus-visible,.wdayhead:focus-visible,.bigpractice:focus-visible{outline:2px solid var(--gold); outline-offset:3px}
   /* tabs */
   .tabs{position:fixed; z-index:5; left:0; right:0; bottom:0; display:flex; justify-content:space-around; padding:8px 8px calc(8px + env(safe-area-inset-bottom)); background:rgba(12,24,50,.94); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); border-top:1px solid var(--bone10)}
   .tab{display:flex; flex-direction:column; align-items:center; gap:3px; padding:6px 14px; font-size:11.5px; font-weight:600; color:var(--bone50); border-radius:12px}
@@ -277,9 +335,9 @@
   .sosname{font-weight:600; margin:0}
 
   @media (min-width:640px){ .display{font-size:40px} .display.sm{font-size:32px} }
-  @media (max-width:360px){ .display{font-size:29px} .display.sm{font-size:25px} .stats{grid-template-columns:1fr 1fr} }
+  @media (max-width:360px){ .display{font-size:29px} .display.sm{font-size:25px} .stats{grid-template-columns:1fr 1fr} .phead{display:none} .prow{grid-template-columns:1fr} .pproof{border-left:none; border-top:2px solid var(--gold); padding:8px 0 0} }
   @media (prefers-reduced-motion: reduce){
-    .shell,.glimmer,.flow,.gline,.sayline,.idline,.circleback{animation:none}
+    .shell,.glimmer,.flow,.gline,.sayline,.idline,.circleback,.history{animation:none}
     .orb .orb-core,.orb .orb-halo,.orb .orb-ring,.eart .fly,.eart .band{animation:none}
     .btn{transition:none}
   }
