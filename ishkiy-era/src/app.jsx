@@ -414,9 +414,9 @@ function App() {
   if (state.phase === "home") return <Home state={state} onResume={() => { const p = state.paused; update({ part: p.part, item: p.item, arc: p.arc, paused: null, phase: p.at === "run" ? "run" : "intro" }); }} onTheme={() => update({ dark: !state.dark })} go={(p) => update({ phase: p })} startAssessment={() => update({ phase: Object.keys(answers).length ? "chooseDepth" : "chooseDepth" })} />;
   if (state.phase === "companion") return <CompanionScreen state={state} scores={scores} onJoin={() => goJoin("companion")} onBack={() => update({ phase: "home" })} onRegenerate={() => update({ phase: "generating" })} onHuman={() => update({ phase: "humans" })} />;
   if (state.phase === "sos") return <SOSScreen onBack={() => update({ phase: "home" })} />;
-  if (state.phase === "constellation") return <ConstellationScreen state={state} update={update} onBack={() => update({ phase: "home" })} />;
+  if (state.phase === "constellation") return <ConstellationScreen state={state} update={update} onBack={() => update({ phase: "settings" })} />;
   if (state.phase === "humans") return <HumansScreen scores={scores} state={state} onJoin={() => goJoin("humans")} onBack={() => update({ phase: "home" })} onApply={() => update({ phase: "apply" })} />;
-  if (state.phase === "account") return <AccountScreen state={state} scores={scores} onMembership={memberUpdate} onBack={() => update({ phase: "home" })} />;
+  if (state.phase === "account") return <AccountScreen state={state} scores={scores} onMembership={memberUpdate} onBack={() => update({ phase: "settings" })} />;
   if (state.phase === "settings") return <SettingsScreen state={state} update={update} onJoin={() => goJoin("settings")} onBack={() => update({ phase: "home" })} />;
   if (state.phase === "apply") return <ApplyScreen onBack={() => update({ phase: "humans" })} />;
   if (state.phase === "strength") return <StrengthScreen state={state} onBack={() => update({ phase: "home" })} onAssessment={() => update({ phase: "chooseDepth" })} onLibrary={() => update({ phase: "library" })} />;
@@ -1319,7 +1319,7 @@ function useDenied() {
   const deny = () => { setAt(0); requestAnimationFrame(() => setAt(Date.now())); };
   return [at, deny];
 }
-function HomeTile({ title, sub, locked, lockNote, onClick, art, badge, acc, pulse, fresh, cls, kicker, extra }) {
+function HomeTile({ title, sub, locked, lockNote, onClick, art, badge, acc, pulse, fresh, cls, kicker, extra, keepSub }) {
   const [denied, deny] = useDenied();
   const opened = fresh && !locked;
   return (
@@ -1333,7 +1333,9 @@ function HomeTile({ title, sub, locked, lockNote, onClick, art, badge, acc, puls
       {kicker && <span className="htkick">{kicker}</span>}
       {art}
       <span className="httitle">{title}</span>
-      <span className="htsub" aria-live="polite">{locked ? <span className="locknote" key={denied}>{lockNote}</span> : sub}</span>
+      {keepSub
+        ? <><span className="htsub">{sub}</span>{locked && <span className="htsub snote" aria-live="polite"><span className="locknote" key={denied}>{lockNote}</span></span>}</>
+        : <span className="htsub" aria-live="polite">{locked ? <span className="locknote" key={denied}>{lockNote}</span> : sub}</span>}
       {extra}
     </button>
   );
@@ -1426,7 +1428,7 @@ function Home({ state, go, startAssessment, onTheme, onResume }) {
   const strength = profileStrength(state);
   const strengthStep = nextStep(strength);
   const fresh = useFreshlyOpened({ companion: hasReport, humans: hasReport, library: strength.allParts });
-  const gold = "#D4A547", faint = "rgba(15,30,61,0.18)";
+  const gold = "#D4A547";
   return (
     <Shell>
       <div className="home">
@@ -1441,87 +1443,135 @@ function Home({ state, go, startAssessment, onTheme, onResume }) {
           </button>
         )}
         {(() => {
-          /* Home leads with what can be done now. One lead card for the main next
-             step, then the other open tiles by how much they offer to do; tiles
-             that aren't open yet sit below, smaller; and the quieter corners of
-             the app (connections, account, settings) are a slim list at the end. */
-          const tiles = [
-            { id: "profile", rank: hasReport ? (compLeft === 0 ? 0 : 2) : 0, node: (cls) => <HomeTile key="profile" cls={cls + (!hasReport ? " firststep" : "")}
-              kicker={hasReport ? null : reportDue ? "Step 2 · Ready now" : midway ? "Step 1 · Carry on" : "Step 1 · Start here"}
-              extra={!hasReport ? <><Journey at={reportDue ? 1 : 0} /><span className="btn gold leadbtn" aria-hidden="true">{reportDue ? "Write my report" : midway ? "Carry on" : "Begin the assessment"}</span></> : null}
+          /* Home leads with what can be done now. Before the report, that is the
+             assessment, set out as step one. After it, the three things that
+             make use of the report (the Companion, a human, the Library) sit
+             together in their own panel, set apart from everything else. Your
+             profile comes next, and the quieter corners (how it works, settings)
+             are a slim list at the end. */
+          const member = hasAccess(state);
+          const memberNote = !member ? "With membership" : null;
+          const step = (
+            <HomeTile key="step" cls={"lead firststep"}
+              kicker={reportDue ? "Step 2 · Ready now" : midway ? "Step 1 · Carry on" : "Step 1 · Start here"}
+              extra={<><Journey at={reportDue ? 1 : 0} /><span className="btn gold leadbtn" aria-hidden="true">{reportDue ? "Write my report" : midway ? "Carry on" : "Begin the assessment"}</span></>}
               acc="#5C7CA3"
-              title={hasReport ? "Your profile" : reportDue ? "Write my report" : midway ? "Continue the assessment" : "Take the assessment"}
-              badge={hasReport ? (levelFor(strength) || {}).name : reportDue ? "Ready" : null}
+              title={reportDue ? "Write my report" : midway ? "Continue the assessment" : "Take the assessment"}
+              badge={reportDue ? "Ready" : null}
               pulse={reportDue}
-              sub={hasReport ? "Read your report. Save it, share it, retake parts." : reportDue ? "Your answers are in. Tap and it's written for you in about a minute. You can go deeper afterwards." : midway ? "Your answers kept your place. Everything else here opens from this." : "About ten minutes of questions, and your report is written for you. Everything else here opens from it."}
-              onClick={hasReport || reportDue ? () => { track(reportDue ? "report_recover" : "view_report"); go("report"); } : state.paused ? () => { track("resume"); onResume(); } : () => { track("assessment_start"); startAssessment(); }}
+              sub={reportDue ? "Your answers are in. Tap and it's written for you in about a minute. You can go deeper afterwards." : midway ? "Your answers kept your place. Everything else here opens from this." : "About ten minutes of questions, and your report is written for you. Everything else here opens from it."}
+              onClick={reportDue ? () => { track("report_recover"); go("report"); } : state.paused ? () => { track("resume"); onResume(); } : () => { track("assessment_start"); startAssessment(); }}
               art={<svg viewBox="0 0 60 40" className="hart"><circle cx="30" cy="20" r="12" fill="none" stroke={gold} strokeWidth="2"/><circle cx="30" cy="20" r="4" fill={gold}/></svg>}
-            /> },
-            { id: "companion", locked: !hasReport, rank: compLeft === 0 ? 3 : 0.5, node: (cls) => <HomeTile key="companion" cls={cls}
+            />
+          );
+          const used = compLeft == null ? 0 : Q_CAP - compLeft;
+          const companion = (
+            <HomeTile key="companion" cls="suite s-comp" keepSub
               acc="#D4A547"
+              kicker="AI · any hour"
               title="Your companion"
-              sub="Three voices that have read your report: one listens, one pushes, one takes the long view. Ten questions a day."
-              locked={!hasReport} lockNote="Opens after your report is written."
+              sub="Bring it whatever's on your mind. Three voices that have read your report: one listens, one pushes, one takes the long view."
+              locked={!hasReport} lockNote="Opens the moment your report is written."
               fresh={fresh.companion}
-              onClick={() => go("companion")}
-              badge={hasReport && compLeft != null ? `${compLeft} left today` : null}
-              art={<svg viewBox="0 0 60 40" className="hart"><circle cx="22" cy="20" r="9" fill="none" stroke={gold} strokeWidth="2"/><circle cx="38" cy="20" r="9" fill="none" stroke={faint} strokeWidth="2"/></svg>}
-            /> },
-            { id: "library", rank: strength.allParts ? 1 : 6, node: (cls) => <HomeTile key="library" cls={cls}
-              acc="#8A6FA0"
-              title="The Library of You"
-              sub={strength.allParts ? `Twelve lenses on relationships, drive, mind, money and purpose. ${strength.lenses} of ${strength.totalLenses} taken.` : "Twelve lenses on relationships, drive, mind, money and purpose. Browse now; they open at Full Portrait."}
-              badge={strength.allParts ? `${strength.lenses}/${strength.totalLenses} taken` : "Opens at Full Portrait"}
-              fresh={fresh.library}
-              onClick={() => { track("view_library"); go("library"); }}
-              art={<RotatingGlyphs />}
-            /> },
-            { id: "humans", locked: !hasReport, rank: 4, node: (cls) => <HomeTile key="humans" cls={cls}
+              onClick={() => { track("view_companion"); go("companion"); }}
+              badge={hasReport ? memberNote : null}
+              art={<span className="sart s-comp-art" aria-hidden="true"><Avatar kind="sounding" size={40} /><Avatar kind="coach" size={40} /><Avatar kind="mentor" size={40} /></span>}
+              extra={<>
+                <span className="svoices" aria-hidden="true">
+                  <span className="svoice"><b>Sounding</b>listens</span>
+                  <span className="svoice"><b>Coach</b>pushes</span>
+                  <span className="svoice"><b>Mentor</b>looks ahead</span>
+                </span>
+                {hasReport && compLeft != null && (
+                  <span className="qmeter" aria-label={`${compLeft} of ${Q_CAP} questions left today`}>
+                    <span className="spips" aria-hidden="true">{Array.from({ length: Q_CAP }, (_, k) => <i key={k} className={k < used ? "used" : ""} />)}</span>
+                    <span className="smetert">{compLeft === 0 ? "That's today's ten. Back tomorrow." : `${compLeft} of ${Q_CAP} questions left today`}</span>
+                  </span>
+                )}
+                {hasReport && <span className="scta" aria-hidden="true">{compLeft === 0 ? "Read back today's talk" : "Start talking"} <span className="sarrow">→</span></span>}
+              </>}
+            />
+          );
+          const humans = (
+            <HomeTile key="humans" cls="suite s-human" keepSub
               acc="#C06B5C"
+              kicker="Real people"
               title="A human, when ready"
-              sub="Real people to talk to, later. You choose what they see of you."
+              sub="Counsellors, coaches and mentors chosen to fit how you work. You decide what they see of you."
               locked={!hasReport} lockNote="Opens after your report is written."
               fresh={fresh.humans}
               onClick={() => { track("view_humans"); go("humans"); }}
-              art={<RotatingFaces />}
-            /> },
-            { id: "strength", rank: hasReport ? 5 : 1, node: (cls) => <HomeTile key="strength" cls={cls}
+              badge={hasReport ? memberNote : null}
+              art={<span className="sart" aria-hidden="true"><RotatingFaces /></span>}
+              extra={<>
+                <span className="sroles" aria-hidden="true"><span>Counselling</span><span>Coaching</span><span>Mentoring</span></span>
+                {hasReport && <span className="scta" aria-hidden="true">Meet them <span className="sarrow">→</span></span>}
+              </>}
+            />
+          );
+          const libOpen = strength.allParts;
+          const library = (
+            <HomeTile key="library" cls="suite s-lib" keepSub
+              acc="#8A6FA0"
+              kicker="Twelve lenses"
+              title="The Library of You"
+              sub={libOpen ? "Short, deep reads on how you love, fight, cope, spend and what you're for." : "Short, deep reads on how you love, fight, cope, spend and what you're for. Browse now; they open at Full Portrait."}
+              fresh={fresh.library}
+              onClick={() => { track("view_library"); go("library"); }}
+              art={<span className="sart" aria-hidden="true"><RotatingGlyphs /></span>}
+              extra={<>
+                <span className="slenses" aria-hidden="true">
+                  {LENS_IDS.map((id) => {
+                    const subj = MINIS[id].subject;
+                    const got = !!(state.miniResults || {})[id];
+                    return <svg key={id} viewBox="0 0 24 24" className={"slens" + (got ? " got" : "")} stroke={SUBJ_ACC[subj]}><SubjectGlyph id={subj} /></svg>;
+                  })}
+                </span>
+                <span className="smetert">{libOpen ? `${strength.lenses} of ${strength.totalLenses} taken` : strengthStep ? `${strengthStep.what} to open them` : "Opens at Full Portrait"}</span>
+                <span className="scta" aria-hidden="true">{libOpen ? (strength.lenses ? "Take another lens" : "Take your first lens") : "Have a look"} <span className="sarrow">→</span></span>
+              </>}
+            />
+          );
+          const profile = hasReport && (
+            <HomeTile key="profile" cls="compact"
+              acc="#5C7CA3"
+              title="Your report"
+              badge={(levelFor(strength) || {}).name}
+              sub="Read it again, save it, share it, or retake a part."
+              onClick={() => { track("view_report"); go("report"); }}
+              art={<svg viewBox="0 0 60 40" className="hart"><rect x="21" y="7" width="18" height="26" rx="2.5" fill="none" stroke={gold} strokeWidth="2"/><line x1="25" y1="14" x2="35" y2="14" stroke={gold} strokeWidth="1.6"/><line x1="25" y1="19" x2="33" y2="19" stroke="currentColor" strokeWidth="1.6" opacity=".45"/><line x1="25" y1="24" x2="34" y2="24" stroke="currentColor" strokeWidth="1.6" opacity=".45"/></svg>}
+            />
+          );
+          const portrait = (
+            <HomeTile key="strength" cls="compact"
               acc="#D4A547"
               title="Your portrait so far"
               badge={`${strength.score} / 100`}
               sub={strengthStep ? `${strengthStep.what} to reach ${strengthStep.level.name}.` : "You've answered everything iSHKiY can ask."}
               onClick={() => { track("view_strength"); go("strength"); }}
               art={<svg viewBox="0 0 60 40" className="hart"><circle cx="30" cy="20" r="13" fill="none" stroke="currentColor" strokeWidth="3" opacity=".22"/><circle cx="30" cy="20" r="13" fill="none" stroke={gold} strokeWidth="3" strokeLinecap="round" strokeDasharray={`${(strength.score / 100) * 81.7} 81.7`} transform="rotate(-90 30 20)"/></svg>}
-            /> },
-          ];
-          const open = tiles.filter((t) => !t.locked).sort((x, y) => x.rank - y.rank);
-          const soon = tiles.filter((t) => t.locked);
-          const linked = (() => { const c = state.constellation || {}; return Object.values(c).filter((x) => x && x.linked).length; })();
+            />
+          );
           return (<>
-            <div className="hgrid">{open.slice(0, 1).map((t) => t.node("lead"))}</div>
-            {!hasReport && <p className="hgroupk hthen">Also open now</p>}
-            <div className="hgrid">{open.slice(1).map((t) => t.node(!hasReport ? "compact" : ""))}</div>
-            {soon.length > 0 && (
-              <section className="hsoon">
-                <p className="hgroupk">Opens soon</p>
-                <div className="hgrid soon">{soon.map((t) => t.node("compact"))}</div>
-              </section>
-            )}
+            {!hasReport && <div className="hgrid">{step}</div>}
+            <section className={"suitewrap" + (hasReport ? " live" : " ahead")} aria-labelledby="suiteh">
+              <p className="hgroupk suitek">{hasReport ? "Your support" : "What your report opens"}</p>
+              <h2 className="suiteh" id="suiteh">{hasReport ? "Three ways to use what your report found." : "Three ways to put it to work."}</h2>
+              <div className="suitegrid">{companion}{humans}{library}</div>
+            </section>
+            <section className="hprofile">
+              <p className="hgroupk">{hasReport ? "Your profile" : "Also open now"}</p>
+              <div className="hgrid">{profile}{portrait}</div>
+            </section>
             <section className="quiet">
               <p className="hgroupk">Also here</p>
               <div className="qlist">
                 {!hasReport && <QuietRow title="SOS" sub="If things feel like too much right now, people to talk to. Free, and open now." onClick={() => go("sos")} cls="qsos"
                   art={<svg viewBox="0 0 24 24" className="qart" stroke="#C0504D"><SubjectGlyph id="sos" /></svg>} />}
-                <QuietRow title="The Constellation" sub="Your other iSHKiY apps, connected here. Only if you choose." badge={!state.constellationInvite ? "Invite only" : linked ? `${linked} connected` : null}
-                  onClick={() => go("constellation")}
-                  art={<svg viewBox="0 0 60 40" className="qart"><circle cx="30" cy="20" r="4" fill={gold}/><circle cx="13" cy="12" r="2.5" fill="none" stroke={gold} strokeWidth="1.6"/><circle cx="47" cy="10" r="2.5" fill="none" stroke="currentColor" strokeWidth="1.6" opacity=".4"/><circle cx="46" cy="31" r="2.5" fill="none" stroke={gold} strokeWidth="1.6"/><circle cx="12" cy="30" r="2.5" fill="none" stroke="currentColor" strokeWidth="1.6" opacity=".4"/><line x1="26.5" y1="18" x2="15.3" y2="13" stroke={gold} strokeWidth="1.2" opacity=".6"/><line x1="33.5" y1="22" x2="43.8" y2="30" stroke={gold} strokeWidth="1.2" opacity=".6"/></svg>} />
-                <QuietRow title="Your account" sub="Back up your profile online. Optional. Delete it any time."
-                  onClick={() => go("account")}
-                  art={<svg viewBox="0 0 60 40" className="qart"><circle cx="30" cy="13" r="6.5" fill="none" stroke={gold} strokeWidth="2"/><path d="M17 34 Q30 24 43 34" fill="none" stroke="currentColor" strokeWidth="2" opacity=".4"/></svg>} />
                 <QuietRow title="How iSHKiY works" sub="The short tour, any time you want it again."
                   onClick={() => { track("view_explainer"); go("explainerAgain"); }}
                   art={<svg viewBox="0 0 60 40" className="qart"><circle cx="30" cy="20" r="12" fill="none" stroke={gold} strokeWidth="2"/><path d="M30 17 V26" stroke="currentColor" strokeWidth="2" strokeLinecap="round" opacity=".55"/><circle cx="30" cy="13" r="1.6" fill={gold}/></svg>} />
-                <QuietRow title="Settings & your data" sub="Appearance, export, resets."
+                <QuietRow title="Settings" sub="Membership, your account, the Constellation, appearance and your data."
                   onClick={() => go("settings")}
                   art={<svg viewBox="0 0 60 40" className="qart"><circle cx="30" cy="20" r="5" fill="none" stroke={gold} strokeWidth="2"/><path d="M30 8 V11 M30 29 V32 M18 20 H21 M39 20 H42 M21.5 11.5 L23.6 13.6 M36.4 26.4 L38.5 28.5 M21.5 28.5 L23.6 26.4 M36.4 13.6 L38.5 11.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" opacity=".5"/></svg>} />
               </div>
@@ -2170,7 +2220,7 @@ function ConstellationScreen({ state, update, onBack }) {
   if (!state.constellationInvite) return (
     <div className="reportpage">
       <div className="rhead noprint">
-        <button className="ghost inkghost" onClick={onBack}>← Home</button>
+        <button className="ghost inkghost" onClick={onBack}>← Settings</button>
         <Wordmark />
         <span />
       </div>
@@ -2188,7 +2238,7 @@ function ConstellationScreen({ state, update, onBack }) {
   return (
     <div className="reportpage">
       <div className="rhead noprint">
-        <button className="ghost inkghost" onClick={onBack}>← Home</button>
+        <button className="ghost inkghost" onClick={onBack}>← Settings</button>
         <Wordmark />
         <span />
       </div>
@@ -2330,6 +2380,7 @@ function SettingsScreen({ state, update, onBack, onJoin }) {
   };
   const resetAssessment = () => { if (confirm("Reset your main assessment? Your answers, report and badges are cleared from this device. Your Library lenses stay. This can't be undone.")) { const n = { ...state, answers: {}, completedAt: {}, report: null, arc: null, part: 0, item: 0 }; save(n); location.reload(); } };
   const resetMini = (id) => { if (confirm("Reset this lens?")) { const mr = { ...(state.miniResults || {}) }; delete mr[id]; const ma = { ...(state.miniAnswers || {}) }; delete ma[id]; update({ miniResults: mr, miniAnswers: ma }); } };
+  const linked = Object.values(state.constellation || {}).filter((x) => x && x.linked).length;
   const resetAll = () => { if (confirm("Clear everything on this device: assessment, report, lenses and conversations? This can't be undone.")) { localStorage.clear(); location.reload(); } };
   return (
     <div className="reportpage tint-sage">
@@ -2339,6 +2390,12 @@ function SettingsScreen({ state, update, onBack, onJoin }) {
         <h1 className="display ink"><Words text="Your space, your say." delay={150} /></h1>
 
         <MembershipGroup state={state} update={update} onJoin={onJoin} />
+
+        <div className="setgroup">
+          <p className="setlabel">Account and connections</p>
+          <button className="setbtn setnav" onClick={() => update({ phase: "account" })}><span><b>Your account</b><span className="setsub">Back up your profile online. Optional, and deletable any time.</span></span><span aria-hidden="true">→</span></button>
+          <button className="setbtn setnav" onClick={() => update({ phase: "constellation" })}><span><b>The Constellation</b><span className="setsub">{!state.constellationInvite ? "Your other iSHKiY apps, connected here. Invite only for now." : `Your other iSHKiY apps, connected here.${linked ? ` ${linked} connected.` : ""}`}</span></span><span aria-hidden="true">→</span></button>
+        </div>
 
         <div className="setgroup">
           <p className="setlabel">Your assessment</p>
@@ -2413,7 +2470,7 @@ function AccountScreen({ state, scores, onBack, onMembership }) {
   };
   return (
     <div className="reportpage">
-      <div className="rhead noprint"><button className="ghost inkghost" onClick={onBack}>← Home</button><Wordmark /><span /></div>
+      <div className="rhead noprint"><button className="ghost inkghost" onClick={onBack}>← Settings</button><Wordmark /><span /></div>
       <article className="report" style={{ maxWidth: 520 }}>
         <SectionHead kicker="Your account" title="A copy you can burn." line="ERA lives on your device, and that stays true. An account adds one thing: a cloud copy of your profile, so a lost phone doesn't mean a lost you. Optional, deletable and yours." />
         {!sb && <p className="cbridge">Accounts are coming online shortly. Everything else in ERA works fully without one.</p>}

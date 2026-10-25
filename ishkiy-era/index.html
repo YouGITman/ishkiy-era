@@ -1310,6 +1310,71 @@
   .codebox .btn{margin-top:14px}
   .shell.dark .tnote{color:var(--bone70)} .shell.dark .tnote strong{color:#F5F1E8}
 
+  /* --- your support: the three that use the report, in a panel of their own --- */
+  .suitewrap{position:relative; margin:34px -6px 0; padding:24px 16px 18px; border-radius:32px;
+    background:
+      radial-gradient(90% 60% at 50% 0%, rgba(212,165,71,.16), transparent 70%),
+      radial-gradient(70% 50% at 0% 100%, rgba(138,111,160,.12), transparent 70%),
+      radial-gradient(70% 50% at 100% 100%, rgba(192,107,92,.10), transparent 70%),
+      color-mix(in srgb, var(--card) 55%, transparent);
+    box-shadow:0 0 0 1px rgba(212,165,71,.30), 0 30px 70px -40px rgba(15,30,61,.45)}
+  body.dm .suitewrap{box-shadow:0 0 0 1px rgba(212,165,71,.28), 0 30px 70px -40px rgba(0,0,0,.9)}
+  .suitewrap::before{content:""; position:absolute; left:14%; right:14%; top:0; height:1.5px; background:linear-gradient(90deg, transparent, #F2D58E, transparent); opacity:.9}
+  @media (min-width:560px){ .suitewrap{margin-inline:-14px; padding:28px 22px 22px} }
+  .suitek{margin-bottom:6px; color:#8a6d1f}
+  body.dm .suitek{color:var(--gold)}
+  .suitek::after{background:linear-gradient(90deg, rgba(212,165,71,.5), transparent)}
+  .suiteh{font-family:var(--serif); font-weight:500; font-size:clamp(22px, 5.4vw, 27px); line-height:1.2; letter-spacing:-.015em; color:var(--ink); margin:0 0 18px; max-width:440px}
+  .suitegrid{display:grid; grid-template-columns:1fr; gap:14px}
+  @media (min-width:560px){ .suitegrid{grid-template-columns:1fr 1fr} .suitegrid > .s-comp{grid-column:1 / -1} }
+  .htile.suite{padding:22px 20px 20px; gap:10px; width:100%}
+  .htile.suite .httitle{font-size:clamp(22px, 5.6vw, 25px); letter-spacing:-.015em}
+  .htile.suite .htsub{font-size:15.5px; line-height:1.5}
+  .htile.suite.s-comp{padding:26px 22px 22px}
+  .htile.suite.s-comp .httitle{font-size:clamp(26px, 6.6vw, 32px)}
+  .htile.suite.s-comp .htsub{max-width:520px}
+  .htile.suite.locked{opacity:.82; filter:saturate(.75)}
+  .htile.suite .snote{margin-top:-2px}
+  .htile.suite .htkick{padding-right:104px; font-size:11.5px; letter-spacing:.18em; color:color-mix(in srgb, var(--acc) 70%, var(--ink))}
+  .htile.suite .htkick::before{background:var(--acc); box-shadow:0 0 0 4px color-mix(in srgb, var(--acc) 22%, transparent)}
+  body.dm .htile.suite .htkick{color:color-mix(in srgb, var(--acc) 60%, #fff)}
+  .htile.suite.locked .htkick::before{animation:none}
+  .sart{display:flex; align-items:center; min-height:44px}
+  .sart .hart{width:60px}
+  .s-comp-art .avatar{margin-right:-8px; animation:avfloat 7s ease-in-out infinite; filter:drop-shadow(0 6px 12px rgba(212,165,71,.25))}
+  .s-comp-art .avatar:nth-child(2){animation-delay:-2.3s}
+  .s-comp-art .avatar:nth-child(3){animation-delay:-4.6s}
+  @keyframes avfloat{0%,100%{transform:translateY(0)} 50%{transform:translateY(-4px)}}
+  .svoices{display:grid; grid-template-columns:repeat(3, 1fr); gap:8px; width:100%; margin-top:2px}
+  .svoice{display:flex; flex-direction:column; gap:1px; padding:10px 12px; border-radius:14px; font-size:13px; font-weight:500; color:var(--ink60);
+    background:rgba(212,165,71,.08); box-shadow:inset 0 0 0 1px rgba(212,165,71,.24)}
+  .svoice b{font-size:14.5px; font-weight:650; color:var(--ink)}
+  .qmeter{display:flex; flex-direction:column; gap:7px; width:100%; margin-top:4px}
+  .spips{display:flex; gap:5px}
+  .spips i{flex:1; height:6px; border-radius:99px; background:linear-gradient(90deg, #E8C26B, #D4A547); box-shadow:0 0 8px rgba(212,165,71,.45)}
+  .spips i.used{background:var(--ink12); box-shadow:none}
+  .smetert{font-size:13.5px; font-weight:600; color:var(--ink60); font-variant-numeric:tabular-nums}
+  .sroles{display:flex; flex-wrap:wrap; gap:6px}
+  .sroles span{font-size:13px; font-weight:600; padding:5px 11px; border-radius:999px; color:color-mix(in srgb, var(--acc) 75%, var(--ink));
+    background:color-mix(in srgb, var(--acc) 10%, transparent); box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--acc) 32%, transparent)}
+  body.dm .sroles span{color:color-mix(in srgb, var(--acc) 55%, #fff)}
+  .slenses{display:grid; grid-template-columns:repeat(6, 1fr); gap:6px; width:100%; max-width:300px}
+  .slens{width:100%; aspect-ratio:1; padding:6px; border-radius:11px; opacity:.38; filter:grayscale(.7);
+    background:var(--ink06); transition:opacity .8s, filter .8s, transform .8s var(--ease-spring)}
+  .slens.got{opacity:1; filter:none; background:rgba(212,165,71,.14); box-shadow:inset 0 0 0 1px rgba(212,165,71,.4), 0 0 12px rgba(212,165,71,.25)}
+  @media (hover:hover){ .htile.s-lib:hover .slens:not(.got){opacity:.6; filter:grayscale(.3)} }
+  .scta{margin-top:auto; padding-top:6px; display:inline-flex; align-items:center; gap:8px; font-size:15px; font-weight:650; color:color-mix(in srgb, var(--acc) 72%, var(--ink))}
+  body.dm .scta{color:color-mix(in srgb, var(--acc) 60%, #fff)}
+  .sarrow{display:inline-grid; place-items:center; width:30px; height:30px; border-radius:50%; background:color-mix(in srgb, var(--acc) 16%, transparent); box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--acc) 40%, transparent); transition:transform .9s var(--ease-spring)}
+  @media (hover:hover){ .htile.suite:hover .sarrow{transform:translateX(5px)} }
+  .s-comp .scta{color:#8a6d1f}
+  body.dm .s-comp .scta{color:var(--gold)}
+  .hprofile{margin-top:34px}
+  .setnav{display:flex; justify-content:space-between; align-items:center; gap:14px}
+  .setnav b{display:block; font-weight:650}
+  .setsub{display:block; font-size:13.5px; color:var(--ink60); font-weight:500; margin-top:2px}
+  @media (prefers-reduced-motion: reduce){ .s-comp-art .avatar{animation:none} }
+
   /* --- quieter when asked for --- */
   @media (prefers-reduced-motion: reduce){
     *, *::before, *::after{animation-duration:.01ms !important; animation-iteration-count:1 !important; animation-delay:0ms !important; transition-duration:.01ms !important}
