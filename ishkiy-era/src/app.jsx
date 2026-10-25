@@ -5,6 +5,7 @@ import { PARTS, L5, E5, RIASEC_PHRASES } from "./items.js";
 import { MINIS, scoreMini, readMini } from "./mini.js";
 import { createClient } from "@supabase/supabase-js";
 import { Sky, Words, Burst, LockIcon, useCountUp, transition, installFx, TEMPO } from "./fx.jsx";
+import { canSpeak, canListen, speak, stopSpeaking, useSpeaking, useDictation } from "./voice.js";
 
 /* ---------------- backend (Supabase, connect-only v1) ----------------
    Paste your project URL and anon public key below (Settings -> API).
@@ -1731,6 +1732,45 @@ function Pulse({ mode, pulse, busy, onRefresh, canRefresh }) {
 
 /* Members have the Companion for as long as they're members. Founding-code
    holders keep the week they were promised. Anyone else sees the way back in. */
+/* The message box, with a mic beside it where the browser can listen. Spoken
+   words land in the box as they're heard; nothing goes until Ask is pressed. */
+const AUTO_KEY = "era-voice-auto";
+const msgKey = (m) => (m.m || "companion") + ":" + String(m.content || "").slice(0, 48);
+function AskBox({ value, setValue, placeholder, onAsk, disabled, label, btnClass, spokenRef }) {
+  const dict = useDictation(setValue);
+  const send = () => { dict.stop(); onAsk(); };
+  return (
+    <>
+      <div className={"askrow" + (canListen ? " withmic" : "")}>
+        <textarea className="tarea askta" rows={3} value={value} placeholder={dict.on ? "Listening…" : placeholder} onChange={(e) => { setValue(e.target.value); if (!e.target.value) spokenRef.current = false; }} onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }} />
+        {canListen && (
+          <button type="button" className={"micbtn" + (dict.on ? " on" : "")} aria-pressed={dict.on} aria-label={dict.on ? "Stop listening" : "Speak your question"}
+            onClick={() => { if (dict.on) dict.stop(); else { spokenRef.current = true; track("voice_dictate"); dict.start(value); } }}>
+            <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round"><rect x="9" y="3" width="6" height="11" rx="3" /><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21" /></svg>
+            {dict.on && <span className="micwaves" aria-hidden="true"><i /><i /><i /></span>}
+          </button>
+        )}
+        <button className={"btn " + btnClass} disabled={disabled || !value.trim()} onClick={send}>{label}</button>
+      </div>
+      {dict.on && <p className="micnote" role="status">Listening. Tap the mic when you're done, read it back, then press {label.replace(/…$/, "")}. Your browser turns speech into words (Chrome and Edge use Google or Microsoft for that). iSHKiY only receives the words.</p>}
+      {dict.error && <p className="micnote err" role="status">{dict.error}</p>}
+    </>
+  );
+}
+function SpeakBtn({ m, speaking }) {
+  if (!canSpeak || m.err) return null;
+  const key = msgKey(m);
+  const on = speaking === key;
+  return (
+    <button type="button" className={"mspeak" + (on ? " on" : "")} aria-pressed={on} onClick={() => { if (on) stopSpeaking(); else { track("voice_listen", m.m); speak(m.content, m.m, key); } }}>
+      <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+        {on ? <rect x="7" y="7" width="10" height="10" rx="1.5" /> : <><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z" /><path d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11" /></>}
+      </svg>
+      {on ? "Stop" : "Listen"}
+    </button>
+  );
+}
+
 function Companion({ scores, answers, reportText, start, onHuman, member, founder, lapsed, onJoin }) {
   const begun = start || Date.now();
   const ended = member ? false : founder ? Date.now() - begun > COMPANION_DAYS * DAY : true;
@@ -1744,6 +1784,10 @@ function Companion({ scores, answers, reportText, start, onHuman, member, founde
   const [routing, setRouting] = useState(false);
   const [choice, setChoice] = useState(null);
   const [dismissHuman, setDismissHuman] = useState(false);
+  const spokenRef = useRef(false);
+  const speaking = useSpeaking();
+  const [autoRead, setAutoRead] = useState(() => { try { return localStorage.getItem(AUTO_KEY) !== "0"; } catch { return true; } });
+  const toggleAuto = () => setAutoRead((v) => { try { localStorage.setItem(AUTO_KEY, v ? "0" : "1"); } catch {} return !v; });
   const endRef = useRef(null);
   const stream = c.streams[mode] || [];
   useEffect(() => { endRef.current?.scrollIntoView({ block: "nearest" }); }, [stream.length, busy]);
@@ -1811,6 +1855,8 @@ const pick = (m) => { setMode(m); commit((prev) => ({ ...prev, mode: m })); };
     const tm = opts.to && MODES[opts.to] ? opts.to : mode;
     if (!q || busy || left === 0) return;
     if (opts.q == null) setInput("");
+    // A question asked out loud gets its answer read out loud, unless they've turned that off.
+    const spoken = spokenRef.current; spokenRef.current = false;
     setBusy(true);
     const opening = (base) => {
       const b = [...base];
@@ -1841,6 +1887,7 @@ const pick = (m) => { setMode(m); commit((prev) => ({ ...prev, mode: m })); };
       };
       commit((prev) => ({ ...prev, day: today(), count: prev.count + 1, mode: tm, streams: { ...prev.streams, [tm]: closing(prev.streams[tm] || []) } }));
       const after = closing(st);
+      if (spoken && autoRead && canSpeak) speak(text, tm, msgKey({ m: tm, content: text }));
       if (after.length % 6 === 0) refreshPulse({ ...before.streams, [tm]: after }, tm);
     } else {
       commit((prev) => ({ ...prev, streams: { ...prev.streams, [tm]: [...(prev.streams[tm] || []), { role: "assistant", m: tm, err: true, content: "The line dropped before that reached me. It was the connection, and it didn't use one of your ten. Give it a moment and ask again." }].slice(-40) } }));
@@ -1931,10 +1978,7 @@ why is at most eight plain words, addressed to them, saying what you heard them 
       </div>
       <p className="cexplain">You don't have to know whether you need listening, pushing, or the long view. Ask, and we'll send it to whichever of the three suits, on a fresh page if it's a new subject. Choosing is free; only the answer uses one of your {Q_CAP}.</p>
       {left > 0 ? (
-        <div className="askrow">
-          <textarea className="tarea askta" rows={3} value={input} placeholder="What's on your mind?" onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); askAuto(); } }} />
-          <button className="btn gold" disabled={busy || !input.trim()} onClick={askAuto}>{routing ? "Choosing…" : "Ask iSHKiY"}</button>
-        </div>
+        <AskBox value={input} setValue={setInput} placeholder="What's on your mind?" onAsk={askAuto} disabled={busy} label={routing ? "Choosing…" : "Ask iSHKiY"} btnClass="gold" spokenRef={spokenRef} />
       ) : (
         <p className="tnote">That's your {Q_CAP} for today. A night's thinking between conversations does more than an eleventh question would. It resets tomorrow.</p>
       )}
@@ -1946,7 +1990,7 @@ why is at most eight plain words, addressed to them, saying what you heard them 
     <section className="companion noprint">
       <p className="kicker gold">Your Companion</p>
       <h2 className="ctitle">Three voices. One memory between them.</h2>
-      <p className="cexplain">Each voice keeps its own conversation, but all three remember everything you've said to any of them. They share {Q_CAP} questions a day between them, and {left} are left today. Day {dayNum} of your 7. No one can read these conversations, iSHKiY included.</p>
+      <p className="cexplain">Each voice keeps its own conversation, but all three remember everything you've said to any of them. They share {Q_CAP} questions a day between them, and {left} are left today.{!member && founder ? ` Day ${Math.min(COMPANION_DAYS, Math.floor((Date.now() - begun) / DAY) + 1)} of your ${COMPANION_DAYS}.` : ""} No one can read these conversations, iSHKiY included.</p>
       <div className="voicehub">
         <button className="vcard vcauto" style={{ "--acc": "#D4A547" }} onClick={() => enterRoom("auto")}>
           <Avatar kind="auto" size={40} />
@@ -1997,16 +2041,17 @@ why is at most eight plain words, addressed to them, saying what you heard them 
           {m.role === "assistant" && m.err && <span className="mlabel dimmed">connection</span>}
           {m.role === "user" && m.subj && <span className="mlabel usubj">{m.subj}</span>}
           <div className={"bubble" + (m.err ? " errb" : "")} dangerouslySetInnerHTML={{ __html: md(m.content) }} />
+          {m.role === "assistant" && <SpeakBtn m={m} speaking={speaking} />}
         </div>))}
         {busy && <div className="msg assistant"><div className="bubble thinking">Reading you back<span className="typing" aria-hidden="true"><i /><i /><i /></span></div></div>}
         <div ref={endRef} />
       </div>
       {left > 0 ? (
         <>
-        <div className="askrow">
-          <textarea className="tarea askta" rows={3} value={input} placeholder={"Ask " + M.label + " anything…"} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); ask(); } }} />
-          <button className="btn ink" disabled={busy || !input.trim()} onClick={() => ask()}>Ask</button>
-        </div>
+        <AskBox value={input} setValue={setInput} placeholder={"Ask " + M.label + " anything…"} onAsk={() => ask()} disabled={busy} label="Ask" btnClass="ink" spokenRef={spokenRef} />
+        {canListen && canSpeak && (
+          <label className="autoread"><input type="checkbox" checked={autoRead} onChange={toggleAuto} /> Read the answer aloud when I ask by voice</label>
+        )}
         {stream.length > 0 && <button className="showold" onClick={newTopic}>New topic: fresh page, same voice</button>}
         </>
       ) : (

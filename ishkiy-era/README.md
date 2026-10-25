@@ -75,6 +75,7 @@ The `PREVIEW` code is not in `CODE_HASHES` and needs no removing before launch â
 | `src/mini.js` | Mini-assessments and their scoring |
 | `VOICE.md` | How iSHKiY talks: the Sharp and Quiet registers, and what to avoid. The AI follows the same rules (`VOICE` in `src/app.jsx`) |
 | `src/fx.jsx` | Motion and light: the starfield, word reveals, screen transitions, scroll reveals, sparks, count-ups. Decoration only; reduced-motion users get a still version |
+| `src/voice.js` | Two-way voice for the Companion using the browser's own speech: tap the mic to dictate, Listen to hear a reply, and answers to spoken questions are read aloud. Free, no keys. Recognition runs through the browser maker (Google, Microsoft or Apple); iSHKiY only receives the words. Firefox has no recognition, so the mic hides there |
 | `netlify/functions/claude.js` | The shared iSHKiY AI proxy (key server-side; the model is pinned here) |
 | `netlify/functions/checkout.js`, `membership.js`, `portal.js`, `restore.js` | Stripe membership: start checkout, confirm and re-check membership, open the customer portal, restore on a new device |
 | `netlify/lib/membership.js` | Shared Stripe client and the signed membership token |

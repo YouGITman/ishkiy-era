@@ -1375,6 +1375,32 @@
   .setsub{display:block; font-size:13.5px; color:var(--ink60); font-weight:500; margin-top:2px}
   @media (prefers-reduced-motion: reduce){ .s-comp-art .avatar{animation:none} }
 
+  /* --- voice: the mic beside the box, and Listen under each reply --- */
+  .askrow.withmic{flex-wrap:wrap; align-items:center; gap:10px}
+  .askrow.withmic .askta{flex:1 1 100%}
+  .askrow.withmic .btn{flex:1}
+  @media (min-width:560px){ .askrow.withmic{flex-wrap:nowrap; align-items:flex-end} .askrow.withmic .askta{flex:1 1 auto} .askrow.withmic .btn{flex:none} }
+  .micbtn{flex:none; position:relative; width:52px; height:52px; border-radius:50%; display:grid; place-items:center; cursor:pointer;
+    color:var(--ink); background:var(--card); border:none; box-shadow:0 0 0 1.5px var(--ink12); transition:box-shadow .8s var(--ease-out), color .6s, background .6s}
+  @media (hover:hover){ .micbtn:hover{box-shadow:0 0 0 1.5px rgba(212,165,71,.7)} }
+  .micbtn.on{color:#0F1E3D; background:linear-gradient(140deg, var(--gold-hi), #D4A547 55%, #B98A33); box-shadow:0 0 0 5px rgba(212,165,71,.22), 0 0 26px rgba(212,165,71,.55); animation:micbreath 3.2s ease-in-out infinite}
+  @keyframes micbreath{0%,100%{box-shadow:0 0 0 4px rgba(212,165,71,.2), 0 0 20px rgba(212,165,71,.45)} 50%{box-shadow:0 0 0 10px rgba(212,165,71,.08), 0 0 32px rgba(212,165,71,.6)}}
+  .micwaves{position:absolute; bottom:-14px; display:flex; gap:3px}
+  .micwaves i{width:3px; height:8px; border-radius:2px; background:#D4A547; animation:micwave 1.4s ease-in-out infinite}
+  .micwaves i:nth-child(2){animation-delay:.2s} .micwaves i:nth-child(3){animation-delay:.4s}
+  @keyframes micwave{0%,100%{transform:scaleY(.4)} 50%{transform:scaleY(1.3)}}
+  .micnote{font-size:13.5px; line-height:1.5; color:var(--ink60); margin:12px 2px 0; font-weight:500}
+  .micnote.err{color:#a84a3a}
+  body.dm .micnote.err{color:#e09484}
+  .mspeak{display:inline-flex; align-items:center; gap:6px; margin:8px 0 0 4px; padding:6px 12px 6px 10px; border-radius:999px; border:none; cursor:pointer;
+    font-size:13px; font-weight:650; color:color-mix(in srgb, var(--acc, #D4A547) 70%, var(--ink)); background:color-mix(in srgb, var(--acc, #D4A547) 10%, transparent);
+    box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--acc, #D4A547) 30%, transparent); transition:background .6s, box-shadow .6s}
+  body.dm .mspeak{color:color-mix(in srgb, var(--acc, #D4A547) 55%, #fff)}
+  .mspeak.on{background:color-mix(in srgb, var(--acc, #D4A547) 22%, transparent); box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--acc, #D4A547) 60%, transparent)}
+  .autoread{display:flex; align-items:center; gap:9px; margin:12px 2px 0; font-size:14px; font-weight:500; color:var(--ink60); cursor:pointer}
+  .autoread input{width:18px; height:18px; accent-color:#D4A547}
+  @media (prefers-reduced-motion: reduce){ .micbtn.on, .micwaves i{animation:none} }
+
   /* --- quieter when asked for --- */
   @media (prefers-reduced-motion: reduce){
     *, *::before, *::after{animation-duration:.01ms !important; animation-iteration-count:1 !important; animation-delay:0ms !important; transition-duration:.01ms !important}
