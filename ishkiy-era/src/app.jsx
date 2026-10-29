@@ -435,7 +435,7 @@ function App() {
   const toSOS = () => { track("sos_open"); update({ phase: state.report ? "companion" : "sos", jump: "sos" }); };
 
   if (state.phase === "breath") return <Breath onEnter={() => update({ phase: state.seenExplainer ? "home" : "explainer" })} />;
-  if (state.phase === "survey") return <Survey state={state} onBack={() => update({ phase: "home" })} onDone={(rewarded) => apply({ surveyDone: Date.now(), surveyRewarded: !!rewarded })} />;
+  if (state.phase === "survey") return <Survey state={state} onBack={() => update({ phase: "home" })} onDone={(rewarded) => apply({ surveyDone: Date.now(), surveyRewarded: !!rewarded })} onRewarded={() => apply({ surveyRewarded: true })} />;
   if (state.phase === "home") return <Home state={state} onAnalytics={(v) => { apply({ analytics: v }); if (v === "yes") track("analytics_yes"); }} onResume={() => { const p = state.paused; update({ part: p.part, item: p.item, arc: p.arc, paused: null, phase: p.at === "run" ? "run" : "intro" }); }} onTheme={() => update({ dark: !state.dark })} go={(p) => update({ phase: p })} startAssessment={() => update({ phase: Object.keys(answers).length ? "chooseDepth" : "chooseDepth" })} />;
   if (state.phase === "companion") return <CompanionScreen state={state} scores={scores} onJoin={() => goJoin("companion")} onBack={() => update({ phase: "home" })} onRegenerate={() => update({ phase: "generating" })} onHuman={() => update({ phase: "humans" })} />;
   if (state.phase === "sos") return <SOSScreen onBack={() => update({ phase: "home" })} />;
@@ -2479,6 +2479,8 @@ function SettingsScreen({ state, update, onBack, onJoin }) {
           <div className="setgroup">
             <p className="setlabel">Testing iSHKiY</p>
             {!state.surveyDone && <button className="setbtn" onClick={() => update({ phase: "survey" })}>{isMember(state) ? "Give feedback, get a free month →" : "Give feedback →"}</button>}
+            {state.surveyDone && isMember(state) && !state.surveyRewarded && <button className="setbtn" onClick={() => update({ phase: "survey" })}>Claim my free month →</button>}
+            {state.surveyDone && <p className="tnote">Feedback sent — thank you.{state.surveyRewarded ? " Your free month is on your membership." : ""}</p>}
             {analyticsReady() && <button className="setbtn" onClick={() => update({ analytics: state.analytics === "yes" ? "no" : "yes" })}>{state.analytics === "yes" ? "Stop measuring how I use the app" : "Let iSHKiY measure how I use the app"}</button>}
             {analyticsReady() && <p className="tnote">{state.analytics === "yes" ? "On: which screens you visit, how long you stay, where you stop. Never your answers or words." : "Off. Nothing about how you move through the app is sent."}</p>}
           </div>
@@ -2545,7 +2547,7 @@ const SURVEY = [
 ];
 const SURVEY_MIN = 12;
 const DRAFT_KEY = "era-survey-draft";
-function Survey({ state, onBack, onDone }) {
+function Survey({ state, onBack, onDone, onRewarded }) {
   const sb = getSupa();
   const member = isMember(state);
   const [a, setA] = useState(() => { try { return JSON.parse(localStorage.getItem(DRAFT_KEY)) || {}; } catch { return {}; } });
@@ -2553,6 +2555,16 @@ function Survey({ state, onBack, onDone }) {
   const [busy, setBusy] = useState(false);
   const [st, setSt] = useState(state.surveyDone ? "done" : "form");
   const [why, setWhy] = useState("");
+  const [claimWhy, setClaimWhy] = useState("");
+  const [claiming, setClaiming] = useState(false);
+  /* The free month on its own: used straight after sending, and again from the
+     thank-you screen if Stripe didn't take it the first time. */
+  const claim = async () => {
+    if (!member) return false;
+    try { await postJSON("/api/reward", { token: state.membership.token }); setClaimWhy(""); return true; }
+    catch (e) { setClaimWhy(e.message); return false; }
+  };
+  const retryClaim = async () => { setClaiming(true); if (await claim()) onRewarded(); setClaiming(false); };
   useEffect(() => { try { localStorage.setItem(DRAFT_KEY, JSON.stringify(a)); } catch {} }, [a]);
   const short = SURVEY.filter((x) => x.req && (a[x.id] || "").trim().length < SURVEY_MIN);
   const payload = () => ({ sid, plan: member ? state.membership.plan : state.unlocked ? "code" : "none", answers: Object.fromEntries(SURVEY.map((x) => [x.id, (a[x.id] || "").trim().slice(0, 4000)])), email: email.trim().slice(0, 200) || null, v: "1.20" });
@@ -2568,7 +2580,7 @@ function Survey({ state, onBack, onDone }) {
     if (!ok) { setWhy(reason); setBusy(false); setSt("failed"); return; }
     track("survey_done");
     let rewarded = false;
-    if (member) { try { await postJSON("/api/reward", { token: state.membership.token }); rewarded = true; } catch {} }
+    if (member) rewarded = await claim();
     try { localStorage.removeItem(DRAFT_KEY); } catch {}
     setBusy(false); onDone(rewarded); setSt("done");
   };
@@ -2578,7 +2590,9 @@ function Survey({ state, onBack, onDone }) {
       <article className="report" style={{ maxWidth: 560 }}>
         <SectionHead kicker="For our testers" title="Tell us what it was really like." line={`Seven questions, about five minutes. The hard, specific answers help most — "the button on the third screen made no sense" beats "it was great".${member ? " Finish and your next month of membership is free." : ""}`} />
         {st === "done" && (<>
-          <p className="cbridge">Thank you. Every answer gets read, by Tarang, properly.{state.surveyRewarded ? " Your next month of membership is free — it shows on your next bill." : member ? " We'll add your free month to your membership by hand and email you when it's on." : ""}</p>
+          <p className="cbridge">Thank you. Every answer gets read, by Tarang, properly.{state.surveyRewarded ? " Your next month of membership is free — it shows on your next bill." : member ? " Your free month didn't go on just yet — tap below to try again, or we'll add it by hand." : ""}</p>
+          {member && !state.surveyRewarded && <button className="rtbtn" disabled={claiming} onClick={retryClaim}>{claiming ? "One moment…" : "Claim my free month"}</button>}
+          {claimWhy && isPreviewHost() && <p className="tnote">Preview only — the reason: {claimWhy}</p>}
           <button className="btn gold" onClick={onBack}>Back to Home</button>
         </>)}
         {st === "failed" && (<>
