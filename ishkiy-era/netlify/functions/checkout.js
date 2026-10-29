@@ -10,7 +10,8 @@ export default async (req) => {
   try { body = await req.json(); } catch {}
   const plan = body.plan === "annual" ? "annual" : "monthly";
   const price = plan === "annual" ? process.env.STRIPE_PRICE_ANNUAL : process.env.STRIPE_PRICE_MONTHLY;
-  if (!price) return json({ error: "Membership isn't switched on yet." }, 503);
+  if (!process.env.STRIPE_SECRET_KEY) return json({ error: "Membership isn't switched on yet.", detail: "STRIPE_SECRET_KEY is missing in Netlify" }, 503);
+  if (!price) return json({ error: "Membership isn't switched on yet.", detail: `${plan === "annual" ? "STRIPE_PRICE_ANNUAL" : "STRIPE_PRICE_MONTHLY"} is missing in Netlify` }, 503);
 
   const origin = new URL(req.url).origin;
   // The intro price is for a first membership only; the app says whether this is one.
@@ -36,7 +37,8 @@ export default async (req) => {
     return json({ url: session.url });
   } catch (e) {
     console.error("checkout", e && e.message);
-    return json({ error: "Checkout couldn't start. Try again in a moment." }, 502);
+    // detail is Stripe's own reason ("No such price…", "Invalid API key…"); the app shows it on previews only.
+    return json({ error: "Checkout couldn't start. Try again in a moment.", detail: e && e.message }, 502);
   }
 };
 

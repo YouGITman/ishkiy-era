@@ -23,7 +23,7 @@ export default async (req) => {
     return json({ token: tokenFor(customer), ...m });
   } catch (e) {
     console.error("membership", e && e.message);
-    return json({ error: "Couldn't check membership right now." }, 502);
+    return json({ error: "Couldn't check membership right now.", detail: e && e.message }, 502);
   }
 };
 
