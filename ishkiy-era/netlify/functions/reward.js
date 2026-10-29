@@ -2,11 +2,11 @@
 // puts a one-off 100% coupon (STRIPE_SURVEY_COUPON) on the member's live ERA
 // subscription, so their next bill is free. Once per subscription — the
 // subscription's metadata remembers it was given.
-import { json, stripe, customerFromToken, LIVE } from "../lib/membership.js";
+import { json, stripe, customerFromToken, LIVE, setting } from "../lib/membership.js";
 
 export default async (req) => {
   if (req.method !== "POST") return new Response("Method not allowed", { status: 405 });
-  const coupon = process.env.STRIPE_SURVEY_COUPON;
+  const coupon = setting("STRIPE_SURVEY_COUPON");
   if (!coupon) return json({ error: "The free month isn't switched on yet.", detail: "STRIPE_SURVEY_COUPON is missing in Netlify" }, 503);
   let body = {};
   try { body = await req.json(); } catch {}

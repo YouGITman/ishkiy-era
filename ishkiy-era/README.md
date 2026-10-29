@@ -47,6 +47,8 @@ Open a **deploy preview** (any Netlify preview or branch URL, or `npm run previe
 | `STRIPE_AUTOMATIC_TAX` | `on` once Stripe Tax is set up; leave unset before |
 | `STRIPE_SURVEY_COUPON` | a coupon for **100% off, duration Once** (the tester survey's free month); optional — without it, members are told their month is added by hand |
 
+**Sandbox shortcut:** the sandbox's price and coupon IDs are built into `netlify/lib/membership.js`, so with a test key (`sk_test_…`) only `STRIPE_SECRET_KEY` and `MEMBERSHIP_SECRET` are needed. Live mode reads every value from Netlify and never uses the built-in ones. A Netlify value always wins.
+
 Redeploy after adding them. Until the price variables exist, the join screen shows "Membership isn't switched on yet" and founding codes still work.
 
 **Test it:** on a deploy preview, pick a depth → join screen → pay with card `4242 4242 4242 4242` (any future date, any CVC). You should land on the warm-up, and Settings should show "Monthly · renews …". "Manage, switch plan or cancel" opens Stripe's portal.

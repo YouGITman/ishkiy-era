@@ -2,26 +2,26 @@
 //   monthly: £9.99 first month (a one-off £3 coupon), then £12.99 a month
 //   annual:  £89.99 a year, report included
 // Prices, coupon and tax are all configured in Stripe; see README.
-import { json, stripe } from "../lib/membership.js";
+import { json, stripe, setting } from "../lib/membership.js";
 
 export default async (req) => {
   if (req.method !== "POST") return new Response("Method not allowed", { status: 405 });
   let body = {};
   try { body = await req.json(); } catch {}
   const plan = body.plan === "annual" ? "annual" : "monthly";
-  const price = plan === "annual" ? process.env.STRIPE_PRICE_ANNUAL : process.env.STRIPE_PRICE_MONTHLY;
+  const price = setting(plan === "annual" ? "STRIPE_PRICE_ANNUAL" : "STRIPE_PRICE_MONTHLY");
   if (!process.env.STRIPE_SECRET_KEY) return json({ error: "Membership isn't switched on yet.", detail: "STRIPE_SECRET_KEY is missing in Netlify" }, 503);
   if (!price) return json({ error: "Membership isn't switched on yet.", detail: `${plan === "annual" ? "STRIPE_PRICE_ANNUAL" : "STRIPE_PRICE_MONTHLY"} is missing in Netlify` }, 503);
 
   const origin = new URL(req.url).origin;
   // The intro price is for a first membership only; the app says whether this is one.
-  const intro = plan === "monthly" && body.intro !== false && process.env.STRIPE_INTRO_COUPON;
+  const intro = plan === "monthly" && body.intro !== false && setting("STRIPE_INTRO_COUPON");
   try {
     const session = await stripe().checkout.sessions.create({
       mode: "subscription",
       line_items: [{ price, quantity: 1 }],
       // Checkout accepts a set discount or a code box, not both.
-      ...(intro ? { discounts: [{ coupon: process.env.STRIPE_INTRO_COUPON }] } : { allow_promotion_codes: true }),
+      ...(intro ? { discounts: [{ coupon: intro }] } : { allow_promotion_codes: true }),
       ...(process.env.STRIPE_AUTOMATIC_TAX === "on" ? { automatic_tax: { enabled: true } } : {}),
       subscription_data: { metadata: { app: "era", plan } },
       custom_text: {
