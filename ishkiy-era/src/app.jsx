@@ -2552,6 +2552,7 @@ function Survey({ state, onBack, onDone }) {
   const [email, setEmail] = useState("");
   const [busy, setBusy] = useState(false);
   const [st, setSt] = useState(state.surveyDone ? "done" : "form");
+  const [why, setWhy] = useState("");
   useEffect(() => { try { localStorage.setItem(DRAFT_KEY, JSON.stringify(a)); } catch {} }, [a]);
   const short = SURVEY.filter((x) => x.req && (a[x.id] || "").trim().length < SURVEY_MIN);
   const payload = () => ({ sid, plan: member ? state.membership.plan : state.unlocked ? "code" : "none", answers: Object.fromEntries(SURVEY.map((x) => [x.id, (a[x.id] || "").trim().slice(0, 4000)])), email: email.trim().slice(0, 200) || null, v: "1.20" });
@@ -2559,9 +2560,12 @@ function Survey({ state, onBack, onDone }) {
   const submit = async () => {
     if (busy || short.length) return;
     setBusy(true);
-    let ok = false;
-    try { if (sb) { const { error } = await sb.from("tester_feedback").insert(payload()); ok = !error; } } catch {}
-    if (!ok) { setBusy(false); setSt("failed"); return; }
+    let ok = false, reason = "";
+    try {
+      if (!sb) reason = "Supabase isn't connected";
+      else { const { error } = await sb.from("tester_feedback").insert(payload()); ok = !error; if (error) reason = [error.code, error.message].filter(Boolean).join(": "); }
+    } catch (e) { reason = (e && e.message) || "network error"; }
+    if (!ok) { setWhy(reason); setBusy(false); setSt("failed"); return; }
     track("survey_done");
     let rewarded = false;
     if (member) { try { await postJSON("/api/reward", { token: state.membership.token }); rewarded = true; } catch {} }
@@ -2579,6 +2583,8 @@ function Survey({ state, onBack, onDone }) {
         </>)}
         {st === "failed" && (<>
           <p className="cbridge">That didn't send — our side, not yours. Your answers are saved on this device. You can try again, or send them by email{member ? " and we'll add your free month by hand" : ""}.</p>
+          {/* Preview builds say exactly why (a missing table, a missing permission). */}
+          {why && isPreviewHost() && <p className="tnote">Preview only — the reason: {why}</p>}
           <div className="consentrow">
             <button className="rtbtn" onClick={() => setSt("form")}>Try again</button>
             <a className="rtbtn" href={"mailto:ops@ishkiy.com?subject=" + encodeURIComponent("Tester feedback") + "&body=" + encodeURIComponent(mailBody())}>Send by email</a>
