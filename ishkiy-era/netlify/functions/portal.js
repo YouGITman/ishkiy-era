@@ -13,7 +13,7 @@ export default async (req) => {
     return json({ url: session.url });
   } catch (e) {
     console.error("portal", e && e.message);
-    return json({ error: "Couldn't open membership settings right now." }, 502);
+    return json({ error: "Couldn't open membership settings right now.", detail: e && e.message }, 502);
   }
 };
 

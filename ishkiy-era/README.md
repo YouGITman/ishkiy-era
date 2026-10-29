@@ -45,6 +45,9 @@ Open a **deploy preview** (any Netlify preview or branch URL, or `npm run previe
 | `STRIPE_INTRO_COUPON` | `INTRO3` |
 | `MEMBERSHIP_SECRET` | 32+ random characters — `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`. Changing it signs every member out of membership until they restore. |
 | `STRIPE_AUTOMATIC_TAX` | `on` once Stripe Tax is set up; leave unset before |
+| `STRIPE_SURVEY_COUPON` | a coupon for **100% off, duration Once** (the tester survey's free month); optional — without it, members are told their month is added by hand |
+
+**Sandbox shortcut:** the sandbox's price and coupon IDs are built into `netlify/lib/membership.js`, so with a test key (`sk_test_…`) only `STRIPE_SECRET_KEY` and `MEMBERSHIP_SECRET` are needed. Live mode reads every value from Netlify and never uses the built-in ones. A Netlify value always wins.
 
 Redeploy after adding them. Until the price variables exist, the join screen shows "Membership isn't switched on yet" and founding codes still work.
 
@@ -53,7 +56,7 @@ Redeploy after adding them. Until the price variables exist, the join screen sho
 **How it fits together:** `netlify/functions/checkout.js` starts Checkout; `membership.js` confirms a completed checkout and hands the app a signed token, and re-checks it every few hours; `portal.js` opens the customer portal; `restore.js` brings a membership onto a new device after the person signs in with the email link (their Stripe email must match). Shared code is in `netlify/lib/membership.js`.
 
 ### 6. Founding access codes (optional)
-Codes still work alongside membership — tucked under the plans on the join screen as "Have a founding access code?". A code gives the old founding access: assessment, report, Library, and the Companion for a week.
+Codes still work alongside membership — tucked under the plans on the join screen as "Have a founding access code?". A code gives founding access: assessment, report, Library, and the Companion, with no time limit.
 ```
 node gen-codes.mjs 10
 ```
@@ -64,6 +67,21 @@ prints ten codes and their hashes. Paste the hashes into `CODE_HASHES` in `src/a
 The `PREVIEW` code is not in `CODE_HASHES` and needs no removing before launch — it is gated on the hostname instead. See the note above `CODE_HASHES` in `src/app.jsx`.
 
 ---
+
+### 7. Tester survey
+While `TESTER_MODE` is on (top of `src/app.jsx`), people with a report see a "Tell us what it was really like" card on Home (also in Settings). Seven open questions: the first five minutes, what nearly made them quit, the one feature to keep, where they had to guess, monthly vs one-off, and whether they'd keep paying after the report. Members who finish get their next month free, applied to their subscription automatically by `/api/reward` (once per subscription; needs `STRIPE_SURVEY_COUPON`).
+
+1. Supabase → SQL Editor → paste `supabase/tester-feedback.sql` → Run (once). Answers land in `tester_feedback`, readable only by the admin email.
+2. At full launch set `TESTER_MODE = false`: the survey, the analytics consent card and the tester settings all go.
+
+### 8. Behavioural analytics (PostHog)
+Screen views, time on each screen and on each assessment question, hover time on key buttons, and the screen someone was on when they left. Off until the tester taps "Yes, that's fine" on Home (or turns it on in Settings), and off entirely until a key is set.
+
+1. posthog.com → sign up → create a project on **EU cloud** (the free tier is plenty).
+2. Project settings → copy the **Project API key** (`phc_…`, public by design) into `POSTHOG_KEY` in `src/analytics.js`. Commit → deploys.
+3. In PostHog: **Paths** on `$screen` shows routes through the app; `screen_time` broken down by `$screen_name` shows dwell; `app_hidden` by `$screen_name` and `item` shows exit points.
+
+It deliberately doesn't use the posthog-js library: its autocapture and session replay would record the text people tap, which here means their answers. `src/analytics.js` sends only screen names, part ids, question numbers and timings.
 
 ## Files
 
@@ -77,7 +95,9 @@ The `PREVIEW` code is not in `CODE_HASHES` and needs no removing before launch �
 | `src/fx.jsx` | Motion and light: the starfield, word reveals, screen transitions, scroll reveals, sparks, count-ups. Decoration only; reduced-motion users get a still version |
 | `src/voice.js` | Two-way voice for the Companion using the browser's own speech: tap the mic to dictate, Listen to hear a reply, and answers to spoken questions are read aloud. Free, no keys. Recognition runs through the browser maker (Google, Microsoft or Apple); iSHKiY only receives the words. Firefox has no recognition, so the mic hides there |
 | `netlify/functions/claude.js` | The shared iSHKiY AI proxy (key server-side; the model is pinned here) |
-| `netlify/functions/checkout.js`, `membership.js`, `portal.js`, `restore.js` | Stripe membership: start checkout, confirm and re-check membership, open the customer portal, restore on a new device |
+| `netlify/functions/checkout.js`, `membership.js`, `portal.js`, `restore.js`, `reward.js` | Stripe membership: start checkout, confirm and re-check membership, open the customer portal, restore on a new device, the survey's free month |
+| `src/analytics.js` | Consent-gated PostHog events: screens, timings, hovers, exit points |
+| `supabase/tester-feedback.sql` | The tester survey table — run once |
 | `netlify/lib/membership.js` | Shared Stripe client and the signed membership token |
 | `supabase/schema.sql` | Tables and row-level security — paste into the Supabase SQL editor |
 | `admin.html` / `dist/admin.js` | Admin view for the practitioner approval queue |

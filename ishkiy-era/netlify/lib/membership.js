@@ -35,6 +35,23 @@ export const customerFromToken = (token) => {
   return mac.length === want.length && timingSafeEqual(mac, want) ? id : null;
 };
 
+/* Price and coupon IDs aren't secret, so the sandbox ones live here: with a
+   test key (sk_test_/rk_test_) the app works with just STRIPE_SECRET_KEY and
+   MEMBERSHIP_SECRET set in Netlify. A Netlify variable of the same name always
+   wins, and live mode reads only Netlify, never these. They belong to the
+   "iSHKiY sandbox" Stripe account (acct_1UVrgdLKTa6iHqaI). */
+const SANDBOX = {
+  STRIPE_PRICE_MONTHLY: "price_1UVy5nLKTa6iHqaIcQmb67H9", // £12.99 / month
+  STRIPE_PRICE_ANNUAL: "price_1UVy64LKTa6iHqaILiGJes42",  // £89.99 / year
+  STRIPE_INTRO_COUPON: "INTRO3",                          // £3 off once: first month £9.99
+  STRIPE_SURVEY_COUPON: "FREEMONTH",                      // 100% off once: the survey's free month
+};
+export const setting = (name) => {
+  if (process.env[name]) return process.env[name];
+  const key = process.env.STRIPE_SECRET_KEY || "";
+  return /^(sk|rk)_test_/.test(key) ? SANDBOX[name] : undefined;
+};
+
 // past_due keeps access while Stripe retries a failed card; everything else is out.
 export const LIVE = ["active", "trialing", "past_due"];
 

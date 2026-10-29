@@ -6,6 +6,7 @@ import { MINIS, scoreMini, readMini } from "./mini.js";
 import { createClient } from "@supabase/supabase-js";
 import { Sky, Words, Burst, LockIcon, useCountUp, transition, installFx, TEMPO } from "./fx.jsx";
 import { canSpeak, canListen, speak, stopSpeaking, useSpeaking, useDictation } from "./voice.js";
+import { capture, configure as configureAnalytics, setScreen, analyticsReady } from "./analytics.js";
 
 /* ---------------- backend (Supabase, connect-only v1) ----------------
    Paste your project URL and anon public key below (Settings -> API).
@@ -24,7 +25,13 @@ const getSupa = () => {
    We count taps (e.g. "assessment_start"), never words. No answers, no
    conversations, no names ever leave the device. */
 const sid = (() => { try { let x = localStorage.getItem("era-sid"); if (!x) { x = Math.random().toString(36).slice(2, 10); localStorage.setItem("era-sid", x); } return x; } catch { return "anon"; } })();
-const track = (e, d) => { try { const sp = getSupa(); if (!sp) return; sp.from("era_events").insert({ e, d: d == null ? null : String(d).slice(0, 40), sid, v: "1.10" }).then(() => {}, () => {}); } catch {} };
+const track = (e, d) => { capture(e, d == null ? {} : { d: String(d).slice(0, 40) }); try { const sp = getSupa(); if (!sp) return; sp.from("era_events").insert({ e, d: d == null ? null : String(d).slice(0, 40), sid, v: "1.10" }).then(() => {}, () => {}); } catch {} };
+
+/* ---------------- tester version ----------------
+   One switch for everything that exists only while friends and family are
+   testing: the feedback survey (and its free month for members) and the
+   analytics consent card on Home. Set to false at full launch. */
+const TESTER_MODE = true;
 
 /* ---------------- profile strength, levels & badges ----------------
    One ladder, five stages, used everywhere: the depth you choose, the badge
@@ -44,7 +51,7 @@ const PARTS_WEIGHT = 70, LENS_WEIGHT = 30;
 const LEVELS = [
   { id: "starter", name: "First Light", parts: STARTER_PARTS, depth: "A first look", time: "10–15 min", how: "3 parts of the assessment",
     blurb: "Your first clear look: what you value and how you work. Already more than most people know about themselves.", accuracy: "a clear sketch", next: "Keep going. Each part you finish sharpens the picture.",
-    unlocks: ["Your written report, yours to keep", "Your Companion: three voices for seven days", "A human, when you're ready", "Your share card"] },
+    unlocks: ["Your written report, yours to keep", "Your Companion: three voices that have read you", "A human, when you're ready", "Your share card"] },
   { id: "core", name: "In Focus", parts: [...STARTER_PARTS, ...CORE_ADDED], depth: "A fuller picture", time: "+15 min", how: "3 more parts",
     blurb: "Sharper now. How you think, how you feel and what pulls you sit alongside the rest.", accuracy: "a rounded read", next: "Finish the remaining parts and the portrait is complete.",
     unlocks: ["Your report adds how you think, how you carry yourself and what pulls you", "The Tensions: where you pull against yourself", "Sharper answers from your Companion, closer human matches"] },
@@ -149,10 +156,16 @@ async function sha256(text) {
 const PRICE = { intro: "£9.99", monthly: "£12.99", annual: "£89.99" };
 const isMember = (s) => !!(s && s.membership && s.membership.live);
 const hasAccess = (s) => isMember(s) || !!(s && s.unlocked);
+/* Errors say why. A dropped connection says so; on preview builds the
+   server's own reason (a missing Netlify variable, Stripe's message) is added,
+   so setup problems show at a glance. Customers on the live site get the calm
+   version only. */
 const postJSON = async (path, body) => {
-  const r = await fetch(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  let r;
+  try { r = await fetch(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }); }
+  catch { throw new Error("Couldn't reach iSHKiY. Check your connection and try again."); }
   const d = await r.json().catch(() => ({}));
-  if (!r.ok) throw new Error(d.error || "Something went wrong. Try again in a moment.");
+  if (!r.ok) throw new Error((d.error || "Something went wrong. Try again in a moment.") + (d.detail && isPreviewHost() ? ` (${d.detail})` : ""));
   return d;
 };
 const fmtDate = (ms) => new Date(ms).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
@@ -400,6 +413,16 @@ function App() {
   const scores = useMemo(() => (["glimmer", "generating", "report", "companion", "humans", "library", "account", "settings", "constellation"].includes(state.phase) && Object.keys(answers).length) ? computeScores(answers) : null, [state.phase, answers]);
 
   useLayoutEffect(() => { window.scrollTo(0, 0); }, [state.phase, state.part, state.item]);
+  /* Analytics: off until someone says yes. Screen names are phases; inside the
+     assessment the part id and question number ride along, never the answer. */
+  useEffect(() => {
+    configureAnalytics({ consent: state.analytics, distinctId: sid, props: { tester: TESTER_MODE, plan: isMember(state) ? state.membership.plan : state.unlocked ? "code" : "none" } });
+  }, [state.analytics, state.membership, state.unlocked]);
+  useEffect(() => {
+    const inPart = ["intro", "run", "glimmer"].includes(state.phase) && PARTS[state.part];
+    const props = inPart ? { part: PARTS[state.part].id, ...(state.phase === "run" ? { item: state.item + 1 } : {}) } : ["miniRun", "miniResult"].includes(state.phase) ? { lens: state.miniId } : {};
+    setScreen(state.phase, props);
+  }, [state.phase, state.part, state.item, state.miniId]);
   useEffect(() => {
     if (!state.jump) return;
     const t = setTimeout(() => { const el = document.getElementById(state.jump); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); apply({ jump: null }); }, 900);
@@ -412,7 +435,8 @@ function App() {
   const toSOS = () => { track("sos_open"); update({ phase: state.report ? "companion" : "sos", jump: "sos" }); };
 
   if (state.phase === "breath") return <Breath onEnter={() => update({ phase: state.seenExplainer ? "home" : "explainer" })} />;
-  if (state.phase === "home") return <Home state={state} onResume={() => { const p = state.paused; update({ part: p.part, item: p.item, arc: p.arc, paused: null, phase: p.at === "run" ? "run" : "intro" }); }} onTheme={() => update({ dark: !state.dark })} go={(p) => update({ phase: p })} startAssessment={() => update({ phase: Object.keys(answers).length ? "chooseDepth" : "chooseDepth" })} />;
+  if (state.phase === "survey") return <Survey state={state} onBack={() => update({ phase: "home" })} onDone={(rewarded) => apply({ surveyDone: Date.now(), surveyRewarded: !!rewarded })} onRewarded={() => apply({ surveyRewarded: true })} />;
+  if (state.phase === "home") return <Home state={state} onAnalytics={(v) => { apply({ analytics: v }); if (v === "yes") track("analytics_yes"); }} onResume={() => { const p = state.paused; update({ part: p.part, item: p.item, arc: p.arc, paused: null, phase: p.at === "run" ? "run" : "intro" }); }} onTheme={() => update({ dark: !state.dark })} go={(p) => update({ phase: p })} startAssessment={() => update({ phase: Object.keys(answers).length ? "chooseDepth" : "chooseDepth" })} />;
   if (state.phase === "companion") return <CompanionScreen state={state} scores={scores} onJoin={() => goJoin("companion")} onBack={() => update({ phase: "home" })} onRegenerate={() => update({ phase: "generating" })} onHuman={() => update({ phase: "humans" })} />;
   if (state.phase === "sos") return <SOSScreen onBack={() => update({ phase: "home" })} />;
   if (state.phase === "constellation") return <ConstellationScreen state={state} update={update} onBack={() => update({ phase: "settings" })} />;
@@ -1325,7 +1349,7 @@ function HomeTile({ title, sub, locked, lockNote, onClick, art, badge, acc, puls
   const opened = fresh && !locked;
   return (
     <button className={"htile" + (cls ? " " + cls : "") + (locked ? " locked" : "") + (pulse ? " pulse" : "") + (denied ? " denied" : "") + (opened ? " fresh" : "")} style={acc ? { "--acc": acc } : undefined}
-      onClick={locked ? () => { track("locked_tap", title); deny(); } : onClick} aria-disabled={locked}>
+      onClick={locked ? () => { track("locked_tap", title); deny(); } : onClick} aria-disabled={locked} data-hover={"tile: " + title}>
       {opened && <span className="opened" aria-hidden="true"><Burst n={18} spread={130} /></span>}
       {opened
         ? <span className="htbadge openbadge"><LockIcon open /> Now open</span>
@@ -1416,7 +1440,7 @@ const GLYPHS = [
 ];
 function RotatingFaces() { return <Rotator items={FACES} every={3600 * TEMPO} />; }
 function RotatingGlyphs() { return <Rotator items={GLYPHS} every={4200 * TEMPO} />; }
-function Home({ state, go, startAssessment, onTheme, onResume }) {
+function Home({ state, go, startAssessment, onTheme, onResume, onAnalytics }) {
   const name = (state.answers["AR-1"] || "").trim();
   let compLeft = null;
   try { const cc = loadCompanion(); compLeft = Math.max(0, Q_CAP - (cc.count || 0)); } catch {}
@@ -1441,6 +1465,23 @@ function Home({ state, go, startAssessment, onTheme, onResume }) {
             <span className="resumek">Saved for later</span>
             <span className="resumet">Pick up where you left off</span>
             <span className="resumes">{PARTS[state.paused.part].title}{state.paused.at === "run" ? ` · question ${state.paused.item + 1}` : ""} →</span>
+          </button>
+        )}
+        {TESTER_MODE && analyticsReady() && !state.analytics && (
+          <div className="consentcard">
+            <span className="resumek">You're testing iSHKiY</span>
+            <p>Can we watch how you move through the app — which screens, how long you stay, where you stop? It shows us what's confusing far better than asking. Never your answers, never your words.</p>
+            <div className="consentrow">
+              <button className="rtbtn" onClick={() => onAnalytics("yes")}>Yes, that's fine</button>
+              <button className="rtbtn ghostbtn" onClick={() => onAnalytics("no")}>No thanks</button>
+            </div>
+          </div>
+        )}
+        {TESTER_MODE && hasReport && !state.surveyDone && (
+          <button className="resumecard" data-hover="survey_card" onClick={() => { track("survey_open", "home"); go("survey"); }}>
+            <span className="resumek">Seven questions · about five minutes</span>
+            <span className="resumet">Tell us what it was really like</span>
+            <span className="resumes">{isMember(state) ? "Honest answers earn you your next month free →" : "Help shape what iSHKiY becomes →"}</span>
           </button>
         )}
         {(() => {
@@ -1630,7 +1671,6 @@ const MODES = {
 };
 const VOICES = Object.keys(MODES);
 
-const COMPANION_DAYS = 7;
 /* Two migrations, both idempotent and both safe to run on every load.
    v1 -> v2: one flat msgs array became a stream per voice.
    v2 -> v3: Guide and Sounding board merged into Sounding. Messages carry no
@@ -1772,8 +1812,8 @@ function SpeakBtn({ m, speaking }) {
 }
 
 function Companion({ scores, answers, reportText, start, onHuman, member, founder, lapsed, onJoin }) {
-  const begun = start || Date.now();
-  const ended = member ? false : founder ? Date.now() - begun > COMPANION_DAYS * DAY : true;
+  // Members and access-code holders have the Companion with no clock on it.
+  const ended = !(member || founder);
   const [c, setC] = useState(() => loadCompanion());
   const [mode, setMode] = useState(() => c.mode || "companion");
   const [input, setInput] = useState("");
@@ -1800,7 +1840,7 @@ const pick = (m) => { setMode(m); commit((prev) => ({ ...prev, mode: m })); };
   if (ended) return (
     <section className="companion noprint">
       <p className="kicker gold">Your Report Companion</p>
-      <h2 className="ctitle">{lapsed ? "Your membership has ended. Your report hasn't." : founder ? "Your founding week has ended. Your report hasn't." : "Your Companion comes with membership."}</h2>
+      <h2 className="ctitle">{lapsed ? "Your membership has ended. Your report hasn't." : "Your Companion comes with membership."}</h2>
       <p className="cexplain">The report on this page is yours for good. The Companion is three voices that have read you properly and share one memory of you. It's part of iSHKiY membership{lapsed ? ". Rejoin and it picks up where you left off." : ", with the Library of You and real humans when you're ready."}</p>
       <button className="btn gold" onClick={onJoin}>{lapsed ? `Rejoin · ${PRICE.monthly} a month` : "Become a member"}</button>
     </section>
@@ -1990,7 +2030,7 @@ why is at most eight plain words, addressed to them, saying what you heard them 
     <section className="companion noprint">
       <p className="kicker gold">Your Companion</p>
       <h2 className="ctitle">Three voices. One memory between them.</h2>
-      <p className="cexplain">Each voice keeps its own conversation, but all three remember everything you've said to any of them. They share {Q_CAP} questions a day between them, and {left} are left today.{!member && founder ? ` Day ${Math.min(COMPANION_DAYS, Math.floor((Date.now() - begun) / DAY) + 1)} of your ${COMPANION_DAYS}.` : ""} No one can read these conversations, iSHKiY included.</p>
+      <p className="cexplain">Each voice keeps its own conversation, but all three remember everything you've said to any of them. They share {Q_CAP} questions a day between them, and {left} are left today. No one can read these conversations, iSHKiY included.</p>
       <div className="voicehub">
         <button className="vcard vcauto" style={{ "--acc": "#D4A547" }} onClick={() => enterRoom("auto")}>
           <Avatar kind="auto" size={40} />
@@ -2435,6 +2475,16 @@ function SettingsScreen({ state, update, onBack, onJoin }) {
         <h1 className="display ink"><Words text="Your space, your say." delay={150} /></h1>
 
         <MembershipGroup state={state} update={update} onJoin={onJoin} />
+        {TESTER_MODE && (
+          <div className="setgroup">
+            <p className="setlabel">Testing iSHKiY</p>
+            {!state.surveyDone && <button className="setbtn" onClick={() => update({ phase: "survey" })}>{isMember(state) ? "Give feedback, get a free month →" : "Give feedback →"}</button>}
+            {state.surveyDone && isMember(state) && !state.surveyRewarded && <button className="setbtn" onClick={() => update({ phase: "survey" })}>Claim my free month →</button>}
+            {state.surveyDone && <p className="tnote">Feedback sent — thank you.{state.surveyRewarded ? " Your free month is on your membership." : ""}</p>}
+            {analyticsReady() && <button className="setbtn" onClick={() => update({ analytics: state.analytics === "yes" ? "no" : "yes" })}>{state.analytics === "yes" ? "Stop measuring how I use the app" : "Let iSHKiY measure how I use the app"}</button>}
+            {analyticsReady() && <p className="tnote">{state.analytics === "yes" ? "On: which screens you visit, how long you stay, where you stop. Never your answers or words." : "Off. Nothing about how you move through the app is sent."}</p>}
+          </div>
+        )}
 
         <div className="setgroup">
           <p className="setlabel">Account and connections</p>
@@ -2474,6 +2524,103 @@ function SettingsScreen({ state, update, onBack, onJoin }) {
         </div>
 
         <p className="hquote">Stay yourself. The rest follows.</p>
+      </article>
+    </div>
+  );
+}
+
+/* ---------------- tester survey ----------------
+   Tester version only (TESTER_MODE). Open questions, because "was it good?"
+   gets a polite yes and teaches nothing. The last block asks straight out
+   about paying, since that is the question the next month turns on.
+   Unlike everything else in the app these words DO leave the device — the
+   screen says so — into tester_feedback, readable by the admin alone.
+   Members who finish get their next month free (/api/reward, once each). */
+const SURVEY = [
+  { id: "first5", req: true, q: "Describe your first five minutes with iSHKiY, in your own words.", hint: "What did you see, what did you do, what did you think it was for?" },
+  { id: "almost_quit", req: true, q: "What, if anything, almost made you stop or close the app?", hint: "Where were you when it happened? \"Nothing\" is a fine answer if it's true." },
+  { id: "keep_one", req: true, q: "If we cut everything except one feature, which should we keep — and why that one?" },
+  { id: "guessed", req: true, q: "Was there a moment you had to guess what to do next?", hint: "What was on the screen? What did you try first?" },
+  { id: "monthly_vs_once", req: true, q: "What would make you pay monthly for iSHKiY rather than once? What would stop you?" },
+  { id: "after_report", req: true, q: "After your first report, would you keep paying? If not, what's missing that would change your mind?" },
+  { id: "anything", req: false, q: "Anything else you'd tell Tarang over a coffee?" },
+];
+const SURVEY_MIN = 12;
+const DRAFT_KEY = "era-survey-draft";
+function Survey({ state, onBack, onDone, onRewarded }) {
+  const sb = getSupa();
+  const member = isMember(state);
+  const [a, setA] = useState(() => { try { return JSON.parse(localStorage.getItem(DRAFT_KEY)) || {}; } catch { return {}; } });
+  const [email, setEmail] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [st, setSt] = useState(state.surveyDone ? "done" : "form");
+  const [why, setWhy] = useState("");
+  const [claimWhy, setClaimWhy] = useState("");
+  const [claiming, setClaiming] = useState(false);
+  /* The free month on its own: used straight after sending, and again from the
+     thank-you screen if Stripe didn't take it the first time. */
+  const claim = async () => {
+    if (!member) return false;
+    try { await postJSON("/api/reward", { token: state.membership.token }); setClaimWhy(""); return true; }
+    catch (e) { setClaimWhy(e.message); return false; }
+  };
+  const retryClaim = async () => { setClaiming(true); if (await claim()) onRewarded(); setClaiming(false); };
+  useEffect(() => { try { localStorage.setItem(DRAFT_KEY, JSON.stringify(a)); } catch {} }, [a]);
+  const short = SURVEY.filter((x) => x.req && (a[x.id] || "").trim().length < SURVEY_MIN);
+  const payload = () => ({ sid, plan: member ? state.membership.plan : state.unlocked ? "code" : "none", answers: Object.fromEntries(SURVEY.map((x) => [x.id, (a[x.id] || "").trim().slice(0, 4000)])), email: email.trim().slice(0, 200) || null, v: "1.20" });
+  const mailBody = () => SURVEY.map((x) => `${x.q}\n${(a[x.id] || "").trim()}\n`).join("\n");
+  const submit = async () => {
+    if (busy || short.length) return;
+    setBusy(true);
+    let ok = false, reason = "";
+    try {
+      if (!sb) reason = "Supabase isn't connected";
+      else { const { error } = await sb.from("tester_feedback").insert(payload()); ok = !error; if (error) reason = [error.code, error.message].filter(Boolean).join(": "); }
+    } catch (e) { reason = (e && e.message) || "network error"; }
+    if (!ok) { setWhy(reason); setBusy(false); setSt("failed"); return; }
+    track("survey_done");
+    let rewarded = false;
+    if (member) rewarded = await claim();
+    try { localStorage.removeItem(DRAFT_KEY); } catch {}
+    setBusy(false); onDone(rewarded); setSt("done");
+  };
+  return (
+    <div className="reportpage tint-sage">
+      <div className="rhead noprint"><button className="ghost inkghost" onClick={onBack}>← Home</button><Wordmark /><span /></div>
+      <article className="report" style={{ maxWidth: 560 }}>
+        <SectionHead kicker="For our testers" title="Tell us what it was really like." line={`Seven questions, about five minutes. The hard, specific answers help most — "the button on the third screen made no sense" beats "it was great".${member ? " Finish and your next month of membership is free." : ""}`} />
+        {st === "done" && (<>
+          <p className="cbridge">Thank you. Every answer gets read, by Tarang, properly.{state.surveyRewarded ? " Your next month of membership is free — it shows on your next bill." : member ? " Your free month didn't go on just yet — tap below to try again, or we'll add it by hand." : ""}</p>
+          {member && !state.surveyRewarded && <button className="rtbtn" disabled={claiming} onClick={retryClaim}>{claiming ? "One moment…" : "Claim my free month"}</button>}
+          {claimWhy && isPreviewHost() && <p className="tnote">Preview only — the reason: {claimWhy}</p>}
+          <button className="btn gold" onClick={onBack}>Back to Home</button>
+        </>)}
+        {st === "failed" && (<>
+          <p className="cbridge">That didn't send — our side, not yours. Your answers are saved on this device. You can try again, or send them by email{member ? " and we'll add your free month by hand" : ""}.</p>
+          {/* Preview builds say exactly why (a missing table, a missing permission). */}
+          {why && isPreviewHost() && <p className="tnote">Preview only — the reason: {why}</p>}
+          <div className="consentrow">
+            <button className="rtbtn" onClick={() => setSt("form")}>Try again</button>
+            <a className="rtbtn" href={"mailto:ops@ishkiy.com?subject=" + encodeURIComponent("Tester feedback") + "&body=" + encodeURIComponent(mailBody())}>Send by email</a>
+          </div>
+        </>)}
+        {st === "form" && (<>
+          <p className="tnote">Unlike the rest of the app, these answers are sent to iSHKiY so we can read them. Nothing else from your profile goes with them.</p>
+          {SURVEY.map((x, i) => (
+            <div key={x.id} className="sq">
+              <label className="tlabel" htmlFor={"sq-" + x.id}>{i + 1} of {SURVEY.length}{x.req ? "" : " · optional"}</label>
+              <p className="sqtext">{x.q}</p>
+              <textarea id={"sq-" + x.id} className="tarea" value={a[x.id] || ""} onChange={(e) => setA((p) => ({ ...p, [x.id]: e.target.value }))} placeholder={x.hint || ""} />
+            </div>
+          ))}
+          <div className="sq">
+            <label className="tlabel" htmlFor="sq-email">Optional</label>
+            <p className="sqtext">Your email, if you're happy for Tarang to ask a follow-up question.</p>
+            <input id="sq-email" className="tin" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" />
+          </div>
+          {short.length > 0 && <p className="sqhint">{short.length === 1 ? "One answer" : `${short.length} answers`} still need{short.length === 1 ? "s" : ""} a sentence or so ({short.map((x) => SURVEY.indexOf(x) + 1).join(", ")}).</p>}
+          <button className="btn gold" disabled={busy || short.length > 0} onClick={submit}>{busy ? "Sending…" : member ? "Send and claim my free month" : "Send my answers"}</button>
+        </>)}
       </article>
     </div>
   );
