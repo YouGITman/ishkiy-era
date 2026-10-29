@@ -91,35 +91,81 @@ export function useSpeaking() {
   return key;
 }
 
+/* Android Chrome's recogniser misbehaves in continuous mode: every update
+   repeats all the words heard so far as a new entry, so joining the entries
+   gives "this / this is / this is a / this is a test". Two guards:
+
+   1. On Android it listens one phrase at a time, and when a phrase ends it
+      keeps what was heard and starts listening again, until the mic is tapped.
+   2. Everywhere, an entry that merely repeats or extends the one before it
+      replaces it rather than being added on. */
+const isAndroid = typeof navigator !== "undefined" && /Android/i.test(navigator.userAgent);
+const plain = (t) => t.toLowerCase().replace(/[^a-z0-9' ]+/g, " ").replace(/\s+/g, " ").trim();
+export const joinHeard = (parts) => {
+  const out = [];
+  parts.forEach((t) => {
+    const n = plain(t);
+    if (!n) return;
+    const last = out.length ? plain(out[out.length - 1]) : null;
+    if (last != null && n.startsWith(last)) out[out.length - 1] = t.trim();
+    else if (last != null && last.startsWith(n)) return;
+    else out.push(t.trim());
+  });
+  return out.join(" ");
+};
+
 /* Dictation into the message box. Words appear as they're heard, and nothing is
    sent until the person presses Ask, so they can read it back first. */
 export function useDictation(setText) {
   const [on, setOn] = useState(false);
   const [error, setError] = useState(null);
   const rec = useRef(null);
-  const base = useRef("");
-  const stop = () => { try { rec.current && rec.current.stop(); } catch {} };
-  useEffect(() => () => { try { rec.current && rec.current.abort(); } catch {} }, []);
+  const base = useRef("");    // what was in the box, plus every finished phrase
+  const heard = useRef("");   // the phrase being heard right now
+  const want = useRef(false); // still listening, as far as the person is concerned
+  const restarts = useRef(0);
+  const quiet = useRef(0);    // phrases in a row that heard nothing
+  const show = () => setText((base.current + (base.current && heard.current ? " " : "") + heard.current).replace(/\s+/g, " ").trimStart());
+  const stop = () => { want.current = false; try { rec.current && rec.current.stop(); } catch {} };
+  useEffect(() => () => { want.current = false; try { rec.current && rec.current.abort(); } catch {} }, []);
+
+  const listen = () => {
+    const r = new Recognition();
+    r.lang = "en-GB"; r.continuous = !isAndroid; r.interimResults = true; r.maxAlternatives = 1;
+    r.onresult = (e) => {
+      const parts = [];
+      for (let k = 0; k < e.results.length; k++) parts.push(e.results[k][0].transcript);
+      heard.current = joinHeard(parts);
+      show();
+    };
+    r.onerror = (e) => {
+      if (e.error === "not-allowed" || e.error === "service-not-allowed") { want.current = false; setError("The mic is blocked. Allow it for this site in your browser settings, then try again."); }
+      else if (e.error === "no-speech") { if (!base.current.trim() && !heard.current) { want.current = false; setError("I didn't catch anything. Tap the mic and try again."); } }
+      else if (e.error === "network") { want.current = false; setError("Listening needs a connection. Check you're online and try again."); }
+      else if (e.error !== "aborted") { want.current = false; setError("Listening stopped. Tap the mic to carry on."); }
+    };
+    r.onend = () => {
+      // Keep the phrase that just finished, then listen again if they haven't tapped stop.
+      // Two silent stretches in a row and it stops by itself, so Android's start chime doesn't repeat through a quiet room.
+      if (heard.current) { base.current = (base.current ? base.current.replace(/\s*$/, " ") : "") + heard.current; heard.current = ""; quiet.current = 0; }
+      else quiet.current += 1;
+      if (want.current && restarts.current < 60 && quiet.current < 2) {
+        restarts.current += 1;
+        try { listen(); return; } catch {}
+      }
+      want.current = false; rec.current = null; setOn(false);
+    };
+    rec.current = r;
+    r.start();
+  };
+
   const start = (existing) => {
     if (!Recognition || on) return;
     stopSpeaking(); primeSpeech();
     setError(null);
-    base.current = existing ? existing.replace(/\s*$/, " ") : "";
-    const r = new Recognition();
-    r.lang = "en-GB"; r.continuous = true; r.interimResults = true;
-    r.onresult = (e) => {
-      let said = "";
-      for (let k = 0; k < e.results.length; k++) said += e.results[k][0].transcript;
-      setText((base.current + said).replace(/\s+/g, " ").trimStart());
-    };
-    r.onerror = (e) => {
-      if (e.error === "not-allowed" || e.error === "service-not-allowed") setError("The mic is blocked. Allow it for this site in your browser settings, then try again.");
-      else if (e.error === "no-speech") setError("I didn't catch anything. Tap the mic and try again.");
-      else if (e.error !== "aborted") setError("Listening stopped. Tap the mic to carry on.");
-    };
-    r.onend = () => { setOn(false); rec.current = null; };
-    rec.current = r;
-    try { r.start(); setOn(true); } catch { setError("Listening couldn't start. Try again in a moment."); }
+    base.current = existing ? existing.trim() : "";
+    heard.current = ""; restarts.current = 0; quiet.current = 0; want.current = true;
+    try { listen(); setOn(true); } catch { want.current = false; setError("Listening couldn't start. Try again in a moment."); }
   };
   return { on, error, start, stop };
 }
